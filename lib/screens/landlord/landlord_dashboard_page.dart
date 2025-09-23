@@ -3,8 +3,15 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/controllers/auth_controller.dart';
+import 'package:payrent_business/controllers/payment_controller.dart';
+import 'package:payrent_business/controllers/property_controller.dart';
+import 'package:payrent_business/controllers/tenant_controller.dart';
+import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/screens/landlord/earnings/earning_details_page.dart';
+import 'package:payrent_business/screens/landlord/payments/payment_summary_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/bulk_upload_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/add_tenant_page.dart';
@@ -24,11 +31,41 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
   late TabController _chartTabController;
   int _selectedChartPeriod = 1; // 0: 1 month, 1: 3 months, 2: 6 months
   int _selectedTimeFrame = 1; // 0: 3 months, 1: 6 months, 2: 1 year
+  
+  // Get controllers for Firebase data
+  final AuthController _authController = Get.find<AuthController>();
+  final UserProfileController _profileController = Get.find<UserProfileController>();
+  final PropertyController _propertyController = Get.find<PropertyController>();
+  final TenantController _tenantController = Get.find<TenantController>();
+  final PaymentController _paymentController = Get.find<PaymentController>();
+  
+  // Track if initial data is loaded
+  final RxBool _isLoading = true.obs;
 
   @override
   void initState() {
     super.initState();
     _chartTabController = TabController(length: 3, vsync: this);
+    _loadDashboardData();
+  }
+  
+  Future<void> _loadDashboardData() async {
+    _isLoading.value = true;
+    
+    try {
+      // Load user profile data
+      await _profileController.getUserProfile();
+      
+      // Load properties, tenants and payments data
+      await _propertyController.fetchProperties();
+      await _tenantController.fetchTenants();
+      await _paymentController.fetchPayments();
+      
+    } catch (e) {
+      print('Error loading dashboard data: $e');
+    } finally {
+      _isLoading.value = false;
+    }
   }
 
   @override
@@ -67,10 +104,15 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
               onTap: () {
                 // Navigate to profile
               },
-              child: const CircleAvatar(
-                radius: 18,
-                backgroundImage: AssetImage('assets/profile.png'),
-              ),
+              child: Obx(() {
+                final profileUrl = _profileController.profileImageUrl.value;
+                return CircleAvatar(
+                  radius: 18,
+                  backgroundImage: profileUrl.isNotEmpty
+                      ? NetworkImage(profileUrl)
+                      : const AssetImage('assets/profile.png') as ImageProvider,
+                );
+              }),
             ),
           ),
         ],
@@ -79,529 +121,626 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
         color: AppTheme.primaryColor,
         onRefresh: () async {
           // Refresh dashboard data
-          await Future.delayed(const Duration(seconds: 1));
+          await _loadDashboardData();
         },
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Greeting
-              FadeInDown(
-                duration: const Duration(milliseconds: 500),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.wb_sunny_rounded,
-                      color: Color(0xFFFCD34D),
-                      size: 24,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Good Morning,',
-                      style: context.bodyLarge.copyWith(
-                        color: AppTheme.textSecondary,
+        child: Obx(() {
+          if (_isLoading.value) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+          
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Greeting
+                FadeInDown(
+                  duration: const Duration(milliseconds: 500),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.wb_sunny_rounded,
+                        color: Color(0xFFFCD34D),
+                        size: 24,
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Sahil Wadhwa',
-                      style: context.bodyLarge.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Stats Summary
-              FadeInUp(
-                duration: const Duration(milliseconds: 600),
-                child: CustomCard(
-                  title: 'Properties at a Glance',
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: RichText(
-                                text: TextSpan(
-                                  children: [
-                                    TextSpan(
-                                      text: 'You have ',
-                                      style: context.bodyMedium.copyWith(
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text: '6 Occupied',
-                                      style: context.titleMedium.copyWith(
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text: ' properties out of ',
-                                      style: context.bodyMedium.copyWith(
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text: '8 Total',
-                                      style: context.titleMedium.copyWith(
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text: ' properties',
-                                      style: context.bodyMedium.copyWith(
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(width: 8),
+                      Text(
+                        'Good Morning,',
+                        style: context.bodyLarge.copyWith(
+                          color: AppTheme.textSecondary,
                         ),
+                      ),
+                      const SizedBox(width: 4),
+                      Obx(() => Text(
+                        _profileController.name.value,
+                        style: context.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )),
+                    ],
+                  ),
+                ),
 
-                        const SizedBox(height: 16),
+                const SizedBox(height: 24),
 
-                        // Occupancy Progress Bar
-                        Container(
-                          height: 20,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            color: Colors.grey.shade200,
-                          ),
-                          child: Row(
-                            children: [
-                              Flexible(
-                                flex: 75, // 75% occupancy
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(10),
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF7869E6),
-                                        Color(0xFF4F287D),
+                // Properties at a Glance
+                FadeInUp(
+                  duration: const Duration(milliseconds: 600),
+                  child: CustomCard(
+                    title: 'Properties at a Glance',
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Obx(() {
+                        final int totalProperties = _propertyController.propertyCount;
+                        final occupiedProperties = _tenantController.tenantCount;
+                        final occupancyRate = totalProperties > 0 
+                          ? (occupiedProperties / totalProperties * 100).round()
+                          : 0;
+                          
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: RichText(
+                                    text: TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: 'You have ',
+                                          style: context.bodyMedium.copyWith(
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '$occupiedProperties Occupied',
+                                          style: context.titleMedium.copyWith(
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: ' properties out of ',
+                                          style: context.bodyMedium.copyWith(
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '$totalProperties Total',
+                                          style: context.titleMedium.copyWith(
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: ' properties',
+                                          style: context.bodyMedium.copyWith(
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
                                 ),
-                              ),
-                              const Flexible(
-                                flex: 25, // 25% vacant
-                                child: SizedBox(),
-                              ),
-                            ],
-                          ),
-                        ),
+                              ],
+                            ),
 
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
+                            const SizedBox(height: 16),
+
+                            // Occupancy Progress Bar
+                            Container(
+                              height: 20,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: Colors.grey.shade200,
+                              ),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    '75% occupied',
-                                    style: context.bodySmall.copyWith(
-                                      fontWeight: FontWeight.w600,
+                                  Flexible(
+                                    flex: occupancyRate, 
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            Color(0xFF7869E6),
+                                            Color(0xFF4F287D),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.home_filled,
-                                    color: Color(0xFFFCD34D),
-                                    size: 16,
+                                  Flexible(
+                                    flex: 100 - occupancyRate,
+                                    child: const SizedBox(),
                                   ),
                                 ],
                               ),
-                              Text(
-                                '25% vacant',
-                                style: context.bodySmall.copyWith(
-                                  color: AppTheme.textLight,
-                                ),
+                            ),
+
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '$occupancyRate% occupied',
+                                        style: context.bodySmall.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(
+                                        Icons.home_filled,
+                                        color: Color(0xFFFCD34D),
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    '${100 - occupancyRate}% vacant',
+                                    style: context.bodySmall.copyWith(
+                                      color: AppTheme.textLight,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
+                            ),
+                          ],
+                        );
+                      }),
                     ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // Key Stats Cards
-              FadeInUp(
-                duration: const Duration(milliseconds: 700),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: StatCard(
-                        title: 'Total Properties',
-                        value: '8',
-                        icon: Icons.home_outlined,
-                        color: AppTheme.infoColor,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: StatCard(
-                        title: 'Total Earnings',
-                        value: '\$22,000',
-                        icon: Icons.attach_money_outlined,
-                        color: AppTheme.successColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              FadeInUp(
-                duration: const Duration(milliseconds: 800),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: StatCard(
-                        title: 'Due Rent',
-                        value: '\$8,000',
-                        icon: Icons.calendar_today_outlined,
-                        color: AppTheme.warningColor,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: StatCard(
-                        title: 'Overdue Rent',
-                        value: '\$1,600',
-                        icon: Icons.warning_amber_outlined,
-                        color: AppTheme.errorColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Income Chart
-              FadeInUp(
-                duration: const Duration(milliseconds: 900),
-                child: CustomCard(
-                  title: 'Track your Earnings',
-                  child: Column(
+                // Key Stats Cards
+                FadeInUp(
+                  duration: const Duration(milliseconds: 700),
+                  child: Row(
                     children: [
-                      // Period Selection Tabs
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 5, 16, 0),
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: TabBar(
-                              controller: _chartTabController,
-                              indicator: BoxDecoration(
-                                borderRadius: BorderRadius.circular(16),
-                                color: AppTheme.primaryColor,
+                      Expanded(
+                        child: Obx(() => StatCard(
+                          title: 'Total Properties',
+                          value: '${_propertyController.propertyCount}',
+                          icon: Icons.home_outlined,
+                          color: AppTheme.infoColor,
+                        )),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Obx(() {
+                          final totalEarnings = _paymentController.getTotalCollectedPayments();
+                          final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                          return StatCard(
+                            title: 'Total Earnings',
+                            value: formatter.format(totalEarnings),
+                            icon: Icons.attach_money_outlined,
+                            color: AppTheme.successColor,
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                FadeInUp(
+                  duration: const Duration(milliseconds: 800),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const PaymentSummaryPage(),
                               ),
-                              indicatorSize: TabBarIndicatorSize
-                                  .tab, // indicator fills tab width
-                              indicatorColor:
-                                  Colors.transparent,
-                                  dividerColor: Colors.transparent,
-                              labelColor: Colors.white,
-                              unselectedLabelColor: AppTheme.textSecondary,
-                              tabs: const [
-                                Tab(text: '1 month'),
-                                Tab(text: '3 months'),
-                                Tab(text: '6 months'),
-                              ],
-                              onTap: (index) {
-                                setState(() {
-                                  _selectedChartPeriod = index;
-                                });
-                              },
-                            ),
-                          ),
+                            );
+                          },
+                          child: Obx(() {
+                            final dueRent = _paymentController.getTotalPendingPayments();
+                            final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                            return StatCard(
+                              title: 'Due Rent',
+                              value: formatter.format(dueRent),
+                              icon: Icons.calendar_today_outlined,
+                              color: AppTheme.warningColor,
+                            );
+                          }),
                         ),
                       ),
-
-                      const SizedBox(height: 16),
-
-                      // Stats Summary
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.celebration_outlined,
-                              color: AppTheme.successColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Great!',
-                              style: context.titleSmall.copyWith(
-                                color: AppTheme.successColor,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const PaymentSummaryPage(),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text('You have earned', style: context.bodyMedium),
-                            const SizedBox(width: 4),
-                            Text(
-                              '\$22,000',
-                              style: context.titleMedium.copyWith(
-                                color: AppTheme.successColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // Due Rent Info
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            _buildRentInfoItem(
-                              label: 'Total Due Rent',
-                              value: '\$8,000',
-                              valueColor: AppTheme.warningColor,
-                            ),
-                            _buildRentInfoItem(
-                              label: 'Overdue Rent',
-                              value: '\$1,600',
-                              valueColor: AppTheme.errorColor,
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Time Frame Selection
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildTimeFrameButton(0, '3 months'),
-                            const SizedBox(width: 12),
-                            _buildTimeFrameButton(1, '6 months'),
-                            const SizedBox(width: 12),
-                            _buildTimeFrameButton(2, '1 year'),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Chart
-                      SizedBox(
-                        height: 200,
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 16.0),
-                          child: LineChart(_createLineChartData()),
-                        ),
-                      ),
-
-                      // Chart Legend
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildLegendItem(
-                              color: AppTheme.primaryColor,
-                              label: 'Total Income',
-                            ),
-                            const SizedBox(width: 24),
-                            _buildLegendItem(
-                              color: AppTheme.accentColor,
-                              label: 'Net Income',
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Link to view all
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                            right: 16.0,
-                            bottom: 16.0,
-                          ),
-                          child: TextButton(
-                            onPressed: () {
-                              Get.to(EarningsDetailPage());
-                            },
-                            child: const Text('Let\'s view all'),
-                          ),
+                            );
+                          },
+                          child: Obx(() {
+                            final overdueRent = _paymentController.getTotalOverduePayments();
+                            final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                            return StatCard(
+                              title: 'Overdue Rent',
+                              value: formatter.format(overdueRent),
+                              icon: Icons.warning_amber_outlined,
+                              color: AppTheme.errorColor,
+                            );
+                          }),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 24),
-
-              // Property Status Summary
-              FadeInUp(
-                duration: const Duration(milliseconds: 1000),
-                child: CustomCard(
-                  title: 'Property Status',
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        _buildStatusItem(
-                          icon: Icons.file_copy_outlined,
-                          iconColor: Colors.blue,
-                          iconBgColor: Colors.blue.shade50,
-                          title: 'Rental Applications',
-                          count: '16',
-                          onTap: () {},
+                const SizedBox(height: 8),
+                
+                // View All Payments Button
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PaymentSummaryPage(),
                         ),
-                        _buildStatusItem(
-                          icon: Icons.person_outline_rounded,
-                          iconColor: Colors.purple,
-                          iconBgColor: Colors.purple.shade50,
-                          title: 'Tenant\'s Requests',
-                          count: '12',
-                          onTap: () {},
-                        ),
-                        _buildStatusItem(
-                          icon: Icons.description_outlined,
-                          iconColor: Colors.amber,
-                          iconBgColor: Colors.amber.shade50,
-                          title: 'Expiring Leases',
-                          count: '0',
-                          onTap: () {},
-                        ),
-                        _buildStatusItem(
-                          icon: Icons.warning_amber_outlined,
-                          iconColor: Colors.red,
-                          iconBgColor: Colors.red.shade50,
-                          title: 'Overdue Properties',
-                          count: '2',
-                          onTap: () {},
-                          showDivider: false,
-                        ),
-                      ],
+                      );
+                    },
+                    child: Text(
+                      'View All Payments',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-              // Quick Actions
-              FadeInUp(
-                duration: const Duration(milliseconds: 1100),
-                child: CustomCard(
-                  title: 'Need Something Quick?',
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                // Income Chart
+                FadeInUp(
+                  duration: const Duration(milliseconds: 900),
+                  child: CustomCard(
+                    title: 'Track your Earnings',
                     child: Column(
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            ActionButton(
-                              icon: Icons.home_outlined,
-                              label: 'Add Property',
-                              color: Colors.blue,
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const AddPropertyPage(),
+                        // Period Selection Tabs
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 5, 16, 0),
+                          child: Container(
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4.0),
+                              child: TabBar(
+                                controller: _chartTabController,
+                                indicator: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  color: AppTheme.primaryColor,
                                 ),
+                                indicatorSize: TabBarIndicatorSize
+                                    .tab, // indicator fills tab width
+                                indicatorColor:
+                                    Colors.transparent,
+                                    dividerColor: Colors.transparent,
+                                labelColor: Colors.white,
+                                unselectedLabelColor: AppTheme.textSecondary,
+                                tabs: const [
+                                  Tab(text: '1 month'),
+                                  Tab(text: '3 months'),
+                                  Tab(text: '6 months'),
+                                ],
+                                onTap: (index) {
+                                  setState(() {
+                                    _selectedChartPeriod = index;
+                                  });
+                                },
                               ),
                             ),
-                            ActionButton(
-                              icon: Icons.person_add_outlined,
-                              label: 'Add Tenant',
-                              color: Colors.purple,
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const AddTenantPage(),
-                                ),
-                              ),
-                            ),
-                            ActionButton(
-                              icon: Icons.upload_file_outlined,
-                              label: 'Bulk Upload',
-                              color: Colors.green,
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const BulkUploadPage(),
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
+
                         const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            ActionButton(
-                              icon: Icons.attach_money_outlined,
-                              label: 'Add Income',
-                              color: Colors.amber,
-                              onTap: () {
-                                // Navigate to add income
-                              },
+
+                        // Stats Summary
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Obx(() {
+                            final totalEarnings = _paymentController.getTotalCollectedPayments();
+                            final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                            
+                            return Row(
+                              children: [
+                                const Icon(
+                                  Icons.celebration_outlined,
+                                  color: AppTheme.successColor,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Great!',
+                                  style: context.titleSmall.copyWith(
+                                    color: AppTheme.successColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text('You have earned', style: context.bodyMedium),
+                                const SizedBox(width: 4),
+                                Text(
+                                  formatter.format(totalEarnings),
+                                  style: context.titleMedium.copyWith(
+                                    color: AppTheme.successColor,
+                                  ),
+                                ),
+                              ],
+                            );
+                          }),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // Due Rent Info
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Obx(() {
+                            final dueRent = _paymentController.getTotalPendingPayments();
+                            final overdueRent = _paymentController.getTotalOverduePayments();
+                            final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                            
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                _buildRentInfoItem(
+                                  label: 'Total Due Rent',
+                                  value: formatter.format(dueRent),
+                                  valueColor: AppTheme.warningColor,
+                                ),
+                                _buildRentInfoItem(
+                                  label: 'Overdue Rent',
+                                  value: formatter.format(overdueRent),
+                                  valueColor: AppTheme.errorColor,
+                                ),
+                              ],
+                            );
+                          }),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Time Frame Selection
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildTimeFrameButton(0, '3 months'),
+                              const SizedBox(width: 12),
+                              _buildTimeFrameButton(1, '6 months'),
+                              const SizedBox(width: 12),
+                              _buildTimeFrameButton(2, '1 year'),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Chart
+                        SizedBox(
+                          height: 200,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 16.0),
+                            child: Obx(() {
+                              final paymentChartData = _paymentController.getChartData(
+                                months: _selectedTimeFrame == 0 ? 3 : _selectedTimeFrame == 1 ? 6 : 12,
+                              );
+                              return LineChart(_createLineChartData(paymentChartData));
+                            }),
+                          ),
+                        ),
+
+                        // Chart Legend
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildLegendItem(
+                                color: AppTheme.primaryColor,
+                                label: 'Total Income',
+                              ),
+                              const SizedBox(width: 24),
+                              _buildLegendItem(
+                                color: AppTheme.accentColor,
+                                label: 'Net Income',
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Link to view all
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              right: 16.0,
+                              bottom: 16.0,
                             ),
-                            ActionButton(
-                              icon: Icons.task_alt_outlined,
-                              label: 'Add Task',
-                              color: Colors.deepOrange,
-                              onTap: () {
-                                // Navigate to add task
+                            child: TextButton(
+                              onPressed: () {
+                                Get.to(() => EarningsDetailPage());
                               },
+                              child: const Text('Let\'s view all'),
                             ),
-                            ActionButton(
-                              icon: Icons.calendar_month_outlined,
-                              label: 'Add Reminder',
-                              color: Colors.teal,
-                              onTap: () {
-                                // Navigate to add reminder
-                              },
-                            ),
-                          ],
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
+                const SizedBox(height: 24),
+
+                // Property Status Summary
+                FadeInUp(
+                  duration: const Duration(milliseconds: 1000),
+                  child: CustomCard(
+                    title: 'Property Status',
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Obx(() {
+                        // Get counts from controllers
+                        final rentalApplications = _paymentController.rentalApplicationCount;
+                        final tenantRequests = _tenantController.tenantCount > 0 ? 
+                            _tenantController.tenantCount ~/ 2 : 0; // Placeholder logic
+                        final expiringLeases = _tenantController.getTenantsWithExpiringLeases().length;
+                        final overdueProperties = _paymentController.getOverduePropertiesCount();
+                        
+                        return Column(
+                          children: [
+                            _buildStatusItem(
+                              icon: Icons.file_copy_outlined,
+                              iconColor: Colors.blue,
+                              iconBgColor: Colors.blue.shade50,
+                              title: 'Rental Applications',
+                              count: '$rentalApplications',
+                              onTap: () {},
+                            ),
+                            _buildStatusItem(
+                              icon: Icons.person_outline_rounded,
+                              iconColor: Colors.purple,
+                              iconBgColor: Colors.purple.shade50,
+                              title: 'Tenant\'s Requests',
+                              count: '$tenantRequests',
+                              onTap: () {},
+                            ),
+                            _buildStatusItem(
+                              icon: Icons.description_outlined,
+                              iconColor: Colors.amber,
+                              iconBgColor: Colors.amber.shade50,
+                              title: 'Expiring Leases',
+                              count: '$expiringLeases',
+                              onTap: () {},
+                            ),
+                            _buildStatusItem(
+                              icon: Icons.warning_amber_outlined,
+                              iconColor: Colors.red,
+                              iconBgColor: Colors.red.shade50,
+                              title: 'Overdue Properties',
+                              count: '$overdueProperties',
+                              onTap: () {},
+                              showDivider: false,
+                            ),
+                          ],
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Quick Actions
+                FadeInUp(
+                  duration: const Duration(milliseconds: 1100),
+                  child: CustomCard(
+                    title: 'Need Something Quick?',
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              ActionButton(
+                                icon: Icons.home_outlined,
+                                label: 'Add Property',
+                                color: Colors.blue,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AddPropertyPage(),
+                                  ),
+                                ),
+                              ),
+                              ActionButton(
+                                icon: Icons.person_add_outlined,
+                                label: 'Add Tenant',
+                                color: Colors.purple,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const AddTenantPage(),
+                                  ),
+                                ),
+                              ),
+                              ActionButton(
+                                icon: Icons.upload_file_outlined,
+                                label: 'Bulk Upload',
+                                color: Colors.green,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const BulkUploadPage(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              ActionButton(
+                                icon: Icons.attach_money_outlined,
+                                label: 'Add Income',
+                                color: Colors.amber,
+                                onTap: () {
+                                  // Navigate to add income
+                                },
+                              ),
+                              ActionButton(
+                                icon: Icons.task_alt_outlined,
+                                label: 'Add Task',
+                                color: Colors.deepOrange,
+                                onTap: () {
+                                  // Navigate to add task
+                                },
+                              ),
+                              ActionButton(
+                                icon: Icons.calendar_month_outlined,
+                                label: 'Add Reminder',
+                                color: Colors.teal,
+                                onTap: () {
+                                  // Navigate to add reminder
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -736,28 +875,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
     );
   }
 
-  LineChartData _createLineChartData() {
-    // Sample data points
-    List<FlSpot> totalIncomeSpots = [
-      const FlSpot(0, 20),
-      const FlSpot(1, 25),
-      const FlSpot(2, 22),
-      const FlSpot(3, 30),
-      const FlSpot(4, 35),
-      const FlSpot(5, 28),
-      const FlSpot(6, 32),
-    ];
-
-    List<FlSpot> netIncomeSpots = [
-      const FlSpot(0, 10),
-      const FlSpot(1, 16),
-      const FlSpot(2, 15),
-      const FlSpot(3, 22),
-      const FlSpot(4, 25),
-      const FlSpot(5, 20),
-      const FlSpot(6, 24),
-    ];
-
+  LineChartData _createLineChartData(Map<String, List<FlSpot>> chartData) {
     return LineChartData(
       gridData: FlGridData(
         show: true,
@@ -779,32 +897,19 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                 color: AppTheme.textSecondary,
                 fontSize: 10,
               );
+              
+              // Get month name based on current date minus months
+              final now = DateTime.now();
+              final month = now.month - (6 - value.toInt()); // Adjust according to your data points
               String text;
-              switch (value.toInt()) {
-                case 0:
-                  text = 'Jan';
-                  break;
-                case 1:
-                  text = 'Feb';
-                  break;
-                case 2:
-                  text = 'Mar';
-                  break;
-                case 3:
-                  text = 'Apr';
-                  break;
-                case 4:
-                  text = 'May';
-                  break;
-                case 5:
-                  text = 'Jun';
-                  break;
-                case 6:
-                  text = 'Jul';
-                  break;
-                default:
-                  return Container();
+              
+              if (month <= 0) {
+                // Handle previous year months
+                text = DateFormat('MMM').format(DateTime(now.year - 1, month + 12, 1));
+              } else {
+                text = DateFormat('MMM').format(DateTime(now.year, month, 1));
               }
+              
               return Text(text, style: style);
             },
           ),
@@ -836,8 +941,6 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
       maxY: 50,
       lineTouchData: LineTouchData(
         touchTooltipData: LineTouchTooltipData(
-          // tooltipBgColor: Colors.white,
-          // tooltipRoundedRadius: 8,
           tooltipBorder: const BorderSide(color: AppTheme.dividerColor),
           getTooltipItems: (List<LineBarSpot> spots) {
             return spots.map((spot) {
@@ -857,7 +960,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
       ),
       lineBarsData: [
         LineChartBarData(
-          spots: totalIncomeSpots,
+          spots: chartData['totalIncome'] ?? const [],
           isCurved: true,
           color: AppTheme.primaryColor,
           barWidth: 3,
@@ -869,7 +972,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
           ),
         ),
         LineChartBarData(
-          spots: netIncomeSpots,
+          spots: chartData['netIncome'] ?? const [],
           isCurved: true,
           color: AppTheme.accentColor,
           barWidth: 3,

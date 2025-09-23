@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/screens/landlord/landlord_dashboard_page.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_list_page.dart';
+import 'package:payrent_business/screens/landlord/payments/payment_summary_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/manage_properties_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/tenant_list_page.dart';
 import 'package:payrent_business/screens/profile/user_profile_page.dart';
@@ -20,7 +21,7 @@ class _LandlordMainPageState extends State<LandlordMainPage> {
   final List<Widget> _pages = [
     const LandlordDashboardPage(),
     const ManagePropertiesPage(),
-    const PaymentListPage(),
+    const PaymentSummaryPage(),
     const TenantListPage(),
     const UserProfilePage(isLandlord: true,),
   ];

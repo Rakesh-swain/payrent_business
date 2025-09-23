@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:country_picker/country_picker.dart';
@@ -5,6 +6,7 @@ import 'package:animate_do/animate_do.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:payrent_business/controllers/phone_auth_controller.dart';
 import 'package:payrent_business/screens/auth/otp_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -19,7 +21,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   late TabController _tabController;
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
-  
+  PhoneAuthController phoneAuthController = Get.put(PhoneAuthController());
   // Animation controllers for ripple effect on button
   late AnimationController _buttonAnimationController;
   late Animation<double> _buttonScaleAnimation;
@@ -473,10 +475,142 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     );
   }
 
-  void _simulateLogin() {
-    // Check if number exists (for demo purposes)
-    if (!existingNumbers.contains(_loginPhoneController.text)) {
-      // Show error for non-existing number
+  // Updated signup function
+Future<void> _simulateOtpSend() async {
+  final phoneNumber = _mobileController.text.trim();
+  
+  if (phoneNumber.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Please enter a valid phone number')),
+    );
+    return;
+  }
+  
+  setState(() {
+    isLoading = true;
+  });
+  
+  try {
+    // ✅ Check if number already exists in Firestore
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('phone', isEqualTo: phoneNumber)
+        .get();
+    
+    if (snapshot.docs.isNotEmpty) {
+      setState(() => isLoading = false);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'This number is already registered. Please login instead.',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(10),
+        ),
+      );
+      return;
+    }
+    
+    // ✅ Send OTP using Firebase and WAIT for the result
+    final bool success = await phoneAuthController.sendVerificationCode("+$selectedCountryCode$phoneNumber");
+    
+    setState(() => isLoading = false);
+    
+    if (success && phoneAuthController.isCodeSent.value) {
+      // Only navigate if code was successfully sent
+      Get.to(OtpVerificationPage(
+        islogin: false,
+        mobileNumber: phoneNumber,
+      ));
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 10),
+              Text(
+                'OTP sent successfully!',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF34D399),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(10),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      // Show error message if OTP sending failed
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Text(
+                phoneAuthController.errorMessage.value.isNotEmpty 
+                    ? phoneAuthController.errorMessage.value 
+                    : 'Failed to send OTP. Please try again.',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(10),
+        ),
+      );
+    }
+    
+  } catch (e) {
+    setState(() => isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error sending OTP: $e')),
+    );
+  }
+}
+
+// Updated login function
+Future<void> _simulateLogin() async {
+  final phoneNumber = _loginPhoneController.text.trim();
+  
+  if (phoneNumber.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Please enter a valid phone number')),
+    );
+    return;
+  }
+  
+  setState(() {
+    isLoading = true;
+  });
+  
+  try {
+    // ✅ Check if number exists in Firestore
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('phone', isEqualTo: phoneNumber)
+        .get();
+    
+    if (snapshot.docs.isEmpty) {
+      setState(() => isLoading = false);
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -500,16 +634,18 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       return;
     }
     
-    setState(() {
-      isLoading = true;
-    });
+    // ✅ Send OTP using Firebase and WAIT for the result
+    final bool success = await phoneAuthController.sendVerificationCode("+$selectedCountryCode$phoneNumber");
     
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        isLoading = false;
-      });
-       Get.to(OtpVerificationPage(islogin: true,mobileNumber: _mobileController.text,));
-      // Show success message
+    setState(() => isLoading = false);
+    
+    if (success && phoneAuthController.isCodeSent.value) {
+      // Only navigate if code was successfully sent
+      Get.to(OtpVerificationPage(
+        islogin: true,
+        mobileNumber: phoneNumber,
+      ));
+      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -529,10 +665,37 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           duration: const Duration(seconds: 2),
         ),
       );
-      
-      // Navigate to OTP verification screen (in a real app)
-    });
+    } else {
+      // Show error message if OTP sending failed
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Text(
+                phoneAuthController.errorMessage.value.isNotEmpty 
+                    ? phoneAuthController.errorMessage.value 
+                    : 'Failed to send OTP. Please try again.',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(10),
+        ),
+      );
+    }
+    
+  } catch (e) {
+    setState(() => isLoading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error sending OTP: $e')),
+    );
   }
+}
 
   Widget _buildSignupTab(BuildContext context, Size screenSize) {
     return SingleChildScrollView( physics: const BouncingScrollPhysics(),
@@ -601,67 +764,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         ],
       ),
     );
-  }
-  
-  void _simulateOtpSend() {
-    // Add a phone number validation check
-    if (existingNumbers.contains(_mobileController.text)) {
-      // Show error for existing number
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'This number is already registered. Please login instead.',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(10),
-        ),
-      );
-      return;
-    }
-    
-    setState(() {
-      isLoading = true;
-    });
-    
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        isLoading = false;
-      });
-       Get.to(OtpVerificationPage(islogin: false,mobileNumber: _mobileController.text,));
-      // Show success message for OTP sent
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 10),
-              Text(
-                'OTP sent successfully!',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFF34D399),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(10),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      
-      // Navigate to OTP verification screen (in a real app)
-    });
   }
   
   Widget _buildCountrySelector({required bool isLogin}) {

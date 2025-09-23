@@ -1,0 +1,4 @@
+Property Name,Address,City,State,Zip,Property Type,Monthly Rent,Bedrooms,Bathrooms,Square Feet,Tenant First Name,Tenant Last Name,Tenant Email,Tenant Phone,Unit,Lease Start,Lease End,Security Deposit,Emergency Contact Name,Emergency Contact Phone
+Lakeside Apartment,123 Lake View Dr,Chicago,IL,60601,Apartment,1850,2,1,950,John,Doe,john.doe@example.com,(312) 555-7890,Unit 303,2023-06-01,2024-05-31,2775,Mary Doe,(312) 555-9876
+Oakwood Townhouse,456 Oak Street,San Francisco,CA,94107,Townhouse,3200,3,2.5,1650,Sarah,Johnson,sarah.j@example.com,(415) 555-1234,Unit B,2023-04-15,2024-04-14,4800,Robert Johnson,(415) 555-5678
+Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Michael,Smith,msmith@example.com,(512) 555-3456,Main House,2023-08-01,2024-07-31,4125,Jennifer Smith,(512) 555-7890

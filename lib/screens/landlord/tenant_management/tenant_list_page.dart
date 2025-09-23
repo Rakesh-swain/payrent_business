@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/add_tenant_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/tenant_detail_page.dart';
 
@@ -14,70 +18,23 @@ class TenantListPage extends StatefulWidget {
 
 class _TenantListPageState extends State<TenantListPage> {
   String _selectedFilter = 'All';
-  final List<String> _filters = ['All', 'Paid', 'Due', 'Overdue'];
+  final List<String> _filters = ['All', 'active', 'archived'];
   
-  // Sample tenant data
-  final List<Map<String, dynamic>> _tenants = [
-    {
-      'id': '1',
-      'name': 'John Doe',
-      'email': 'john.doe@example.com',
-      'phone': '(123) 456-7890',
-      'property': 'Modern Apartment in Downtown',
-      'propertyId': '1',
-      'rent': 2200,
-      'status': 'Paid',
-      'nextDue': '2023-09-15',
-      'leaseEnd': '2024-02-15',
-      'image': 'assets/profile.png',
-    },
-    {
-      'id': '2',
-      'name': 'Jane Smith',
-      'email': 'jane.smith@example.com',
-      'phone': '(234) 567-8901',
-      'property': 'Luxury Condo with View',
-      'propertyId': '3',
-      'rent': 3500,
-      'status': 'Due',
-      'nextDue': '2023-09-01',
-      'leaseEnd': '2024-03-01',
-      'image': 'assets/profile.png',
-    },
-    {
-      'id': '3',
-      'name': 'Robert Johnson',
-      'email': 'robert.johnson@example.com',
-      'phone': '(345) 678-9012',
-      'property': '2-Bedroom Townhouse',
-      'propertyId': '4',
-      'rent': 2800,
-      'status': 'Overdue',
-      'nextDue': '2023-08-15',
-      'leaseEnd': '2023-12-15',
-      'image': 'assets/profile.png',
-    },
-    {
-      'id': '4',
-      'name': 'Michael Brown',
-      'email': 'michael.brown@example.com',
-      'phone': '(456) 789-0123',
-      'property': 'Penthouse Apartment',
-      'propertyId': '5',
-      'rent': 4200,
-      'status': 'Paid',
-      'nextDue': '2023-09-10',
-      'leaseEnd': '2024-01-10',
-      'image': 'assets/profile.png',
-    },
-  ];
+  // Use TenantController instead of static data
+  final TenantController _tenantController = Get.find<TenantController>();
+  final TextEditingController _searchController = TextEditingController();
   
-  List<Map<String, dynamic>> get filteredTenants {
-    if (_selectedFilter == 'All') {
-      return _tenants;
-    } else {
-      return _tenants.where((tenant) => tenant['status'] == _selectedFilter).toList();
-    }
+  @override
+  void initState() {
+    super.initState();
+    // Refresh tenant data when page loads
+    _tenantController.fetchTenants();
+  }
+  
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
   
   @override
@@ -87,15 +44,17 @@ class _TenantListPageState extends State<TenantListPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title:  Text('My Tenants',style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-              )),
+        title: Text('My Tenants',
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
+          )
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              // Handle search action
+              _showSearchDialog();
             },
           ),
           IconButton(
@@ -112,7 +71,8 @@ class _TenantListPageState extends State<TenantListPage> {
           // Filter Chips
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: SingleChildScrollView( physics: const BouncingScrollPhysics(),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: _filters.map((filter) => _buildFilterChip(filter)).toList(),
@@ -121,36 +81,80 @@ class _TenantListPageState extends State<TenantListPage> {
           ),
           
           // Tenants Count
-          Padding(
+          Obx(() => Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Showing ${filteredTenants.length} Tenants',
+              'Showing ${_tenantController.filteredTenants.length} Tenants',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: AppTheme.textSecondary,
               ),
             ),
-          ),
+          )),
           
           const SizedBox(height: 8),
           
-          // Tenant List
+          // Tenant List with loading state
           Expanded(
-            child: filteredTenants.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filteredTenants.length,
-                    physics: BouncingScrollPhysics(),
-                    itemBuilder: (context, index) {
-                      final tenant = filteredTenants[index];
-                      return FadeInUp(
-                        duration: Duration(milliseconds: 300 + (index * 100)),
-                        child: _buildTenantCard(tenant),
-                      );
-                    },
+            child: Obx(() {
+              if (_tenantController.isLoading.value) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              } else if (_tenantController.errorMessage.isNotEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 60,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error loading tenants',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _tenantController.errorMessage.value,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () => _tenantController.fetchTenants(),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ],
                   ),
+                );
+              } else if (_tenantController.filteredTenants.isEmpty) {
+                return _buildEmptyState();
+              } else {
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _tenantController.filteredTenants.length,
+                  physics: const BouncingScrollPhysics(),
+                  itemBuilder: (context, index) {
+                    final tenant = _tenantController.filteredTenants[index];
+                    return FadeInUp(
+                      duration: Duration(milliseconds: 300 + (index * 100)),
+                      child: _buildTenantCard(tenant),
+                    );
+                  },
+                );
+              }
+            }),
           ),
         ],
       ),
@@ -159,12 +163,15 @@ class _TenantListPageState extends State<TenantListPage> {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AddTenantPage()),
-          );
+          ).then((_) {
+            // Refresh the list when returning from add tenant page
+            _tenantController.fetchTenants();
+          });
         },
         backgroundColor: AppTheme.primaryColor,
         label: Row(
           children: [
-            const Icon(Icons.person_add_outlined,color: Colors.white,),
+            const Icon(Icons.person_add_outlined, color: Colors.white),
             const SizedBox(width: 4),
             Text(
               'Add Tenant',
@@ -182,11 +189,24 @@ class _TenantListPageState extends State<TenantListPage> {
   Widget _buildFilterChip(String filter) {
     final isSelected = _selectedFilter == filter;
     
+    String displayText = filter;
+    if (filter == 'active') {
+      displayText = 'Active';
+    } else if (filter == 'archived') {
+      displayText = 'Archived';
+    }
+    
     return GestureDetector(
       onTap: () {
         setState(() {
           _selectedFilter = filter;
         });
+        
+        if (filter == 'All') {
+          _tenantController.filteredTenants.value = _tenantController.tenants;
+        } else {
+          _tenantController.filterTenants(_selectedFilter);
+        }
       },
       child: Container(
         margin: const EdgeInsets.only(right: 8),
@@ -208,7 +228,7 @@ class _TenantListPageState extends State<TenantListPage> {
               : null,
         ),
         child: Text(
-          filter,
+          displayText,
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
@@ -219,17 +239,53 @@ class _TenantListPageState extends State<TenantListPage> {
     );
   }
   
-  Widget _buildTenantCard(Map<String, dynamic> tenant) {
-    Color statusColor;
-    switch (tenant['status']) {
-      case 'Paid':
+  Widget _buildTenantCard(DocumentSnapshot tenant) {
+    final data = tenant.data() as Map<String, dynamic>;
+    
+    // Extract values with null safety
+    final String id = tenant.id;
+    final String firstName = data['firstName'] ?? '';
+    final String lastName = data['lastName'] ?? '';
+    final String fullName = '$firstName $lastName';
+    final String email = data['email'] ?? '';
+    final String phone = data['phone'] ?? '';
+    final String propertyName = data['propertyName'] ?? '';
+    final String propertyId = data['propertyId'] ?? '';
+    final String unitNumber = data['unitNumber'] ?? '';
+    final double rentAmount = (data['rentAmount'] is int) 
+        ? (data['rentAmount'] as int).toDouble() 
+        : (data['rentAmount'] ?? 0.0);
+    final String status = data['status'] ?? 'active';
+    final bool isArchived = data['isArchived'] ?? false;
+    
+    // Get dates with fallbacks for missing data
+    DateTime? leaseStartDate;
+    DateTime? leaseEndDate;
+    
+    try {
+      if (data['leaseStartDate'] != null) {
+        leaseStartDate = (data['leaseStartDate'] as Timestamp).toDate();
+      }
+      
+      if (data['leaseEndDate'] != null) {
+        leaseEndDate = (data['leaseEndDate'] as Timestamp).toDate();
+      }
+    } catch (e) {
+      print('Error parsing tenant dates: $e');
+    }
+    
+    // Determine status color based on payment status
+    Color statusColor = AppTheme.textLight;
+    String displayStatus = status;
+    
+    switch (status) {
+      case 'active':
         statusColor = AppTheme.successColor;
+        displayStatus = 'Active';
         break;
-      case 'Due':
-        statusColor = AppTheme.warningColor;
-        break;
-      case 'Overdue':
-        statusColor = AppTheme.errorColor;
+      case 'archived':
+        statusColor = AppTheme.textLight;
+        displayStatus = 'Archived';
         break;
       default:
         statusColor = AppTheme.textLight;
@@ -240,9 +296,12 @@ class _TenantListPageState extends State<TenantListPage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => TenantDetailPage(tenantId: tenant['id']),
+            builder: (context) => TenantDetailPage(tenantId: id),
           ),
-        );
+        ).then((_) {
+          // Refresh the list when returning from detail page
+          _tenantController.fetchTenants();
+        });
       },
       child: Card(
         margin: const EdgeInsets.only(bottom: 16),
@@ -256,10 +315,11 @@ class _TenantListPageState extends State<TenantListPage> {
             children: [
               Row(
                 children: [
-                  // Tenant Image
+                  // Tenant Image (using placeholder if no image)
                   CircleAvatar(
                     radius: 30,
-                    backgroundImage: AssetImage(tenant['image']),
+                    backgroundImage: const AssetImage('assets/profile.png'),
+                    backgroundColor: Colors.grey.shade200,
                     onBackgroundImageError: (_, __) {},
                   ),
                   const SizedBox(width: 16),
@@ -269,7 +329,7 @@ class _TenantListPageState extends State<TenantListPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          tenant['name'],
+                          fullName,
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -286,7 +346,9 @@ class _TenantListPageState extends State<TenantListPage> {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                tenant['property'],
+                                propertyName.isEmpty 
+                                    ? 'No property assigned' 
+                                    : '$propertyName${unitNumber.isNotEmpty ? " - $unitNumber" : ""}',
                                 style: GoogleFonts.poppins(
                                   fontSize: 12,
                                   color: AppTheme.textSecondary,
@@ -305,7 +367,7 @@ class _TenantListPageState extends State<TenantListPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            tenant['status'],
+                            displayStatus,
                             style: GoogleFonts.poppins(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -326,22 +388,21 @@ class _TenantListPageState extends State<TenantListPage> {
                 children: [
                   _buildInfoItem(
                     label: 'Rent',
-                    value: '\$${tenant['rent']}/mo',
+                    value: '\$${rentAmount.toStringAsFixed(0)}/mo',
                     icon: Icons.attach_money_outlined,
                   ),
                   _buildInfoItem(
-                    label: 'Next Due',
-                    value: _formatDate(tenant['nextDue']),
+                    label: 'Lease Start',
+                    value: leaseStartDate != null 
+                        ? DateFormat('dd MMM').format(leaseStartDate) 
+                        : 'Not set',
                     icon: Icons.calendar_today_outlined,
-                    valueColor: tenant['status'] == 'Overdue'
-                        ? AppTheme.errorColor
-                        : tenant['status'] == 'Due'
-                            ? AppTheme.warningColor
-                            : null,
                   ),
                   _buildInfoItem(
                     label: 'Lease End',
-                    value: _formatDate(tenant['leaseEnd']),
+                    value: leaseEndDate != null 
+                        ? DateFormat('dd MMM').format(leaseEndDate) 
+                        : 'Not set',
                     icon: Icons.event_outlined,
                   ),
                 ],
@@ -387,20 +448,6 @@ class _TenantListPageState extends State<TenantListPage> {
     );
   }
   
-  String _formatDate(String dateStr) {
-    final date = DateTime.parse(dateStr);
-    final month = _getMonth(date.month);
-    return '${date.day} $month';
-  }
-  
-  String _getMonth(int month) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return months[month - 1];
-  }
-  
   void _showFilterBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -422,25 +469,97 @@ class _TenantListPageState extends State<TenantListPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              ...['All', 'Paid', 'Due', 'Overdue'].map((filter) {
-                return RadioListTile<String>(
-                  title: Text(filter),
-                  value: filter,
+              ListTile(
+                title: const Text('All Tenants'),
+                leading: Radio(
+                  value: 'All',
                   groupValue: _selectedFilter,
                   activeColor: AppTheme.primaryColor,
                   onChanged: (value) {
                     setState(() {
                       _selectedFilter = value!;
                     });
+                    _tenantController.filteredTenants.value = _tenantController.tenants;
                     Navigator.pop(context);
                   },
-                );
-              }).toList(),
+                ),
+              ),
+              ListTile(
+                title: const Text('Active Tenants'),
+                leading: Radio(
+                  value: 'active',
+                  groupValue: _selectedFilter,
+                  activeColor: AppTheme.primaryColor,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedFilter = value!;
+                    });
+                    _tenantController.filterTenants('active');
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+              ListTile(
+                title: const Text('Archived Tenants'),
+                leading: Radio(
+                  value: 'archived',
+                  groupValue: _selectedFilter,
+                  activeColor: AppTheme.primaryColor,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedFilter = value!;
+                    });
+                    _tenantController.filterTenants('archived');
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
               const SizedBox(height: 16),
             ],
           ),
         );
       },
+    );
+  }
+  
+  void _showSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Search Tenants',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: TextField(
+          controller: _searchController,
+          decoration: const InputDecoration(
+            hintText: 'Enter tenant name, email, or property',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: (value) {
+            // _tenantController.searchTenants(value);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _searchController.clear();
+              _tenantController.fetchTenants();
+              Navigator.pop(context);
+            },
+            child: const Text('CLEAR'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // _tenantController.searchTenants(_searchController.text);
+              Navigator.pop(context);
+            },
+            child: const Text('SEARCH'),
+          ),
+        ],
+      ),
     );
   }
   
@@ -465,7 +584,9 @@ class _TenantListPageState extends State<TenantListPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Add your first tenant to get started',
+            _selectedFilter == 'All'
+                ? 'Add your first tenant to get started'
+                : 'No tenants match the current filter',
             style: GoogleFonts.poppins(
               fontSize: 14,
               color: AppTheme.textLight,
@@ -477,7 +598,10 @@ class _TenantListPageState extends State<TenantListPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AddTenantPage()),
-              );
+              ).then((_) {
+                // Refresh the list when returning from add tenant page
+                _tenantController.fetchTenants();
+              });
             },
             icon: const Icon(Icons.person_add_outlined),
             label: const Text('Add Tenant'),

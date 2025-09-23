@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:payrent_business/controllers/phone_auth_controller.dart';
 import 'package:payrent_business/screens/auth/verification_complete_page.dart';
 import 'package:pinput/pinput.dart';
 import 'package:sms_autofill/sms_autofill.dart';
@@ -25,16 +26,22 @@ class OtpVerificationPage extends StatefulWidget {
 class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAutoFill {
   final TextEditingController _otpController = TextEditingController();
   bool isOtpComplete = false;
-  bool isLoading = false;
   
   // Resend timer
   Timer? _timer;
   int _resendSeconds = 30;
   bool _canResendOTP = false;
   
+  // Get the existing PhoneAuthController instance
+  late final PhoneAuthController phoneAuthController;
+  
   @override
   void initState() {
     super.initState();
+    
+    // Get the existing controller instance (don't create new one)
+    phoneAuthController = Get.find<PhoneAuthController>();
+    
     listenForCode();
     _startResendTimer();
     
@@ -70,6 +77,11 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
         _otpController.text = code!;
         isOtpComplete = _otpController.text.length == 6;
       });
+      
+      // Auto-verify when OTP is auto-filled
+      if (isOtpComplete) {
+        _verifyOtp();
+      }
     }
   }
 
@@ -82,21 +94,108 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
     super.dispose();
   }
 
-  void _verifyOtp() {
-    if (isOtpComplete) {
-      setState(() {
-        isLoading = true;
-      });
+  Future<void> _verifyOtp() async {
+    if (!isOtpComplete) return;
+    
+    final bool success = await phoneAuthController.verifyOtp(_otpController.text.trim());
+    
+    if (success) {
+      // Navigate on successful verification
+      Get.off(() => VerificationCompletePage(
+        islogin: widget.islogin,
+        mobileNumber: widget.mobileNumber,
+      ));
+    } else {
+      // Show error snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  phoneAuthController.errorMessage.value.isNotEmpty
+                      ? phoneAuthController.errorMessage.value
+                      : 'Invalid OTP. Please try again.',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: const EdgeInsets.all(10),
+        ),
+      );
       
-      // Simulate verification process
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() {
-          isLoading = false;
-        });
-        
-        Get.to(VerificationCompletePage(islogin: widget.islogin, mobileNumber: widget.mobileNumber,));
+      // Clear the OTP field on error
+      _otpController.clear();
+      setState(() {
+        isOtpComplete = false;
       });
     }
+  }
+
+  Future<void> _resendOtp() async {
+    // Use the same country code as used in the previous screen
+    // You might need to pass this or get it from a shared preference/controller
+    final String fullPhoneNumber = "+91${widget.mobileNumber}"; // Adjust country code as needed
+    
+    final bool success = await phoneAuthController.sendVerificationCode(fullPhoneNumber);
+    
+    if (success) {
+      _startResendTimer();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 10),
+              Text(
+                'OTP has been resent!',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF34D399),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: const EdgeInsets.all(10),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Failed to resend OTP. Please try again.',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          margin: const EdgeInsets.all(10),
+        ),
+      );
+    }
+    
+    HapticFeedback.mediumImpact();
   }
 
   @override
@@ -283,8 +382,6 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
                           setState(() {
                             isOtpComplete = true;
                           });
-                          // Optional: Auto-verify when complete
-                          // _verifyOtp();
                         },
                         onChanged: (value) {
                           setState(() {
@@ -308,45 +405,34 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
                             ),
                           ),
                           _canResendOTP
-                              ? TextButton(
-                                  onPressed: () {
-                                    // Resend OTP functionality
-                                    _startResendTimer();
-                                    
-                                    // Show a toast/snackbar for OTP resent
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'OTP has been resent!',
-                                          style: GoogleFonts.poppins(),
-                                        ),
-                                        backgroundColor: const Color(0xFF4F287D),
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        margin: const EdgeInsets.all(10),
-                                      ),
-                                    );
-                                    
-                                    // Add haptic feedback
-                                    HapticFeedback.mediumImpact();
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  child: Text(
-                                    "Resend OTP",
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 14,
-                                      color: const Color(0xFF4F287D),
-                                      fontWeight: FontWeight.w600,
-                                      decoration: TextDecoration.underline,
+                              ? Obx(() => TextButton(
+                                    onPressed: phoneAuthController.isLoading.value 
+                                        ? null 
+                                        : _resendOtp,
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
                                     ),
-                                  ),
-                                )
+                                    child: phoneAuthController.isLoading.value
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Color(0xFF4F287D),
+                                            ),
+                                          )
+                                        : Text(
+                                            "Resend OTP",
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 14,
+                                              color: const Color(0xFF4F287D),
+                                              fontWeight: FontWeight.w600,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
+                                  ))
                               : Text(
                                   "${_resendSeconds}s",
                                   style: GoogleFonts.poppins(
@@ -385,55 +471,59 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: isOtpComplete && !isLoading ? _verifyOtp : null,
+                        onTap: (isOtpComplete && !phoneAuthController.isLoading.value)
+                            ? _verifyOtp
+                            : null,
                         borderRadius: BorderRadius.circular(28),
                         splashColor: Colors.white.withOpacity(0.1),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: isOtpComplete
-                                ? const LinearGradient(
-                                    colors: [Color(0xFF7869E6), Color(0xFF4F287D)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  )
-                                : const LinearGradient(
-                                    colors: [Color(0xFFBBB5D6), Color(0xFF9E8FB3)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                            borderRadius: BorderRadius.circular(28),
-                          ),
-                          child: Center(
-                            child: isLoading
-                                ? const SizedBox(
-                                    height: 24,
-                                    width: 24,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
+                        child: Obx(
+                          () => Ink(
+                            decoration: BoxDecoration(
+                              gradient: isOtpComplete
+                                  ? const LinearGradient(
+                                      colors: [Color(0xFF7869E6), Color(0xFF4F287D)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : const LinearGradient(
+                                      colors: [Color(0xFFBBB5D6), Color(0xFF9E8FB3)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
-                                  )
-                                : Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        "Verify & Continue",
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                            child: Center(
+                              child: phoneAuthController.isLoading.value
+                                  ? const SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
                                       ),
-                                      if (isOtpComplete) ...[
-                                        const SizedBox(width: 8),
-                                        const Icon(
-                                          Icons.check_circle_outline_rounded,
-                                          color: Colors.white,
-                                          size: 20,
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          "Verify & Continue",
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
+                                        if (isOtpComplete) ...[
+                                          const SizedBox(width: 8),
+                                          const Icon(
+                                            Icons.check_circle_outline_rounded,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                        ],
                                       ],
-                                    ],
-                                  ),
+                                    ),
+                            ),
                           ),
                         ),
                       ),

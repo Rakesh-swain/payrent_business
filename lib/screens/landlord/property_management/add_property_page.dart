@@ -300,7 +300,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                                 keyboardType: TextInputType.number,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(5),
+                                  LengthLimitingTextInputFormatter(6),
                                 ],
                                 validator: (value) {
                                   if (value == null || value.isEmpty) {

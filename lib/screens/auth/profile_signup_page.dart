@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:get/state_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/screens/auth/signup_successful_page.dart';
 import 'package:payrent_business/widgets/appbar.dart';
 
@@ -20,7 +21,7 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
   final _mobileController = TextEditingController();
   final _emailController = TextEditingController();
   final _businessNameController = TextEditingController();
-
+  UserProfileController userProfileController = Get.put(UserProfileController());
 
   final Set<String> _invalidFields = {};
   bool _formSubmitted = false; // Track if form has been submitted
@@ -59,7 +60,7 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
     if (_selectedAccountType.isEmpty) _invalidFields.add('accountType');
 
     // Validate based on isPhoneRequired
-    if (widget.isPhoneRequired) {
+    if (!widget.isPhoneRequired) {
       // Validate mobile
       if (_mobileController.text.trim().isEmpty || 
           !phoneRegex.hasMatch(_mobileController.text.trim())) {
@@ -284,7 +285,7 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                   const SizedBox(height: 20),
                   
                   // Conditionally show Mobile or Email field
-                  if (widget.isPhoneRequired)
+                  if (!widget.isPhoneRequired)
                     FadeInLeft(
                       duration: const Duration(milliseconds: 1000),
                       child: Column(
@@ -477,23 +478,16 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                           
                           if (_invalidFields.isEmpty) {
                             setState(() => formError = null);
+                            userProfileController.completeProfileSetup(
+                              name: _nameController.text.trim(),
+                              businessName: _businessNameController.text.trim(),
+                              userType: _selectedAccountType,
+                              email: widget.isPhoneRequired ? '' : _emailController.text.trim(),
+                              phone: widget.isPhoneRequired ? _mobileController.text.trim() : '',
+                            );
+                           
                             
-                            // Update controller values
-                            // userController.name.value = _nameController.text;
-                            
-                            // if (widget.isPhoneRequired) {
-                            //   userController.mobile.value = _mobileController.text;
-                            // } else {
-                            //   userController.email.value = _emailController.text;
-                            // }
-                            
-                            // // Add business name to controller
-                            // userController.businessName.value = _businessNameController.text;
-                            
-                            // // Add account type to controller
-                            // userController.accountType.value = _selectedAccountType;
-                            
-                           Get.to(SignupSuccessfulPage(accountType: _selectedAccountType == "Landlord"));
+                          
                           } else {
                             setState(() => formError = "Please fill all required fields correctly.");
                           }

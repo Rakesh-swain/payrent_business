@@ -1,9 +1,18 @@
-// lib/modules/landlord/property_management/bulk_upload_page.dart
+// lib/screens/landlord/property_management/bulk_upload_page.dart
 
+import 'dart:io';
+import 'dart:convert';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
-
+import 'package:file_picker/file_picker.dart';
+import 'package:excel/excel.dart' hide Border;
+import 'package:csv/csv.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:payrent_business/config/theme.dart';
 
 class BulkUploadPage extends StatefulWidget {
@@ -17,7 +26,12 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
   bool _isLoading = false;
   bool _isUploading = false;
   String? _selectedFile;
+  String? _selectedFilePath;
   String _uploadType = 'properties';
+  int _fileRowCount = 0;
+  String _fileSize = '';
+  bool _isFileError = false;
+  String _fileErrorMessage = '';
   
   // Step indicator
   int _currentStep = 0;
@@ -35,7 +49,11 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
     super.initState();
     _initializeColumns();
   }
-  
+  Future<int> _androidVersion() async {
+  var version = await DeviceInfoPlugin().androidInfo;
+  return version.version.sdkInt;
+}
+
   void _initializeColumns() {
     // Initialize based on upload type
     if (_uploadType == 'properties') {
@@ -86,8 +104,8 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
         'Lease End',
         'Monthly Rent',
         'Security Deposit',
-        'Emergency Contact',
-        'Emergency Phone',
+        'Emergency Contact Name',
+        'Emergency Contact Phone',
       ];
     } else if (_uploadType == 'both') {
       _requiredColumns = [
@@ -124,8 +142,8 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
         'Lease Start',
         'Lease End',
         'Security Deposit',
-        'Emergency Contact',
-        'Emergency Phone',
+        'Emergency Contact Name',
+        'Emergency Contact Phone',
       ];
     }
     
@@ -136,107 +154,242 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
     }
   }
   
-  void _selectFile() async {
-    // Simulate file picker
+  Future<void> _selectFile() async {
     setState(() {
       _isLoading = true;
+      _isFileError = false;
+      _fileErrorMessage = '';
     });
     
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    setState(() {
-      _isLoading = false;
-      _selectedFile = 'properties_and_tenants.csv';
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv', 'xlsx', 'xls'],
+        allowMultiple: false,
+      );
       
-      // Generate sample preview data
-      _previewData.clear();
-      if (_uploadType == 'properties') {
-        _previewData.addAll([
-          {
-            'Property Name': 'Serene Apartments',
-            'Address': '123 Main Street',
-            'City': 'Anytown',
-            'State': 'MA',
-            'Zip': '01234',
-            'Property Type': 'Apartment',
-            'Monthly Rent': '1500',
-            'Bedrooms': '2',
-            'Bathrooms': '1',
-          },
-          {
-            'Property Name': 'Urban Heights',
-            'Address': '456 Downtown Blvd',
-            'City': 'Metropolis',
-            'State': 'NY',
-            'Zip': '10001',
-            'Property Type': 'Condo',
-            'Monthly Rent': '2200',
-            'Bedrooms': '3',
-            'Bathrooms': '2',
-          },
-        ]);
-      } else if (_uploadType == 'tenants') {
-        _previewData.addAll([
-          {
-            'First Name': 'John',
-            'Last Name': 'Doe',
-            'Email': 'john.doe@example.com',
-            'Phone': '(123) 456-7890',
-            'Property': 'Serene Apartments',
-            'Unit': '101',
-            'Lease Start': '2023-09-01',
-            'Lease End': '2024-08-31',
-          },
-          {
-            'First Name': 'Jane',
-            'Last Name': 'Smith',
-            'Email': 'jane.smith@example.com',
-            'Phone': '(234) 567-8901',
-            'Property': 'Urban Heights',
-            'Unit': '201',
-            'Lease Start': '2023-10-01',
-            'Lease End': '2024-09-30',
-          },
-        ]);
-      } else if (_uploadType == 'both') {
-        _previewData.addAll([
-          {
-            'Property Name': 'Serene Apartments',
-            'Address': '123 Main Street',
-            'City': 'Anytown',
-            'State': 'MA',
-            'Zip': '01234',
-            'Property Type': 'Apartment',
-            'Monthly Rent': '1500',
-            'Bedrooms': '2',
-            'Bathrooms': '1',
-            'Tenant First Name': 'John',
-            'Tenant Last Name': 'Doe',
-            'Tenant Email': 'john.doe@example.com',
-            'Tenant Phone': '(123) 456-7890',
-            'Lease Start': '2023-09-01',
-            'Lease End': '2024-08-31',
-          },
-          {
-            'Property Name': 'Urban Heights',
-            'Address': '456 Downtown Blvd',
-            'City': 'Metropolis',
-            'State': 'NY',
-            'Zip': '10001',
-            'Property Type': 'Condo',
-            'Monthly Rent': '2200',
-            'Bedrooms': '3',
-            'Bathrooms': '2',
-            'Tenant First Name': 'Jane',
-            'Tenant Last Name': 'Smith',
-            'Tenant Email': 'jane.smith@example.com',
-            'Tenant Phone': '(234) 567-8901',
-            'Lease Start': '2023-10-01',
-            'Lease End': '2024-09-30',
-          },
-        ]);
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        final filePath = file.path;
+        
+        if (filePath != null) {
+          final fileName = file.name;
+          final extension = path.extension(fileName).toLowerCase();
+          
+          // Calculate file size
+          final fileSize = await _getFileSize(filePath);
+          
+          if (extension == '.csv' || extension == '.xlsx' || extension == '.xls') {
+            // Parse the file
+            final parsedData = await _parseFile(filePath, extension);
+            
+            if (parsedData.isNotEmpty) {
+              setState(() {
+                _selectedFile = fileName;
+                _selectedFilePath = filePath;
+                _fileSize = fileSize;
+                _fileRowCount = parsedData.length;
+                _previewData.clear();
+                _previewData.addAll(parsedData);
+                _isLoading = false;
+              });
+            } else {
+              setState(() {
+                _isLoading = false;
+                _isFileError = true;
+                _fileErrorMessage = 'Could not parse the file or file is empty';
+              });
+            }
+          } else {
+            setState(() {
+              _isLoading = false;
+              _isFileError = true;
+              _fileErrorMessage = 'Unsupported file format. Please use CSV or Excel files.';
+            });
+          }
+        } else {
+          setState(() {
+            _isLoading = false;
+            _isFileError = true;
+            _fileErrorMessage = 'Could not access file path';
+          });
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
       }
-    });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _isFileError = true;
+        _fileErrorMessage = 'Error selecting file: ${e.toString()}';
+      });
+    }
+  }
+  
+  Future<String> _getFileSize(String filePath) async {
+    final file = File(filePath);
+    final bytes = await file.length();
+    
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> _parseFile(String filePath, String extension) async {
+    try {
+      if (extension == '.csv') {
+        return await _parseCSV(filePath);
+      } else if (extension == '.xlsx' || extension == '.xls') {
+        return await _parseExcel(filePath);
+      }
+      return [];
+    } catch (e) {
+      setState(() {
+        _isFileError = true;
+        _fileErrorMessage = 'Error parsing file: ${e.toString()}';
+      });
+      return [];
+    }
+  }
+  
+  Future<List<Map<String, dynamic>>> _parseCSV(String filePath) async {
+    final file = File(filePath);
+    final contents = await file.readAsString();
+    
+    final csvTable = const CsvToListConverter().convert(contents);
+    
+    if (csvTable.isEmpty) {
+      return [];
+    }
+    
+    final headers = csvTable[0].map((e) => e.toString()).toList();
+    final List<Map<String, dynamic>> result = [];
+    
+    // Skip header row
+    for (int i = 1; i < csvTable.length; i++) {
+      final row = csvTable[i];
+      if (row.length != headers.length) continue;
+      
+      final Map<String, dynamic> rowData = {};
+      for (int j = 0; j < headers.length; j++) {
+        rowData[headers[j]] = row[j].toString();
+      }
+      
+      result.add(rowData);
+    }
+    
+    return result;
+  }
+  
+  Future<List<Map<String, dynamic>>> _parseExcel(String filePath) async {
+    final bytes = File(filePath).readAsBytesSync();
+    final excel = Excel.decodeBytes(bytes);
+    
+    if (excel.tables.isEmpty) {
+      return [];
+    }
+    
+    final sheet = excel.tables.keys.first;
+    final table = excel.tables[sheet];
+    
+    if (table == null || table.rows.isEmpty) {
+      return [];
+    }
+    
+    final headers = table.rows[0].map((cell) => cell?.value.toString() ?? '').toList();
+    final List<Map<String, dynamic>> result = [];
+    
+    // Skip header row
+    for (int i = 1; i < table.rows.length; i++) {
+      final row = table.rows[i];
+      if (row.length != headers.length) continue;
+      
+      final Map<String, dynamic> rowData = {};
+      for (int j = 0; j < headers.length; j++) {
+        rowData[headers[j]] = row[j]?.value.toString() ?? '';
+      }
+      
+      result.add(rowData);
+    }
+    
+    return result;
+  }
+  
+  Future<void> downloadTemplate() async {
+    try {
+      // Request storage permission
+      // var status = await Permission.storage.request();
+
+      PermissionStatus status;
+if (Platform.isAndroid && (await _androidVersion()) >= 30) {
+  status = await Permission.manageExternalStorage.request();
+} else {
+  status = await Permission.storage.request();
+}
+        if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Storage permission is required to download templates')),
+        );
+        return;
+      }
+      // Get the template content based on upload type
+      final templateName = _uploadType == 'properties' 
+          ? 'property_template.csv' 
+          : _uploadType == 'tenants' 
+              ? 'tenant_template.csv' 
+              : 'combined_template.csv';
+      
+      // Load the template from assets
+      String templateContent = '';
+      
+      if (_uploadType == 'properties') {
+        templateContent = '''Property Name,Address,City,State,Zip,Property Type,Monthly Rent,Bedrooms,Bathrooms,Square Feet,Year Built,Description
+Lakeside Apartment,123 Lake View Dr,Chicago,IL,60601,Apartment,1850,2,1,950,2005,Modern apartment with lake view and updated kitchen. Close to public transportation and shopping centers.
+Oakwood Townhouse,456 Oak Street,San Francisco,CA,94107,Townhouse,3200,3,2.5,1650,1998,Spacious townhouse with private backyard and garage. Recently renovated with hardwood floors throughout.
+Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,2010,Beautiful family home in quiet neighborhood with large yard. Features open floor plan and updated appliances.''';
+      } else if (_uploadType == 'tenants') {
+        templateContent = '''First Name,Last Name,Email,Phone,Property,Unit,Lease Start,Lease End,Monthly Rent,Security Deposit,Emergency Contact Name,Emergency Contact Phone
+John,Doe,john.doe@example.com,(312) 555-7890,Lakeside Apartment,Unit 303,2023-06-01,2024-05-31,1850,2775,Mary Doe,(312) 555-9876
+Sarah,Johnson,sarah.j@example.com,(415) 555-1234,Oakwood Townhouse,Unit B,2023-04-15,2024-04-14,3200,4800,Robert Johnson,(415) 555-5678
+Michael,Smith,msmith@example.com,(512) 555-3456,Highland Villa,Main House,2023-08-01,2024-07-31,2750,4125,Jennifer Smith,(512) 555-7890
+Emily,Williams,emily.w@example.com,(312) 555-4321,Lakeside Apartment,Unit 305,2023-07-15,2024-07-14,1850,2775,Thomas Williams,(312) 555-8765''';
+      } else {
+        templateContent = '''Property Name,Address,City,State,Zip,Property Type,Monthly Rent,Bedrooms,Bathrooms,Square Feet,Tenant First Name,Tenant Last Name,Tenant Email,Tenant Phone,Unit,Lease Start,Lease End,Security Deposit,Emergency Contact Name,Emergency Contact Phone
+Lakeside Apartment,123 Lake View Dr,Chicago,IL,60601,Apartment,1850,2,1,950,John,Doe,john.doe@example.com,(312) 555-7890,Unit 303,2023-06-01,2024-05-31,2775,Mary Doe,(312) 555-9876
+Oakwood Townhouse,456 Oak Street,San Francisco,CA,94107,Townhouse,3200,3,2.5,1650,Sarah,Johnson,sarah.j@example.com,(415) 555-1234,Unit B,2023-04-15,2024-04-14,4800,Robert Johnson,(415) 555-5678
+Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Michael,Smith,msmith@example.com,(512) 555-3456,Main House,2023-08-01,2024-07-31,4125,Jennifer Smith,(512) 555-7890''';
+      }
+      
+      // Get the download directory
+      final directory = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+      final filePath = path.join(directory.path, templateName);
+      
+      // Write the template to a file
+      final file = File(filePath);
+      await file.writeAsString(templateContent);
+      
+      // Show success message with file path
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Template downloaded to: $filePath'),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'OK',
+            onPressed: () {},
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error downloading template: ${e.toString()}')),
+      );
+    }
   }
   
   void _uploadFile() async {
@@ -259,8 +412,13 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
     setState(() {
       _uploadType = type;
       _selectedFile = null;
+      _selectedFilePath = null;
       _previewData.clear();
       _currentStep = 0;
+      _fileRowCount = 0;
+      _fileSize = '';
+      _isFileError = false;
+      _fileErrorMessage = '';
     });
     _initializeColumns();
   }
@@ -320,10 +478,10 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
               Text(
                 isSuccess
                     ? _uploadType == 'properties'
-                        ? '2 properties have been uploaded successfully'
+                        ? '$_fileRowCount properties have been uploaded successfully'
                         : _uploadType == 'tenants'
-                            ? '2 tenants have been uploaded successfully'
-                            : '2 properties with tenants have been uploaded successfully'
+                            ? '$_fileRowCount tenants have been uploaded successfully'
+                            : '$_fileRowCount properties with tenants have been uploaded successfully'
                     : 'There was an issue uploading your file. Please try again.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
@@ -601,7 +759,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
           
           // File upload box
           GestureDetector(
-            onTap: _selectFile,
+            onTap: _isLoading ? null : _selectFile,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(32),
@@ -609,99 +767,151 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: _selectedFile != null
-                      ? AppTheme.primaryColor
-                      : Colors.grey.shade300,
+                  color: _isFileError 
+                      ? AppTheme.errorColor 
+                      : _selectedFile != null
+                          ? AppTheme.primaryColor
+                          : Colors.grey.shade300,
                   width: 1,
                 ) ,
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_selectedFile == null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.cloud_upload_outlined,
-                        size: 40,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Click to select a CSV or Excel file',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'or drag and drop it here',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ] else ...[
-                    Row(
+              child: _isLoading 
+                  ? const Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
+                        if (_isFileError) ...[
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.errorColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.error_outline,
+                              size: 40,
+                              color: AppTheme.errorColor,
+                            ),
                           ),
-                          child: Icon(
-                            _selectedFile!.endsWith('.csv')
-                                ? Icons.insert_drive_file_outlined
-                                : Icons.table_chart_outlined,
-                            size: 32,
-                            color: Colors.green,
+                          const SizedBox(height: 16),
+                          Text(
+                            'Error',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.errorColor,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          const SizedBox(height: 8),
+                          Text(
+                            _fileErrorMessage,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: AppTheme.textSecondary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            onPressed: _selectFile,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: BorderSide(color: AppTheme.primaryColor),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text('Try Again'),
+                          ),
+                        ] else if (_selectedFile == null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.cloud_upload_outlined,
+                              size: 40,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Click to select a CSV or Excel file',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'or drag and drop it here',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ] else ...[
+                          Row(
                             children: [
-                              Text(
-                                _selectedFile!,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  _selectedFile!.endsWith('.csv')
+                                      ? Icons.insert_drive_file_outlined
+                                      : Icons.table_chart_outlined,
+                                  size: 32,
+                                  color: Colors.green,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '2 rows • Ready to process',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: AppTheme.textSecondary,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _selectedFile!,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '$_fileRowCount rows • $_fileSize • Ready to process',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedFile = null;
+                                    _selectedFilePath = null;
+                                    _previewData.clear();
+                                    _fileRowCount = 0;
+                                    _fileSize = '';
+                                  });
+                                },
                               ),
                             ],
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () {
-                            setState(() {
-                              _selectedFile = null;
-                              _previewData.clear();
-                            });
-                          },
-                        ),
+                        ],
                       ],
                     ),
-                  ],
-                ],
-              ),
             ),
           ),
           
@@ -750,9 +960,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                       ),
                       const SizedBox(height: 8),
                       InkWell(
-                        onTap: () {
-                          // Download template functionality
-                        },
+                        onTap: downloadTemplate,
                         child: Text(
                           'Download Template',
                           style: GoogleFonts.poppins(
@@ -775,7 +983,10 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
   }
   
   Widget _buildStep2() {
-    final fileColumns = ['Column A', 'Column B', 'Column C', 'Column D', 'Column E', 'Column F', 'Column G', 'Column H'];
+    // Get file columns from the preview data
+    final fileColumns = _previewData.isNotEmpty 
+        ? _previewData.first.keys.toList() 
+        : ['Column A', 'Column B', 'Column C', 'Column D', 'Column E', 'Column F', 'Column G', 'Column H'];
     
     return FadeInUp(
       duration: const Duration(milliseconds: 300),
@@ -899,6 +1110,32 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
             child: OutlinedButton.icon(
               onPressed: () {
                 // Auto-mapping functionality
+                final Map<String, String> newMappings = {};
+                
+                // Try to match columns exactly
+                for (var requiredColumn in _requiredColumns) {
+                  if (fileColumns.contains(requiredColumn)) {
+                    newMappings[requiredColumn] = requiredColumn;
+                  }
+                }
+                
+                // For any remaining columns, try case-insensitive match
+                for (var requiredColumn in _requiredColumns) {
+                  if (!newMappings.containsKey(requiredColumn)) {
+                    for (var fileColumn in fileColumns) {
+                      if (fileColumn.toLowerCase() == requiredColumn.toLowerCase()) {
+                        newMappings[requiredColumn] = fileColumn;
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                // Update mappings
+                setState(() {
+                  _columnMappings = {..._columnMappings, ...newMappings};
+                });
+                
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
@@ -1069,7 +1306,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                   _buildSummaryItem(
                     'Tenants',
                     '${_previewData.length} tenants will be created',
-                    Icons.people_outline,
+                    Icons.people_outlined,
                   ),
                 ],
               ],

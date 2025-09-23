@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/controllers/property_controller.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/bulk_upload_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_detail_page.dart';
@@ -14,126 +17,64 @@ class PropertyListPage extends StatefulWidget {
 }
 
 class _PropertyListPageState extends State<PropertyListPage> {
-  bool _isLoading = false;
   String _selectedFilter = 'All Properties';
   final List<String> _filters = ['All Properties', 'Single Unit', 'Multi Unit', 'Vacant', 'Occupied'];
   
   // Track expanded property cards
   final Set<String> _expandedProperties = {};
   
-  // Sample property data
-  final List<Map<String, dynamic>> _properties = [
-    {
-      'id': '1',
-      'name': 'Serene Apartments',
-      'address': '123 Main Street, Anytown, MA 01234',
-      'type': 'Multi Unit',
-      'image': 'assets/home.png',
-      'units': [
-        {
-          'id': '101',
-          'number': '101',
-          'type': 'Apartment',
-          'rent': 1500,
-          'status': 'Occupied',
-        },
-        {
-          'id': '102',
-          'number': '102',
-          'type': 'Apartment',
-          'rent': 1600,
-          'status': 'Vacant',
-        },
-        {
-          'id': '103',
-          'number': '103',
-          'type': 'Apartment',
-          'rent': 1550,
-          'status': 'Occupied',
-        },
-      ],
-    },
-    {
-      'id': '2',
-      'name': 'Coastal Villa',
-      'address': '456 Ocean Drive, Seaside, CA 90210',
-      'type': 'Single Unit',
-       'image': 'assets/home.png',
-      'rent': 2200,
-      'status': 'Occupied',
-    },
-    {
-      'id': '3',
-      'name': 'Urban Heights',
-      'address': '789 Downtown Blvd, Metropolis, NY 10001',
-      'type': 'Multi Unit',
-       'image': 'assets/home.png',
-      'units': [
-        {
-          'id': '201',
-          'number': '201',
-          'type': 'Studio',
-          'rent': 1300,
-          'status': 'Vacant',
-        },
-        {
-          'id': '202',
-          'number': '202',
-          'type': 'Studio',
-          'rent': 1300,
-          'status': 'Vacant',
-        },
-      ],
-    },
-    {
-      'id': '4',
-      'name': 'Suburban House',
-      'address': '123 Maple Ave, Greenville, TX 75401',
-      'type': 'Single Unit',
-       'image': 'assets/home.png',
-      'rent': 1800,
-      'status': 'Vacant',
-    },
-  ];
-  
-  List<Map<String, dynamic>> _filteredProperties = [];
+  // Use PropertyController instead of static data
+  final PropertyController _propertyController = Get.find<PropertyController>();
+  final TextEditingController _searchController = TextEditingController();
   
   @override
   void initState() {
     super.initState();
-    _filterProperties();
+    // Fetch properties when page loads
+    _propertyController.fetchProperties();
   }
   
-  void _filterProperties() {
-    if (_selectedFilter == 'All Properties') {
-      _filteredProperties = List.from(_properties);
-    } else if (_selectedFilter == 'Single Unit') {
-      _filteredProperties = _properties.where((p) => p['type'] == 'Single Unit').toList();
-    } else if (_selectedFilter == 'Multi Unit') {
-      _filteredProperties = _properties.where((p) => p['type'] == 'Multi Unit').toList();
-    } else if (_selectedFilter == 'Vacant') {
-      _filteredProperties = _properties.where((p) {
-        if (p['type'] == 'Single Unit') {
-          return p['status'] == 'Vacant';
-        } else {
-          // For multi-unit properties, include if any unit is vacant
-          List units = p['units'] as List;
-          return units.any((unit) => unit['status'] == 'Vacant');
-        }
-      }).toList();
-    } else if (_selectedFilter == 'Occupied') {
-      _filteredProperties = _properties.where((p) {
-        if (p['type'] == 'Single Unit') {
-          return p['status'] == 'Occupied';
-        } else {
-          // For multi-unit properties, include if any unit is occupied
-          List units = p['units'] as List;
-          return units.any((unit) => unit['status'] == 'Occupied');
-        }
-      }).toList();
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+  
+  // Apply filters based on selection
+  void _filterProperties(String filter) {
+    setState(() {
+      _selectedFilter = filter;
+    });
+    
+    if (filter == 'All Properties') {
+      _propertyController.filteredProperties.value = _propertyController.properties;
+      return;
     }
     
-    setState(() {});
+    // Filter the properties based on selection
+    final List<DocumentSnapshot> filtered = _propertyController.properties.where((property) {
+      final data = property.data() as Map<String, dynamic>;
+      
+      if (filter == 'Single Unit' || filter == 'Multi Unit') {
+        return data['type'] == filter;
+      } 
+      else if (filter == 'Vacant' || filter == 'Occupied') {
+        // For properties with units, check if any match the filter
+        final bool isMultiUnit = data['type'] == 'Multi Unit';
+        
+        if (isMultiUnit && data['units'] != null) {
+          final List<dynamic> units = data['units'] as List<dynamic>;
+          return units.any((unit) => unit['status'] == filter);
+        } else {
+          // For single units, check the status directly
+          return data['status'] == filter;
+        }
+      }
+      
+      return true;
+    }).toList();
+    
+    _propertyController.filteredProperties.value = filtered;
   }
   
   void _togglePropertyExpansion(String propertyId) {
@@ -153,12 +94,18 @@ class _PropertyListPageState extends State<PropertyListPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('My Properties'),
+        title: Text(
+          'My Properties',
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
-              // Implement search functionality
+              _showSearchDialog();
             },
           ),
           IconButton(
@@ -203,10 +150,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                       backgroundColor: Colors.white,
                       onSelected: (selected) {
                         if (selected) {
-                          setState(() {
-                            _selectedFilter = filter;
-                          });
-                          _filterProperties();
+                          _filterProperties(filter);
                         }
                       },
                     ),
@@ -218,20 +162,81 @@ class _PropertyListPageState extends State<PropertyListPage> {
           
           const SizedBox(height: 16),
           
-          // Property List
+          // Properties Count
+          Obx(() => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Showing ${_propertyController.filteredProperties.length} Properties',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          )),
+          
+          const SizedBox(height: 8),
+          
+          // Property List with loading state
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredProperties.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _filteredProperties.length,
-                        itemBuilder: (context, index) {
-                          final property = _filteredProperties[index];
-                          return _buildPropertyCard(property);
-                        },
+            child: Obx(() {
+              if (_propertyController.isLoading.value) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              } else if (_propertyController.errorMessage.isNotEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 60,
+                        color: Colors.red,
                       ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error loading properties',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _propertyController.errorMessage.value,
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: AppTheme.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: () => _propertyController.fetchProperties(),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                );
+              } else if (_propertyController.filteredProperties.isEmpty) {
+                return _buildEmptyState();
+              } else {
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _propertyController.filteredProperties.length,
+                  physics: const BouncingScrollPhysics(),
+                  itemBuilder: (context, index) {
+                    final property = _propertyController.filteredProperties[index];
+                    return FadeInUp(
+                      duration: Duration(milliseconds: 300 + (index * 100)),
+                      child: _buildPropertyCard(property),
+                    );
+                  },
+                );
+              }
+            }),
           ),
         ],
       ),
@@ -243,7 +248,10 @@ class _PropertyListPageState extends State<PropertyListPage> {
             MaterialPageRoute(
               builder: (context) => const AddPropertyPage(),
             ),
-          );
+          ).then((_) {
+            // Refresh properties when returning from add property page
+            _propertyController.fetchProperties();
+          });
         },
         backgroundColor: AppTheme.primaryColor,
         child: const Icon(Icons.add),
@@ -274,12 +282,31 @@ class _PropertyListPageState extends State<PropertyListPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your first property to get started',
+              _selectedFilter == 'All Properties'
+                  ? 'Add your first property to get started'
+                  : 'No properties match the current filter',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 color: AppTheme.textLight,
               ),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AddPropertyPage()),
+                ).then((_) {
+                  // Refresh the list when returning
+                  _propertyController.fetchProperties();
+                });
+              },
+              icon: const Icon(Icons.home_outlined),
+              label: const Text('Add Property'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
             ),
           ],
         ),
@@ -287,10 +314,47 @@ class _PropertyListPageState extends State<PropertyListPage> {
     );
   }
   
-  Widget _buildPropertyCard(Map<String, dynamic> property) {
-    final bool isMultiUnit = property['type'] == 'Multi Unit';
-    final bool isExpanded = _expandedProperties.contains(property['id']);
-    final List<dynamic> units = isMultiUnit ? property['units'] : [];
+  Widget _buildPropertyCard(DocumentSnapshot property) {
+    final data = property.data() as Map<String, dynamic>;
+    
+    // Extract values with null safety
+    final String id = property.id;
+    final String name = data['name'] ?? 'Unnamed Property';
+    final String address = data['address'] ?? '';
+    final String city = data['city'] ?? '';
+    final String state = data['state'] ?? '';
+    final String zipCode = data['zipCode'] ?? '';
+    final String fullAddress = '$address, $city, $state $zipCode';
+    final String type = data['type'] ?? 'Single Unit';
+    final String imageUrl = data['images'] != null && (data['images'] as List).isNotEmpty
+        ? (data['images'] as List).first as String
+        : '';
+        
+    final bool isMultiUnit = type == 'Multi Unit';
+    final bool isExpanded = _expandedProperties.contains(id);
+    
+    // Get units data for multi-unit properties
+    List<Map<String, dynamic>> units = [];
+    if (isMultiUnit && data['units'] != null) {
+      units = List<Map<String, dynamic>>.from(data['units'] as List<dynamic>);
+    }
+    
+    // For single units, get status and rent amount
+    String status = 'Vacant';
+    double rent = 0.0;
+    
+    if (!isMultiUnit) {
+      status = data['status'] ?? 'Vacant';
+      
+      // Handle different number types from Firestore
+      if (data['rent'] is int) {
+        rent = (data['rent'] as int).toDouble();
+      } else if (data['rent'] is double) {
+        rent = data['rent'] as double;
+      } else if (data['rent'] != null) {
+        rent = double.tryParse(data['rent'].toString()) ?? 0.0;
+      }
+    }
     
     return FadeInUp(
       duration: const Duration(milliseconds: 300),
@@ -309,9 +373,12 @@ class _PropertyListPageState extends State<PropertyListPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => PropertyDetailPage(propertyId: property['id']),
+                    builder: (context) => PropertyDetailPage(propertyId: id),
                   ),
-                );
+                ).then((_) {
+                  // Refresh when returning from detail page
+                  _propertyController.fetchProperties();
+                });
               },
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: Column(
@@ -324,15 +391,25 @@ class _PropertyListPageState extends State<PropertyListPage> {
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(16),
                       ),
-                      image: DecorationImage(
-                        image: AssetImage(property['image']),
-                        fit: BoxFit.contain,
-                        onError: (exception, stackTrace) {},
-                      ),
+                      image: imageUrl.isNotEmpty
+                          ? DecorationImage(
+                              image: NetworkImage(imageUrl),
+                              fit: BoxFit.cover,
+                              onError: (exception, stackTrace) {},
+                            )
+                          : null,
                       color: Colors.grey.shade200,
                     ),
                     child: Stack(
                       children: [
+                        if (imageUrl.isEmpty)
+                          Center(
+                            child: Icon(
+                              Icons.home_outlined,
+                              size: 60,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
                         Positioned(
                           top: 8,
                           right: 8,
@@ -346,7 +423,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
-                              property['type'],
+                              type,
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -367,7 +444,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                       children: [
                         // Property Name
                         Text(
-                          property['name'],
+                          name,
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -387,7 +464,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                property['address'],
+                                fullAddress,
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
                                   color: AppTheme.textSecondary,
@@ -402,7 +479,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                                 color: AppTheme.textSecondary,
                               ),
                               onPressed: () {
-                                _showPropertyOptionsBottomSheet(property);
+                                _showPropertyOptionsBottomSheet(id, data);
                               },
                             ),
                           ],
@@ -415,17 +492,17 @@ class _PropertyListPageState extends State<PropertyListPage> {
             ),
             
             // Divider for multi-unit properties
-            if (isMultiUnit) const Divider(height: 1),
+            if (isMultiUnit && units.isNotEmpty) const Divider(height: 1),
             
             // Units for multi-unit properties
-            if (isMultiUnit)
+            if (isMultiUnit && units.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Always show first unit
-                    _buildUnitItem(units[0]),
+                    if (units.isNotEmpty) _buildUnitItem(units[0]),
                     
                     // Handle multiple units
                     if (units.length > 1)
@@ -441,7 +518,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                               const SizedBox(height: 12),
                               // Show "Collapse" button when expanded
                               InkWell(
-                                onTap: () => _togglePropertyExpansion(property['id']),
+                                onTap: () => _togglePropertyExpansion(id),
                                 borderRadius: BorderRadius.circular(20),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -474,7 +551,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                         : Padding(
                             padding: const EdgeInsets.only(top: 12),
                             child: InkWell(
-                              onTap: () => _togglePropertyExpansion(property['id']),
+                              onTap: () => _togglePropertyExpansion(id),
                               borderRadius: BorderRadius.circular(20),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -518,17 +595,17 @@ class _PropertyListPageState extends State<PropertyListPage> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: property['status'] == 'Vacant'
+                        color: status == 'Vacant'
                             ? AppTheme.warningColor.withOpacity(0.1)
                             : AppTheme.successColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
-                        property['status'],
+                        status,
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: property['status'] == 'Vacant'
+                          color: status == 'Vacant'
                               ? AppTheme.warningColor
                               : AppTheme.successColor,
                         ),
@@ -537,7 +614,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                     
                     // Rent
                     Text(
-                      '\$${property['rent']}/mo',
+                      '\$${rent.toStringAsFixed(0)}/mo',
                       style: GoogleFonts.poppins(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -554,6 +631,21 @@ class _PropertyListPageState extends State<PropertyListPage> {
   }
   
   Widget _buildUnitItem(Map<String, dynamic> unit) {
+    // Extract values with null safety
+    final String number = unit['number'] ?? '';
+    final String type = unit['type'] ?? '';
+    final String status = unit['status'] ?? 'Vacant';
+    
+    // Handle different number types from Firestore
+    double rent = 0.0;
+    if (unit['rent'] is int) {
+      rent = (unit['rent'] as int).toDouble();
+    } else if (unit['rent'] is double) {
+      rent = unit['rent'] as double;
+    } else if (unit['rent'] != null) {
+      rent = double.tryParse(unit['rent'].toString()) ?? 0.0;
+    }
+    
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -575,7 +667,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  'Unit - ${unit['number']}',
+                  'Unit - $number',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -588,17 +680,17 @@ class _PropertyListPageState extends State<PropertyListPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: unit['status'] == 'Vacant'
+                  color: status == 'Vacant'
                       ? Colors.red.withOpacity(0.1)
                       : Colors.green.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  unit['status'],
+                  status,
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: unit['status'] == 'Vacant'
+                    color: status == 'Vacant'
                         ? Colors.red
                         : Colors.green,
                   ),
@@ -626,7 +718,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                       ),
                     ),
                     Text(
-                      unit['type'],
+                      type,
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -649,7 +741,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                       ),
                     ),
                     Text(
-                      '\$${unit['rent']}',
+                      '\$${rent.toStringAsFixed(0)}',
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -685,7 +777,50 @@ class _PropertyListPageState extends State<PropertyListPage> {
     );
   }
   
-  void _showPropertyOptionsBottomSheet(Map<String, dynamic> property) {
+  void _showSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Search Properties',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: TextField(
+          controller: _searchController,
+          decoration: const InputDecoration(
+            hintText: 'Enter property name or address',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: (value) {
+            _propertyController.filterProperties(value);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              _searchController.clear();
+              _propertyController.fetchProperties();
+              Navigator.pop(context);
+            },
+            child: const Text('CLEAR'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              _propertyController.filterProperties(_searchController.text);
+              Navigator.pop(context);
+            },
+            child: const Text('SEARCH'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showPropertyOptionsBottomSheet(String propertyId, Map<String, dynamic> propertyData) {
+    final String type = propertyData['type'] ?? 'Single Unit';
+    
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -714,9 +849,11 @@ class _PropertyListPageState extends State<PropertyListPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => PropertyDetailPage(propertyId: property['id']),
+                      builder: (context) => PropertyDetailPage(propertyId: propertyId),
                     ),
-                  );
+                  ).then((_) {
+                    _propertyController.fetchProperties();
+                  });
                 },
               ),
               _buildOptionItem(
@@ -724,16 +861,16 @@ class _PropertyListPageState extends State<PropertyListPage> {
                 label: 'Edit Property',
                 onTap: () {
                   Navigator.pop(context);
-                  // Navigate to edit property
+                  // Navigate to edit property (implement this later)
                 },
               ),
-              if (property['type'] == 'Multi Unit')
+              if (type == 'Multi Unit')
                 _buildOptionItem(
                   icon: Icons.add_home_outlined,
                   label: 'Add Unit',
                   onTap: () {
                     Navigator.pop(context);
-                    // Navigate to add unit
+                    // Navigate to add unit (implement this later)
                   },
                 ),
               _buildOptionItem(
@@ -741,7 +878,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                 label: 'Add Tenant',
                 onTap: () {
                   Navigator.pop(context);
-                  // Navigate to add tenant
+                  // Navigate to add tenant with this property pre-selected (implement this later)
                 },
               ),
               _buildOptionItem(
@@ -749,7 +886,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                 label: 'Delete Property',
                 onTap: () {
                   Navigator.pop(context);
-                  // Show delete confirmation
+                  _showDeleteConfirmationDialog(propertyId);
                 },
                 isDestructive: true,
               ),
@@ -760,7 +897,58 @@ class _PropertyListPageState extends State<PropertyListPage> {
     );
   }
   
+  void _showDeleteConfirmationDialog(String propertyId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Delete Property',
+          style: GoogleFonts.poppins(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete this property? This action cannot be undone.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _propertyController.deleteProperty(propertyId).then((_) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Property deleted successfully'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }).catchError((error) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error deleting property: ${error.toString()}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+  }
+  
   void _showUnitOptionsBottomSheet(Map<String, dynamic> unit) {
+    final String number = unit['number'] ?? '';
+    final String status = unit['status'] ?? 'Vacant';
+    
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -774,7 +962,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Unit ${unit['number']} Options',
+                'Unit $number Options',
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -786,7 +974,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                 label: 'View Unit Details',
                 onTap: () {
                   Navigator.pop(context);
-                  // Navigate to unit details
+                  // Navigate to unit details (implement this later)
                 },
               ),
               _buildOptionItem(
@@ -794,28 +982,28 @@ class _PropertyListPageState extends State<PropertyListPage> {
                 label: 'Edit Unit',
                 onTap: () {
                   Navigator.pop(context);
-                  // Navigate to edit unit
+                  // Navigate to edit unit (implement this later)
                 },
               ),
               _buildOptionItem(
-                icon: unit['status'] == 'Vacant'
+                icon: status == 'Vacant'
                     ? Icons.person_add_outlined
                     : Icons.person_outlined,
-                label: unit['status'] == 'Vacant'
+                label: status == 'Vacant'
                     ? 'Add Tenant'
                     : 'Manage Tenant',
                 onTap: () {
                   Navigator.pop(context);
-                  // Navigate to tenant management
+                  // Navigate to tenant management (implement this later)
                 },
               ),
-              if (unit['status'] == 'Occupied')
+              if (status == 'Occupied')
                 _buildOptionItem(
                   icon: Icons.payments_outlined,
                   label: 'Record Payment',
                   onTap: () {
                     Navigator.pop(context);
-                    // Navigate to record payment
+                    // Navigate to record payment (implement this later)
                   },
                 ),
               _buildOptionItem(
@@ -823,7 +1011,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
                 label: 'Delete Unit',
                 onTap: () {
                   Navigator.pop(context);
-                  // Show delete confirmation
+                  // Show delete confirmation (implement this later)
                 },
                 isDestructive: true,
               ),
