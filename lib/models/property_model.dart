@@ -126,9 +126,10 @@ class PropertyUnitModel {
   final String unitNumber;
   final String unitType;
   final int bedrooms;
-  final double bathrooms;
-  final double monthlyRent;
-  final double? securityDeposit;
+  final int bathrooms;
+  final int rent;
+  final String? paymentFrequency;
+  final int? securityDeposit;
   final String? tenantId;
   final String? notes;
   final int? squareFeet;
@@ -140,7 +141,8 @@ class PropertyUnitModel {
     required this.unitType,
     required this.bedrooms,
     required this.bathrooms,
-    required this.monthlyRent,
+    required this.rent,
+    this.paymentFrequency,
     this.securityDeposit,
     this.tenantId,
     this.notes,
@@ -155,8 +157,9 @@ class PropertyUnitModel {
       unitType: map['unitType'] ?? '',
       bedrooms: map['bedrooms'] ?? 0,
       bathrooms: map['bathrooms'] ?? 0,
-      monthlyRent: (map['monthlyRent'] ?? 0).toDouble(),
-      securityDeposit: map['securityDeposit'] != null ? map['securityDeposit'].toDouble() : null,
+      rent: map['rent'] ?? 0,
+      paymentFrequency: map['paymentFrequency'],
+      securityDeposit: map['securityDeposit'] != null ? map['securityDeposit'] : null,
       tenantId: map['tenantId'],
       notes: map['notes'],
       squareFeet: map['squareFeet'],
@@ -171,7 +174,8 @@ class PropertyUnitModel {
       'unitType': unitType,
       'bedrooms': bedrooms,
       'bathrooms': bathrooms,
-      'monthlyRent': monthlyRent,
+      'rent': rent,
+      'paymentFrequency': paymentFrequency,
       'securityDeposit': securityDeposit,
       'tenantId': tenantId,
       'notes': notes,
@@ -184,9 +188,9 @@ class PropertyUnitModel {
     String? unitNumber,
     String? unitType,
     int? bedrooms,
-    double? bathrooms,
-    double? monthlyRent,
-    double? securityDeposit,
+    int? bathrooms,
+    int? rent,
+    int? securityDeposit,
     String? tenantId,
     String? notes,
   }) {
@@ -196,7 +200,8 @@ class PropertyUnitModel {
       unitType: unitType ?? this.unitType,
       bedrooms: bedrooms ?? this.bedrooms,
       bathrooms: bathrooms ?? this.bathrooms,
-      monthlyRent: monthlyRent ?? this.monthlyRent,
+      rent: rent ?? this.rent,
+      paymentFrequency: paymentFrequency ?? this.paymentFrequency,
       securityDeposit: securityDeposit ?? this.securityDeposit,
       tenantId: tenantId ?? this.tenantId,
       notes: notes ?? this.notes,

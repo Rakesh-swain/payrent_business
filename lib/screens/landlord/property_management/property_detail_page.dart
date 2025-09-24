@@ -596,7 +596,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   ),
                   _buildUnitDetailItem(
                     'Rent',
-                    '\$${unit.monthlyRent.toStringAsFixed(0)}/mo',
+                    '\$${unit.rent.toStringAsFixed(0)}/mo',
                     isHighlighted: true,
                   ),
                 ],
@@ -1236,10 +1236,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
     );
   }
 
-  double _calculateTotalRent() {
-    double total = 0;
+  int _calculateTotalRent() {
+    int total = 0;
     for (var unit in _property?.units ?? []) {
-      total += unit.monthlyRent;
+      total += int.parse(unit.rent.toString());
     }
     return total;
   }

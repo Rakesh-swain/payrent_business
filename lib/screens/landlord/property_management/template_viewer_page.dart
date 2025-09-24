@@ -81,13 +81,13 @@ class TemplateViewerPage extends StatelessWidget {
                                     ? Icons.person
                                     : Icons.apartment,
                           ),
-                          const SizedBox(width: 8),
-                          _buildInfoChip(
-                            format.toUpperCase(),
-                            format == 'csv'
-                                ? Icons.insert_drive_file_outlined
-                                : Icons.table_chart_outlined,
-                          ),
+                          // const SizedBox(width: 8),
+                          // _buildInfoChip(
+                          //   format.toUpperCase(),
+                          //   format == 'csv'
+                          //       ? Icons.insert_drive_file_outlined
+                          //       : Icons.table_chart_outlined,
+                          // ),
                         ],
                       ),
                     ],
@@ -176,7 +176,7 @@ String _getTemplateDescription() {
   if (uploadType == 'properties') {
     return 'This template shows the required format for uploading properties. Each row represents either a property or a unit within a multi-unit property. For multi-unit properties, use the same Property Name for all units and set "Is Multi Unit" to TRUE.';
   } else if (uploadType == 'tenants') {
-    return 'This template shows the required format for uploading tenants. Each row represents one tenant with details such as name, contact information, and lease details.';
+    return 'This template shows the required format for uploading tenants. Each row represents one tenant with basic contact information. Property and lease details are managed separately.';
   } else {
     return 'This template shows the required format for uploading both properties and tenants together. For multi-unit properties, use the same Property Name for all units, set "Is Multi Unit" to TRUE, and include tenant details for each unit.';
   }
@@ -187,47 +187,43 @@ Map<String, dynamic> _getTemplateData() {
     return {
       'headers': [
         'Property Name', 'Address', 'City', 'State', 'Zip', 'Property Type',
-        'Is Multi Unit', 'Unit Number', 'Unit Type', 'Bedrooms', 'Bathrooms', 'Monthly Rent'
+        'Payment Frequency', 'Is Multi Unit', 'Unit Number', 'Unit Type', 'Bedrooms', 'Bathrooms', 'Rent'
       ],
       'rows': [
         // Single unit property example
         [
           'Highland Villa', '789 Highland Ave', 'Austin', 'TX', '78703',
-          'Single Family', 'FALSE', 'Main', 'Standard', '4', '3', '2750'
+          'Single Family', 'Monthly', 'FALSE', 'Main', 'Standard', '4', '3', '2750'
         ],
         // Multi-unit property examples (same property, multiple units)
         [
           'Lakeside Apartment', '123 Lake View Dr', 'Chicago', 'IL', '60601',
-          'Apartment', 'TRUE', 'A101', 'Studio', '0', '1', '950'
+          'Apartment', 'Monthly', 'TRUE', 'A101', 'Studio', '0', '1', '950'
         ],
         [
           'Lakeside Apartment', '123 Lake View Dr', 'Chicago', 'IL', '60601',
-          'Apartment', 'TRUE', 'A102', '1BR', '1', '1', '1250'
+          'Apartment', 'Monthly', 'TRUE', 'A102', '1BR', '1', '1', '1250'
         ],
         [
           'Lakeside Apartment', '123 Lake View Dr', 'Chicago', 'IL', '60601',
-          'Apartment', 'TRUE', 'A103', '2BR', '2', '1', '1850'
+          'Apartment', 'Monthly', 'TRUE', 'A103', '2BR', '2', '1', '1850'
         ],
       ],
     };
   } else if (uploadType == 'tenants') {
     return {
       'headers': [
-        'First Name', 'Last Name', 'Email', 'Phone', 'Property',
-        'Unit', 'Lease Start', 'Lease End', 'Monthly Rent'
+        'First Name', 'Last Name', 'Email', 'Phone'
       ],
       'rows': [
         [
-          'John', 'Doe', 'john.doe@example.com', '(312) 555-7890',
-          'Lakeside Apartment', 'A101', '2023-06-01', '2024-05-31', '950'
+          'John', 'Doe', 'john.doe@example.com', '(312) 555-7890'
         ],
         [
-          'Sarah', 'Johnson', 'sarah.j@example.com', '(415) 555-1234',
-          'Lakeside Apartment', 'A102', '2023-04-15', '2024-04-14', '1250'
+          'Sarah', 'Johnson', 'sarah.j@example.com', '(415) 555-1234'
         ],
         [
-          'Michael', 'Smith', 'msmith@example.com', '(512) 555-3456',
-          'Highland Villa', 'Main', '2023-08-01', '2024-07-31', '2750'
+          'Michael', 'Smith', 'msmith@example.com', '(512) 555-3456'
         ],
       ],
     };
@@ -235,7 +231,7 @@ Map<String, dynamic> _getTemplateData() {
     return {
       'headers': [
         'Property Name', 'Address', 'City', 'State', 'Zip', 'Property Type',
-        'Is Multi Unit', 'Unit Number', 'Unit Type', 'Bedrooms', 'Bathrooms', 'Monthly Rent',
+        'Payment Frequency', 'Is Multi Unit', 'Unit Number', 'Unit Type', 'Bedrooms', 'Bathrooms', 'Rent',
         'Tenant First Name', 'Tenant Last Name', 'Email', 'Phone',
         'Lease Start', 'Lease End', 'Security Deposit'
       ],
@@ -243,20 +239,20 @@ Map<String, dynamic> _getTemplateData() {
         // Single unit property with tenant
         [
           'Highland Villa', '789 Highland Ave', 'Austin', 'TX', '78703',
-          'Single Family', 'FALSE', 'Main', 'Standard', '4', '3', '2750',
+          'Single Family', 'Monthly', 'FALSE', 'Main', 'Standard', '4', '3', '2750',
           'Michael', 'Smith', 'msmith@example.com', '(512) 555-3456',
           '2023-08-01', '2024-07-31', '4125'
         ],
         // Multi-unit property with tenants (same property, multiple units)
         [
           'Lakeside Apartment', '123 Lake View Dr', 'Chicago', 'IL', '60601',
-          'Apartment', 'TRUE', 'A101', 'Studio', '0', '1', '950',
+          'Apartment', 'Monthly', 'TRUE', 'A101', 'Studio', '0', '1', '950',
           'John', 'Doe', 'john.doe@example.com', '(312) 555-7890',
           '2023-06-01', '2024-05-31', '1425'
         ],
         [
           'Lakeside Apartment', '123 Lake View Dr', 'Chicago', 'IL', '60601',
-          'Apartment', 'TRUE', 'A102', '1BR', '1', '1', '1250',
+          'Apartment', 'Monthly', 'TRUE', 'A102', '1BR', '1', '1', '1250',
           'Sarah', 'Johnson', 'sarah.j@example.com', '(415) 555-1234',
           '2023-04-15', '2024-04-14', '1875'
         ],

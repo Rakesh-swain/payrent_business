@@ -14,9 +14,9 @@ class TenantModel {
   final String? unitId;
   final DateTime leaseStartDate;
   final DateTime leaseEndDate;
-  final double rentAmount;
+  final int rentAmount;
   final int rentDueDay;
-  final double? securityDeposit;
+  final int? securityDeposit;
   final String? notes;
   final String status;
   final bool isArchived;
@@ -69,10 +69,10 @@ class TenantModel {
       leaseEndDate: data['leaseEndDate'] != null 
           ? (data['leaseEndDate'] as Timestamp).toDate() 
           : DateTime.now().add(const Duration(days: 365)),
-      rentAmount: (data['rentAmount'] ?? 0).toDouble(),
+      rentAmount: (data['rentAmount'] ?? 0),
       rentDueDay: data['rentDueDay'] ?? 1,
       securityDeposit: data['securityDeposit'] != null 
-          ? (data['securityDeposit']).toDouble() 
+          ? (data['securityDeposit'])
           : null,
       notes: data['notes'],
       status: data['status'] ?? 'active',
@@ -122,9 +122,9 @@ class TenantModel {
     String? unitId,
     DateTime? leaseStartDate,
     DateTime? leaseEndDate,
-    double? rentAmount,
+    int? rentAmount,
     int? rentDueDay,
-    double? securityDeposit,
+    int? securityDeposit,
     String? notes,
     String? status,
     bool? isArchived,

@@ -68,9 +68,9 @@ class TenantController extends GetxController {
     String? unitId,
     required DateTime leaseStartDate,
     required DateTime leaseEndDate,
-    required double rentAmount,
+    required int rentAmount,
     required int rentDueDay,
-    double? securityDeposit,
+    int? securityDeposit,
     String? notes,
   }) async {
     isLoading.value = true;
@@ -108,7 +108,8 @@ class TenantController extends GetxController {
             unitType: 'Unknown',
             bedrooms: 0,
             bathrooms: 0,
-            monthlyRent: rentAmount
+            rent: rentAmount,
+            paymentFrequency: 'Monthly',
           ) : units.first
         );
         finalUnitId = matchingUnit.unitId;
@@ -156,7 +157,7 @@ class TenantController extends GetxController {
                 unitType: units[i].unitType,
                 bedrooms: units[i].bedrooms,
                 bathrooms: units[i].bathrooms,
-                monthlyRent: units[i].monthlyRent,
+                rent: units[i].rent,
                 securityDeposit: units[i].securityDeposit,
                 tenantId: tenantRef.id, // Assign tenant ID to unit
                 notes: units[i].notes,
@@ -195,9 +196,9 @@ class TenantController extends GetxController {
     String? unitId,
     DateTime? leaseStartDate,
     DateTime? leaseEndDate,
-    double? rentAmount,
+    int? rentAmount,
     int? rentDueDay,
-    double? securityDeposit,
+    int? securityDeposit,
     String? notes,
     String? status,
     bool? isArchived,
@@ -272,7 +273,8 @@ class TenantController extends GetxController {
                   unitType: 'Unknown',
                   bedrooms: 0,
                   bathrooms: 0,
-                  monthlyRent: rentAmount ?? 0.0
+                  rent: rentAmount ?? 0,
+                  paymentFrequency: 'Monthly',
                 ) : units.first
               );
               

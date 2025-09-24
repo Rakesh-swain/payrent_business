@@ -319,7 +319,7 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                   _buildInfoRow('Unit Type', widget.unit.unitType),
                   _buildInfoRow('Bedrooms', widget.unit.bedrooms.toString()),
                   _buildInfoRow('Bathrooms', widget.unit.bathrooms.toString()),
-                  _buildInfoRow('Monthly Rent', '\$${widget.unit.monthlyRent.toStringAsFixed(2)}'),
+                  _buildInfoRow('Monthly Rent', '\$${widget.unit.rent.toStringAsFixed(2)}'),
                   if (widget.unit.securityDeposit != null)
                     _buildInfoRow('Security Deposit', '\$${widget.unit.securityDeposit!.toStringAsFixed(2)}'),
                   if (widget.unit.squareFeet != null)
@@ -341,8 +341,8 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
               icon: Icons.attach_money,
               content: Column(
                 children: [
-                  _buildInfoRow('Monthly Rent', '\$${widget.unit.monthlyRent.toStringAsFixed(2)}'),
-                  _buildInfoRow('Annual Income', '\$${(widget.unit.monthlyRent * 12).toStringAsFixed(2)}'),
+                  _buildInfoRow('Rent Amount', '\$${widget.unit.rent.toStringAsFixed(2)}'),
+                  _buildInfoRow('Annual Income', '\$${(widget.unit.rent * 12).toStringAsFixed(2)}'),
                   if (_tenant != null) ...[
                     _buildInfoRow(
                       'Occupancy Status',

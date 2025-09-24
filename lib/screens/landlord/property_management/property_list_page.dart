@@ -869,9 +869,9 @@ class _PropertyListPageState extends State<PropertyListPage>
     final isExpanded = _expandedProperties.contains(propertyId);
 
     // Calculate average rent
-    double totalRent = 0;
+    int totalRent = 0;
     for (var unit in property.units) {
-      totalRent += unit.monthlyRent;
+      totalRent += unit.rent;
     }
     final averageRent = totalUnits > 0 ? totalRent / totalUnits : 0;
 
@@ -1388,7 +1388,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                             color: AppTheme.primaryColor,
                           ),
                           Text(
-                            '${unit.monthlyRent.toStringAsFixed(0)}/mo',
+                            '${unit.rent.toStringAsFixed(0)}/mo',
                             style: GoogleFonts.poppins(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,

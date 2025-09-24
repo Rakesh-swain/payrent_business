@@ -340,9 +340,10 @@ class PropertyController extends GetxController {
             unitType: propertyData['type'] ?? 'Single Family',
             bedrooms: propertyData['bedrooms'] ?? 0,
             bathrooms: propertyData['bathrooms'] ?? 0,
-            monthlyRent: propertyData['monthlyRent'] != null 
-                ? (propertyData['monthlyRent']).toDouble() 
-                : 0.0,
+            rent: propertyData['rent'] != null 
+                ? (propertyData['rent'])
+                : 0,
+                paymentFrequency: propertyData['paymentFrequency'],
           )
         ];
       }

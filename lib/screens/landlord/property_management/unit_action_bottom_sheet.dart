@@ -52,7 +52,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
     _unitTypeController = TextEditingController(text: widget.unit.unitType);
     _bedroomsController = TextEditingController(text: widget.unit.bedrooms.toString());
     _bathroomsController = TextEditingController(text: widget.unit.bathrooms.toString());
-    _monthlyRentController = TextEditingController(text: widget.unit.monthlyRent.toString());
+    _monthlyRentController = TextEditingController(text: widget.unit.rent.toString());
     _securityDepositController = TextEditingController(
       text: widget.unit.securityDeposit?.toString() ?? '',
     );
@@ -264,7 +264,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
         'unitNumber': widget.unit.unitNumber,
         'leaseStartDate': Timestamp.fromDate(_leaseStartDate!),
         'leaseEndDate': Timestamp.fromDate(_leaseEndDate!),
-        'rentAmount': double.tryParse(_monthlyRentController.text) ?? widget.unit.monthlyRent,
+        'rentAmount': double.tryParse(_monthlyRentController.text) ?? widget.unit.rent,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -282,7 +282,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
         'tenantId': _selectedTenantId,
         'startDate': Timestamp.fromDate(_leaseStartDate!),
         'endDate': Timestamp.fromDate(_leaseEndDate!),
-        'rentAmount': double.tryParse(_monthlyRentController.text) ?? widget.unit.monthlyRent,
+        'rentAmount': double.tryParse(_monthlyRentController.text) ?? widget.unit.rent,
         'securityDeposit': _securityDepositController.text.isNotEmpty
             ? double.tryParse(_securityDepositController.text)
             : widget.unit.securityDeposit,
@@ -416,7 +416,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 ],
               ),
               SizedBox(height: 12),
-              _buildInfoItem('Rent', '\$${widget.unit.monthlyRent.toStringAsFixed(2)}/mo'),
+              _buildInfoItem('Rent', '\$${widget.unit.rent.toStringAsFixed(2)}/mo'),
             ],
           ),
         ),

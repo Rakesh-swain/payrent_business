@@ -38,10 +38,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
   List<Map<String, dynamic>> _previewData = [];
   List<Map<String, dynamic>> _originalData = []; // For tracking changes
   
-  // Column mappings
-  Map<String, String> _columnMappings = {};
-  List<String> _requiredColumns = [];
-  List<String> _availableColumns = [];
+
   
   // Upload results
   int _successCount = 0;
@@ -51,126 +48,8 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
   @override
   void initState() {
     super.initState();
-    _initializeColumns();
   }
   
-  Future<int> _androidVersion() async {
-    var version = await DeviceInfoPlugin().androidInfo;
-    return version.version.sdkInt;
-  }
-
-  void _initializeColumns() {
-  // Initialize based on upload type
-  if (_uploadType == 'properties') {
-    _requiredColumns = [
-      'Property Name',
-      'Address',
-      'City',
-      'State',
-      'Zip',
-      'Property Type',
-      'Is Multi Unit',
-      'Unit Number',
-      'Monthly Rent',
-    ];
-    
-    _availableColumns = [
-      'Property Name',
-      'Address',
-      'City',
-      'State',
-      'Zip',
-      'Property Type',
-      'Is Multi Unit',
-      'Unit Number',
-      'Unit Type',
-      'Monthly Rent',
-      'Bedrooms',
-      'Bathrooms',
-      'Square Feet',
-      'Year Built',
-      'Description',
-      'Notes',
-    ];
-  } else if (_uploadType == 'tenants') {
-    _requiredColumns = [
-      'First Name',
-      'Last Name',
-      'Email',
-      'Phone',
-      'Property',
-      'Unit',
-      'Lease Start',
-      'Lease End',
-      'Monthly Rent',
-    ];
-    
-    _availableColumns = [
-      'First Name',
-      'Last Name',
-      'Email',
-      'Phone',
-      'Property',
-      'Unit',
-      'Lease Start',
-      'Lease End',
-      'Monthly Rent',
-      'Security Deposit',
-      'Emergency Contact Name',
-      'Emergency Contact Phone',
-    ];
-  } else if (_uploadType == 'both') {
-    _requiredColumns = [
-      'Property Name',
-      'Address',
-      'City',
-      'State',
-      'Zip',
-      'Property Type',
-      'Is Multi Unit',
-      'Unit Number',
-      'Monthly Rent',
-      'Tenant First Name',
-      'Tenant Last Name',
-      'Tenant Email',
-      'Lease Start',
-      'Lease End',
-    ];
-    
-    _availableColumns = [
-      'Property Name',
-      'Address',
-      'City',
-      'State',
-      'Zip',
-      'Property Type',
-      'Is Multi Unit',
-      'Unit Number',
-      'Unit Type',
-      'Monthly Rent',
-      'Bedrooms',
-      'Bathrooms',
-      'Square Feet',
-      'Tenant First Name',
-      'Tenant Last Name',
-      'Tenant Email',
-      'Tenant Phone',
-      'Lease Start',
-      'Lease End',
-      'Security Deposit',
-      'Emergency Contact Name',
-      'Emergency Contact Phone',
-    ];
-  }
-  
-  // Initialize default mappings
-  _columnMappings.clear();
-  for (var column in _requiredColumns) {
-    _columnMappings[column] = column;
-  }
-}
-    
-    
   
   Future<void> _selectFile() async {
     setState(() {
@@ -492,8 +371,9 @@ Future<void> _uploadProperties(String userId) async {
           unitNumber: unitRow['Unit Number'] ?? (units.isEmpty ? 'Main' : 'Unit ${units.length + 1}'),
           unitType: unitRow['Unit Type'] ?? 'Standard',
           bedrooms: int.tryParse(unitRow['Bedrooms']?.toString() ?? '1') ?? 1,
-          bathrooms: double.tryParse(unitRow['Bathrooms']?.toString() ?? '1.0') ?? 1.0,
-          monthlyRent: double.tryParse(unitRow['Monthly Rent']?.toString() ?? '0.0') ?? 0.0,
+          bathrooms: int.tryParse(unitRow['Bathrooms']?.toString() ?? '1') ?? 1,
+          rent: int.tryParse(unitRow['Rent']?.toString() ?? '0') ?? 0,
+          paymentFrequency: unitRow['Payment Frequency'] ?? 'Monthly',
           squareFeet: int.tryParse(unitRow['Square Feet']?.toString() ?? '0'),
           notes: unitRow['Notes'],
         ));
@@ -581,8 +461,9 @@ Future<void> _uploadBoth(String userId) async {
           unitNumber: rowData['Unit Number'] ?? (i == 0 && !isMultiUnit ? 'Main' : 'Unit ${i + 1}'),
           unitType: rowData['Unit Type'] ?? 'Standard',
           bedrooms: int.tryParse(rowData['Bedrooms']?.toString() ?? '1') ?? 1,
-          bathrooms: double.tryParse(rowData['Bathrooms']?.toString() ?? '1.0') ?? 1.0,
-          monthlyRent: double.tryParse(rowData['Monthly Rent']?.toString() ?? '0.0') ?? 0.0,
+          bathrooms: int.tryParse(rowData['Bathrooms']?.toString() ?? '1') ?? 1,
+          rent: int.tryParse(rowData['Rent']?.toString() ?? '0') ?? 0,
+          paymentFrequency: rowData['Payment Frequency'] ?? 'Monthly',
           squareFeet: int.tryParse(rowData['Square Feet']?.toString() ?? '0'),
         );
         
@@ -622,9 +503,10 @@ Future<void> _uploadBoth(String userId) async {
             'unitId': unit.unitId,
             'leaseStartDate': Timestamp.fromDate(leaseStart),
             'leaseEndDate': Timestamp.fromDate(leaseEnd),
-            'rentAmount': unit.monthlyRent,
+            'rentAmount': unit.rent,
+            'paymentFrequency': unit.paymentFrequency,
             'rentDueDay': 1, // Default
-            'securityDeposit': double.tryParse(rowData['Security Deposit']?.toString() ?? '0.0'),
+            'securityDeposit': int.tryParse(rowData['Security Deposit']?.toString() ?? '0') ?? 0,
             'status': 'active',
             'isArchived': false,
             'createdAt': FieldValue.serverTimestamp(),
@@ -644,7 +526,8 @@ Future<void> _uploadBoth(String userId) async {
             'unitNumber': unit.unitNumber,
             'startDate': Timestamp.fromDate(leaseStart),
             'endDate': Timestamp.fromDate(leaseEnd),
-            'rentAmount': unit.monthlyRent,
+            'rentAmount': unit.rent,
+            'paymentFrequency': unit.paymentFrequency,
           });
         }
       }
@@ -770,9 +653,10 @@ Future<void> _uploadBoth(String userId) async {
           'unitNumber': tenantData['Unit'] ?? '',
           'leaseStartDate': Timestamp.fromDate(leaseStart),
           'leaseEndDate': Timestamp.fromDate(leaseEnd),
-          'rentAmount': double.tryParse(tenantData['Monthly Rent']?.toString() ?? '0.0') ?? 0.0,
+          'rentAmount': int.tryParse(tenantData['Rent']?.toString() ?? '0') ?? 0,
+          'paymentFrequency': tenantData['Payment Frequency'] ?? 'Monthly',
           'rentDueDay': int.tryParse(tenantData['Rent Due Day']?.toString() ?? '1') ?? 1,
-          'securityDeposit': double.tryParse(tenantData['Security Deposit']?.toString() ?? '0.0'),
+          'securityDeposit': int.tryParse(tenantData['Security Deposit']?.toString() ?? '0') ?? 0,
           'status': 'active',
           'isArchived': false,
           'createdAt': FieldValue.serverTimestamp(),
@@ -815,7 +699,6 @@ Future<void> _uploadBoth(String userId) async {
       _isFileError = false;
       _fileErrorMessage = '';
     });
-    _initializeColumns();
   }
   
   void _nextStep() {
@@ -924,15 +807,7 @@ Future<void> _uploadBoth(String userId) async {
                 ),
               ],
               
-              const SizedBox(height: 16),
-              if (isSuccess)
-                Text(
-                  'Upload ID: BLK${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+              
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -950,7 +825,12 @@ Future<void> _uploadBoth(String userId) async {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: Text(isSuccess ? 'Done' : 'Try Again'),
+                  child: Text(isSuccess ? 'Done' : 'Try Again',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      )),
                 ),
               ),
             ],
@@ -1423,189 +1303,6 @@ Future<void> _uploadBoth(String userId) async {
     );
   }
   
-  // Widget _buildStep2() {
-  //   // Get file columns from the preview data
-  //   final fileColumns = _previewData.isNotEmpty 
-  //       ? _previewData.first.keys.toList() 
-  //       : ['Column A', 'Column B', 'Column C', 'Column D', 'Column E', 'Column F', 'Column G', 'Column H'];
-    
-  //   return FadeInUp(
-  //     duration: const Duration(milliseconds: 300),
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Text(
-  //           'Map Columns',
-  //           style: GoogleFonts.poppins(
-  //             fontSize: 18,
-  //             fontWeight: FontWeight.w600,
-  //           ),
-  //         ),
-  //         const SizedBox(height: 8),
-  //         Text(
-  //           'Match columns from your file to the required fields in our system',
-  //           style: GoogleFonts.poppins(
-  //             fontSize: 14,
-  //             color: AppTheme.textSecondary,
-  //           ),
-  //         ),
-  //         const SizedBox(height: 20),
-          
-  //         // Column mapping
-  //         Container(
-  //           padding: const EdgeInsets.all(16),
-  //           decoration: BoxDecoration(
-  //             color: Colors.white,
-  //             borderRadius: BorderRadius.circular(16),
-  //             boxShadow: [
-  //               BoxShadow(
-  //                 color: Colors.black.withOpacity(0.05),
-  //                 blurRadius: 5,
-  //                 offset: const Offset(0, 2),
-  //               ),
-  //             ],
-  //           ),
-  //           child: Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-  //             children: [
-  //               // Column mappings
-  //               ..._requiredColumns.map((column) {
-  //                 return Padding(
-  //                   padding: const EdgeInsets.only(bottom: 16),
-  //                   child: Row(
-  //                     children: [
-  //                       Expanded(
-  //                         flex: 2,
-  //                         child: Column(
-  //                           crossAxisAlignment: CrossAxisAlignment.start,
-  //                           children: [
-  //                             Text(
-  //                               'Required Field',
-  //                               style: GoogleFonts.poppins(
-  //                                 fontSize: 12,
-  //                                 color: AppTheme.textSecondary,
-  //                               ),
-  //                             ),
-  //                             const SizedBox(height: 4),
-  //                             Text(
-  //                               column,
-  //                               style: GoogleFonts.poppins(
-  //                                 fontSize: 14,
-  //                                 fontWeight: FontWeight.w500,
-  //                               ),
-  //                             ),
-  //                           ],
-  //                         ),
-  //                       ),
-  //                       const Icon(
-  //                         Icons.arrow_forward,
-  //                         color: Colors.grey,
-  //                       ),
-  //                       const SizedBox(width: 16),
-  //                       Expanded(
-  //                         flex: 3,
-  //                         child: DropdownButtonFormField<String>(
-  //                           value: _columnMappings[column],
-  //                           decoration: InputDecoration(
-  //                             isDense: true,
-  //                             contentPadding: const EdgeInsets.symmetric(
-  //                               horizontal: 12,
-  //                               vertical: 12,
-  //                             ),
-  //                             border: OutlineInputBorder(
-  //                               borderRadius: BorderRadius.circular(8),
-  //                             ),
-  //                             hintText: 'Select column',
-  //                           ),
-  //                           items: fileColumns.map((String column) {
-  //                             return DropdownMenuItem<String>(
-  //                               value: column,
-  //                               child: Text(
-  //                                 column,
-  //                                 style: GoogleFonts.poppins(fontSize: 14),
-  //                               ),
-  //                             );
-  //                           }).toList(),
-  //                           onChanged: (String? value) {
-  //                             if (value != null) {
-  //                               setState(() {
-  //                                 _columnMappings[column] = value;
-  //                               });
-  //                             }
-  //                           },
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 );
-  //               }).toList(),
-  //             ],
-  //           ),
-  //         ),
-          
-  //         const SizedBox(height: 20),
-          
-  //         // Auto-map button
-  //         SizedBox(
-  //           width: double.infinity,
-  //           child: OutlinedButton.icon(
-  //             onPressed: () {
-  //               // Auto-mapping functionality
-  //               final Map<String, String> newMappings = {};
-                
-  //               // Try to match columns exactly
-  //               for (var requiredColumn in _requiredColumns) {
-  //                 if (fileColumns.contains(requiredColumn)) {
-  //                   newMappings[requiredColumn] = requiredColumn;
-  //                 }
-  //               }
-                
-  //               // For any remaining columns, try case-insensitive match
-  //               for (var requiredColumn in _requiredColumns) {
-  //                 if (!newMappings.containsKey(requiredColumn)) {
-  //                   for (var fileColumn in fileColumns) {
-  //                     if (fileColumn.toLowerCase() == requiredColumn.toLowerCase()) {
-  //                       newMappings[requiredColumn] = fileColumn;
-  //                       break;
-  //                     }
-  //                   }
-  //                 }
-  //               }
-                
-  //               // Update mappings
-  //               setState(() {
-  //                 _columnMappings = {..._columnMappings, ...newMappings};
-  //               });
-                
-  //               ScaffoldMessenger.of(context).showSnackBar(
-  //                 SnackBar(
-  //                   content: Text(
-  //                     'Columns mapped automatically',
-  //                     style: GoogleFonts.poppins(),
-  //                   ),
-  //                   backgroundColor: AppTheme.infoColor,
-  //                   behavior: SnackBarBehavior.floating,
-  //                 ),
-  //               );
-  //             },
-  //             icon: const Icon(Icons.auto_awesome),
-  //             label: Text(
-  //               'Auto-Map Columns',
-  //               style: GoogleFonts.poppins(),
-  //             ),
-  //             style: OutlinedButton.styleFrom(
-  //               padding: const EdgeInsets.symmetric(vertical: 12),
-  //               side: BorderSide(color: AppTheme.primaryColor),
-  //               shape: RoundedRectangleBorder(
-  //                 borderRadius: BorderRadius.circular(12),
-  //               ),
-  //             ),
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
   
   Widget _buildStep3() {
     return FadeInUp(
