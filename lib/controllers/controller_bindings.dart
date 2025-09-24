@@ -31,6 +31,5 @@ class ControllerBindings implements Bindings {
     // Initialize data management controllers
     Get.lazyPut<PropertyController>(() => PropertyController(), fenix: true);
     Get.lazyPut<TenantController>(() => TenantController(), fenix: true);
-    Get.lazyPut<PaymentController>(() => PaymentController(), fenix: true);
   }
 }

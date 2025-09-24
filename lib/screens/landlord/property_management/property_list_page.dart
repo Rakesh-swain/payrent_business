@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
+import 'package:payrent_business/screens/landlord/property_management/edit_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_detail_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_details_page.dart';
@@ -96,7 +97,24 @@ class _PropertyListPageState extends State<PropertyListPage>
       });
     }
   }
+Future<void> deleteProperty({
+  required String propertyId,
+}) async {
+  try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('properties')
+        .doc(propertyId)
+        .delete();
 
+    print('Property $propertyId deleted successfully.');
+  } catch (e) {
+    print('Error deleting property: $e');
+    rethrow;
+  }
+}
   void _applyFiltersAndSort() {
     // Start with all properties
     List<DocumentSnapshot> result = List.from(_allProperties);
@@ -260,16 +278,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                 color: Colors.blue,
                 onTap: () {
                   Navigator.pop(context);
-                  // Navigate to edit page
-                },
-              ),
-              _buildActionButton(
-                icon: Icons.person_add_outlined,
-                label: 'Manage Tenants',
-                color: Colors.green,
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to tenant management
+                  Get.to(EditPropertyPage(property: propertyModel, propertyId: propertyModel.id!));
                 },
               ),
               _buildActionButton(
@@ -388,7 +397,9 @@ class _PropertyListPageState extends State<PropertyListPage>
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
-                // Delete property logic here
+                deleteProperty(propertyId: property.id).then((_){
+                  _fetchProperties();
+                });
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: Text('Delete', style: GoogleFonts.poppins()),
@@ -839,6 +850,7 @@ class _PropertyListPageState extends State<PropertyListPage>
     return ListView.builder(
       padding: EdgeInsets.all(isLargeScreen ? 24 : 16),
       itemCount: _filteredProperties.length,
+      physics: BouncingScrollPhysics(),
       itemBuilder: (context, index) {
         final propertyData =
             _filteredProperties[index].data() as Map<String, dynamic>;
@@ -1127,8 +1139,8 @@ class _PropertyListPageState extends State<PropertyListPage>
                               ),
 
                               // Show Units Button (only for multi-unit properties)
-                              if (property.isMultiUnit ||
-                                  property.units.length > 1)
+                              // if (property.isMultiUnit ||
+                              //     property.units.length > 1)
                                 ElevatedButton.icon(
                                   onPressed: () =>
                                       _togglePropertyExpansion(propertyId),

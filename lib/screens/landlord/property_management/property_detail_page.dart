@@ -37,6 +37,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
   bool _isUploading = false;
   double _uploadProgress = 0.0;
   String? _errorMessage;
+  String _paymentFrequency = 'Monthly';
 
   @override
   void initState() {
@@ -77,6 +78,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
 
       // Convert to property model
       final property = PropertyModel.fromFirestore(propertyDoc);
+      
+      // Extract payment frequency from document data
+      final propertyData = propertyDoc.data() as Map<String, dynamic>?;
+      final paymentFreq = propertyData?['paymentFrequency'] as String?;
 
       // Fetch property documents
       final documentsSnapshot = await FirebaseFirestore.instance
@@ -100,6 +105,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
         _property = property;
         _propertyDocuments = documentsSnapshot.docs;
         _tenants = tenantSnapshot.docs;
+        _paymentFrequency = paymentFreq ?? 'Monthly';
         _isLoading = false;
       });
     } catch (e) {
@@ -413,7 +419,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
             icon: Icons.attach_money,
             content: Column(
               children: [
-                _buildInfoRow('Total Monthly Rent', '\$${_calculateTotalRent().toStringAsFixed(2)}'),
+                _buildInfoRow('Payment Frequency', _getPaymentFrequency()),
+                _buildInfoRow('Total Rent Amount', '\$${_calculateTotalRent().toStringAsFixed(2)}'),
                 _buildInfoRow('Average Unit Rent', '\$${_calculateAverageRent().toStringAsFixed(2)}'),
                 _buildInfoRow('Occupancy Rate', '${_calculateOccupancyRate().toStringAsFixed(0)}%'),
               ],
@@ -595,8 +602,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                     '${unit.bedrooms} bed, ${unit.bathrooms} bath',
                   ),
                   _buildUnitDetailItem(
-                    'Rent',
-                    '\$${unit.rent.toStringAsFixed(0)}/mo',
+                    'Rent Amount',
+                    '\$${unit.rent}/mo',
                     isHighlighted: true,
                   ),
                 ],
@@ -1236,10 +1243,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
     );
   }
 
-  int _calculateTotalRent() {
-    int total = 0;
+  double _calculateTotalRent() {
+    double total = 0;
     for (var unit in _property?.units ?? []) {
-      total += int.parse(unit.rent.toString());
+      total += unit.rent;
     }
     return total;
   }
@@ -1256,6 +1263,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
     
     final occupiedUnits = units.where((unit) => unit.tenantId != null).length;
     return (occupiedUnits / units.length) * 100;
+  }
+
+  String _getPaymentFrequency() {
+    return _paymentFrequency;
   }
   
   void _showAssignTenantBottomSheet(PropertyUnitModel unit) {
