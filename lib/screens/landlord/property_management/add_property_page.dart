@@ -136,13 +136,6 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
           .collection('properties')
           .add(propertyData);
         
-        // Also save to the main properties collection
-        await FirebaseFirestore.instance
-          .collection('properties')
-          .add({
-            ...propertyData,
-            'landlordId': userId, // Ensure landlordId is saved
-          });
 
         setState(() {
           _isLoading = false;
