@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:payrent_business/controllers/auth_controller.dart';
+import 'package:payrent_business/screens/auth/signup_successful_page.dart';
 import 'package:payrent_business/services/auth_service.dart';
 
 // Updated PhoneAuthController with better callback handling
@@ -15,6 +17,10 @@ class PhoneAuthController extends GetxController {
   final RxString verificationId = ''.obs;
   final RxInt? resendToken = null;
   final RxString errorMessage = ''.obs;
+  final RxString countryCode = ''.obs;
+  final RxString mobileNumber = ''.obs;
+  final AuthController _authController = Get.find<AuthController>();
+
   // Text controllers
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController otpController = TextEditingController();
@@ -108,7 +114,45 @@ class PhoneAuthController extends GetxController {
       return false;
     }
   }
-  
+  // Complete user profile setup (for new users)
+  Future<void> completeProfileSetup({
+    required String name,
+    required String businessName,
+    required String userType,
+    String? email ,
+    String? phone,
+    String? countryCode,
+  }) async {
+    isLoading.value = true;
+    errorMessage.value = '';
+    
+    try {
+      if (_authController.firebaseUser.value == null) {
+        errorMessage.value = 'User not logged in';
+        return;
+      }
+      
+      final uid = _authController.firebaseUser.value!.uid;
+      
+      // Create or update user profile
+      await _authService.createUserProfile(
+        uid: uid,
+        email: email,
+        phone: phone,
+        name: name,
+        businessName: businessName,
+        userType: userType,
+        countryCode: countryCode
+      );
+      
+       Get.to(SignupSuccessfulPage(accountType: userType == "Landlord"));
+    } catch (e) {
+      errorMessage.value = 'Failed to complete profile setup';
+      print('Error completing profile setup: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
   // Reset
   void reset() {
     isCodeSent.value = false;

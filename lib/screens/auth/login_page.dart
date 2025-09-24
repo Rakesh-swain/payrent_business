@@ -529,6 +529,8 @@ Future<void> _simulateOtpSend() async {
     setState(() => isLoading = false);
     
     if (success && phoneAuthController.isCodeSent.value) {
+      phoneAuthController.countryCode.value = selectedCountryCode;
+      phoneAuthController.mobileNumber.value = phoneNumber;
       // Only navigate if code was successfully sent
       Get.to(OtpVerificationPage(
         islogin: false,
@@ -640,6 +642,8 @@ Future<void> _simulateLogin() async {
     setState(() => isLoading = false);
     
     if (success && phoneAuthController.isCodeSent.value) {
+      phoneAuthController.countryCode.value = selectedCountryCode;
+      phoneAuthController.mobileNumber.value = phoneNumber;
       // Only navigate if code was successfully sent
       Get.to(OtpVerificationPage(
         islogin: true,

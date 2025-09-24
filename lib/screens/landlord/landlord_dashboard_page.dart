@@ -34,13 +34,12 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
   
   // Get controllers for Firebase data
   final AuthController _authController = Get.find<AuthController>();
-  final UserProfileController _profileController = Get.find<UserProfileController>();
+  final UserProfileController _profileController = Get.put(UserProfileController());
   final PropertyController _propertyController = Get.find<PropertyController>();
   final TenantController _tenantController = Get.find<TenantController>();
   final PaymentController _paymentController = Get.find<PaymentController>();
   
   // Track if initial data is loaded
-  final RxBool _isLoading = true.obs;
 
   @override
   void initState() {
@@ -50,10 +49,8 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
   }
   
   Future<void> _loadDashboardData() async {
-    _isLoading.value = true;
     
     try {
-      // Load user profile data
       await _profileController.getUserProfile();
       
       // Load properties, tenants and payments data
@@ -64,7 +61,8 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
     } catch (e) {
       print('Error loading dashboard data: $e');
     } finally {
-      _isLoading.value = false;
+      // _isLoading.value = false;
+      print(_profileController.name.value);
     }
   }
 
@@ -124,7 +122,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
           await _loadDashboardData();
         },
         child: Obx(() {
-          if (_isLoading.value) {
+          if (_profileController.isLoading.value) {
             return const Center(
               child: CircularProgressIndicator(),
             );

@@ -8,6 +8,9 @@ import 'package:payrent_business/screens/auth/login_page.dart';
 import 'dart:io';
 
 import 'package:percent_indicator/linear_percent_indicator.dart';
+import 'package:payrent_business/controllers/user_profile_controller.dart';
+import 'package:payrent_business/controllers/auth_controller.dart';
+import 'package:payrent_business/services/storage_service.dart';
 
 class UserProfilePage extends StatefulWidget {
   final bool isLandlord;
@@ -22,7 +25,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   File? _profileImage;
   final ImagePicker _picker = ImagePicker();
   
-  // Sample user data
+  // Controllers
+  final UserProfileController _userProfileController = Get.find<UserProfileController>();
+  final AuthController _authController = Get.find<AuthController>();
+  
+  // User data
   Map<String, dynamic> _userData = {};
   
   // Sample completion data
@@ -39,32 +46,74 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     
-    // Initialize with mock data
+    // Initialize default data structure
+    _userData = {
+      'name': '',
+      'email': '',
+      'phone': '',
+      'address': '',
+      'businessName': '',
+      'accountType': widget.isLandlord ? 'Landlord' : 'Tenant',
+      'joinDate': DateTime.now().toString(),
+      'isUploading': false,
+    };
+    
     if (widget.isLandlord) {
-      _userData = {
-        'name': 'Sarah Thompson',
-        'email': 'sarah.thompson@example.com',
-        'phone': '+1 (234) 567-8901',
-        'address': '123 Business Ave, Suite 200, San Francisco, CA 94107',
-        'businessName': 'Thompson Properties LLC',
-        'accountType': 'Landlord',
-        'joinDate': '2022-05-15',
-        'properties': 8,
-        'tenants': 6,
-      };
+      _userData['properties'] = 0;
+      _userData['tenants'] = 0;
     } else {
-      _userData = {
-        'name': 'John Doe',
-        'email': 'john.doe@example.com',
-        'phone': '+1 (123) 456-7890',
-        'address': '456 Park Avenue, Apt 303, New York, NY 10022',
-        'property': 'Modern Apartment in Downtown',
-        'landlord': 'Sarah Thompson',
-        'accountType': 'Tenant',
-        'leaseStart': '2023-01-15',
-        'leaseEnd': '2024-01-15',
-      };
+      _userData['property'] = '';
+      _userData['landlord'] = '';
+      _userData['leaseStart'] = '';
+      _userData['leaseEnd'] = '';
     }
+    
+    // Fetch user data from Firestore
+    _fetchUserData();
+  }
+  
+  // Fetch user data from Firestore
+  Future<void> _fetchUserData() async {
+    try {
+      await _userProfileController.getUserProfile();
+      
+      setState(() {
+        _userData['name'] = _userProfileController.name.value;
+        _userData['email'] = _userProfileController.email.value;
+        _userData['phone'] = _userProfileController.phone.value;
+        _userData['businessName'] = _userProfileController.businessName.value;
+        _userData['accountType'] = _userProfileController.userType.value.capitalizeFirst;
+        
+        // If profile image URL exists, update it
+        if (_userProfileController.profileImageUrl.value.isNotEmpty) {
+          _userData['profileImage'] = _userProfileController.profileImageUrl.value;
+        }
+      });
+      
+      // Update completion status based on data
+      _updateCompletionStatus();
+      
+    } catch (e) {
+      print('Error fetching user data: $e');
+      // Show an error snackbar
+      Get.snackbar(
+        'Error',
+        'Failed to load profile data',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppTheme.errorColor.withOpacity(0.1),
+        colorText: AppTheme.errorColor,
+      );
+    }
+  }
+  
+  // Update completion status based on user data
+  void _updateCompletionStatus() {
+    setState(() {
+      _completionStatus['personalInfo'] = _userData['name'] != null && _userData['name'].isNotEmpty;
+      _completionStatus['contact'] = (_userData['email'] != null && _userData['email'].isNotEmpty) || 
+                                     (_userData['phone'] != null && _userData['phone'].isNotEmpty);
+      // You can add more completion status logic here
+    });
   }
   
   @override
@@ -74,15 +123,63 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   }
   
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
-    
-    if (pickedFile != null) {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+      
+      if (pickedFile != null) {
+        setState(() {
+          _profileImage = File(pickedFile.path);
+          _userData['isUploading'] = true;
+        });
+        
+        // Upload the image to Firebase Storage
+        await _uploadProfileImage(File(pickedFile.path));
+      }
+    } catch (e) {
+      print('Error picking image: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to pick image',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppTheme.errorColor.withOpacity(0.1),
+        colorText: AppTheme.errorColor,
+      );
+    }
+  }
+  
+  // Upload profile image to Firebase Storage
+  Future<void> _uploadProfileImage(File imageFile) async {
+    try {
+      await _userProfileController.uploadProfileImage(imageFile);
+      
       setState(() {
-        _profileImage = File(pickedFile.path);
+        _userData['profileImage'] = _userProfileController.profileImageUrl.value;
+        _userData['isUploading'] = false;
       });
+      
+      Get.snackbar(
+        'Success',
+        'Profile image updated successfully',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppTheme.successColor.withOpacity(0.1),
+        colorText: AppTheme.successColor,
+      );
+    } catch (e) {
+      setState(() {
+        _userData['isUploading'] = false;
+      });
+      
+      print('Error uploading profile image: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to upload profile image',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppTheme.errorColor.withOpacity(0.1),
+        colorText: AppTheme.errorColor,
+      );
     }
   }
   
@@ -135,12 +232,29 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                           children: [
                             GestureDetector(
                               onTap: _pickImage,
-                              child: CircleAvatar(
-                                radius: 40,
-                                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                                backgroundImage: _profileImage != null
-                                    ? FileImage(_profileImage!) as ImageProvider
-                                    : const AssetImage('assets/profile.png'),
+                              child: Stack(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 40,
+                                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                    backgroundImage: _getProfileImage(),
+                                  ),
+                                  if (_userData['isUploading'] == true)
+                                    Positioned.fill(
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.5),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                             Positioned(
@@ -525,7 +639,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               if (canEdit)
                 TextButton.icon(
                   onPressed: () {
-                    // Handle edit action
+                    _showEditBottomSheet(context, title, fields);
                   },
                   icon: const Icon(
                     Icons.edit_outlined,
@@ -592,9 +706,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
       ),
     );
   }
-  // lib/modules/profile/user_profile_page.dart (update)
-
-// Add logout method to the UserProfilePage
+  // Logout dialog implementation
 void _logout(BuildContext context) {
   showDialog(
     context: context,
@@ -631,10 +743,10 @@ void _logout(BuildContext context) {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Get.back();
-              Get.offAll(LoginPage());
-            
+              await _authController.signOut(); // Use the AuthController to sign out
+              Get.offAll(() => const LoginPage());
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
@@ -779,6 +891,315 @@ Widget _buildSettingItem({
       return '${date.day}/${date.month}/${date.year}';
     } catch (e) {
       return dateStr;
+    }
+  }
+  
+  // Show bottom sheet for editing profile sections
+  void _showEditBottomSheet(BuildContext context, String title, List<Widget> fields) {
+    // Extract field data from widgets
+    final Map<String, String> fieldData = {};
+    final Map<String, TextEditingController> controllers = {};
+    
+    // Process field widgets to extract data for editing
+    for (var field in fields) {
+      if (field is Padding) {
+        final row = field.child as Row;
+        final expanded = row.children.last as Expanded;
+        final column = expanded.child as Column;
+        final labelWidget = column.children.first as Text;
+        final valueWidget = column.children.last as Text;
+        
+        final label = labelWidget.data!;
+        final value = valueWidget.data!;
+        
+        fieldData[label] = value;
+        
+        // Create controllers for editable fields
+        if (label != 'Email' && label != 'Phone') {
+          controllers[label] = TextEditingController(text: value);
+        }
+      }
+    }
+    
+    showModalBottomSheet(
+  context: context,
+  isScrollControlled: true, // important
+  backgroundColor: Colors.transparent,
+  builder: (context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.5, // half height
+      minChildSize: 0.3,
+      maxChildSize: 0.9, // can expand near full screen
+      builder: (_, controller) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          child: SingleChildScrollView(
+            controller: controller,
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 16, // ✅ keyboard safe
+              top: 16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                ),
+
+                Text(
+                  'Edit $title',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Divider(height: 24),
+
+                // Fields
+                ...fieldData.entries.map((entry) {
+                  final label = entry.key;
+                  final value = entry.value;
+
+                  if (label == 'Email' || label == 'Phone') {
+                    return _buildNonEditableField(label, value);
+                  } else {
+                    return _buildEditableField(label, controllers[label]!);
+                  }
+                }).toList(),
+
+                const SizedBox(height: 20),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          _saveProfileData(title, controllers);
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Save',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  },
+);
+
+  }
+  
+  // Build a non-editable field for email and phone
+  Widget _buildNonEditableField(String label, String value) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.lock_outline,
+                size: 16,
+                color: Colors.grey.shade500,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Build an editable field with text controller
+  Widget _buildEditableField(String label, TextEditingController controller) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
+              ),
+              hintText: 'Enter $label',
+              hintStyle: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.grey.shade400,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Get profile image
+  ImageProvider _getProfileImage() {
+    // First check if we have a just-selected image file
+    if (_profileImage != null) {
+      return FileImage(_profileImage!) as ImageProvider;
+    }
+    
+    // Then check if we have a URL from Firestore
+    if (_userData['profileImage'] != null && _userData['profileImage'].toString().isNotEmpty) {
+      return NetworkImage(_userData['profileImage'].toString());
+    }
+    
+    // Default image
+    return const AssetImage('assets/profile.png');
+  }
+  
+  // Save profile data after editing
+  void _saveProfileData(String sectionTitle, Map<String, TextEditingController> controllers) {
+    // Update the local state with the new values
+    setState(() {
+      controllers.forEach((key, controller) {
+        if (key == 'Full Name') {
+          _userData['name'] = controller.text;
+        } else if (key == 'Business Name') {
+          _userData['businessName'] = controller.text;
+        } else if (key == 'Address') {
+          _userData['address'] = controller.text;
+        }
+        // Add other fields as needed
+      });
+    });
+    
+    // Show success message
+    Get.snackbar(
+      'Success',
+      '$sectionTitle updated successfully',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: AppTheme.successColor.withOpacity(0.1),
+      colorText: AppTheme.successColor,
+      duration: const Duration(seconds: 2),
+    );
+    
+    // Update data in Firestore
+    if (Get.find<UserProfileController>() != null) {
+      try {
+        final UserProfileController controller = Get.find<UserProfileController>();
+        if (sectionTitle.contains('Personal')) {
+          controller.updateProfile(
+            name: _userData['name'],
+          );
+        } else if (sectionTitle.contains('Business')) {
+          controller.updateProfile(
+            businessName: _userData['businessName'],
+          );
+        } else if (sectionTitle.contains('Address')) {
+          // If your controller supports updating address
+          // controller.updateUserAddress(_userData['address']);
+          
+          // Or store in additionalInfo field
+          controller.updateProfile(
+           address:  _userData['address'],
+          );
+        }
+      } catch (e) {
+        print('Error updating profile in Firestore: $e');
+      }
     }
   }
 }

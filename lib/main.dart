@@ -1,6 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:payrent_business/controllers/user_profile_controller.dart';
+import 'package:payrent_business/screens/landlord/landlord_main_page.dart';
+import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'controllers/controller_bindings.dart';
 import 'services/firebase_initializer.dart';
 import 'dart:async';
@@ -31,6 +37,9 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Poppins',
       ),
       initialBinding: ControllerBindings(),
+      onInit: (){
+        Get.put(UserProfileController());
+      },
       home: FirebaseInitializer.initializeApp(
         child: const SplashPage(),
       ),
@@ -111,21 +120,39 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  Future<void> _navigateAfterDelay() async {
-    await Future.delayed(const Duration(milliseconds: 2500)); // Longer splash duration for animations
+   Future<void> _navigateAfterDelay() async {
+    await Future.delayed(const Duration(milliseconds: 2500));
 
-    
-    // Default fallback with nicer transition
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (_, animation, __) => FadeTransition(
-          opacity: animation,
-          child: const IntroPage(),
-        ),
-        transitionDuration: const Duration(milliseconds: 800),
-      ),
-    );
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      try {
+       final prefs = await SharedPreferences.getInstance();
+      final userType = prefs.getString('userType');
+
+
+          if (userType == 'Landlord') {
+            Get.offAll(() => const LandlordMainPage(),
+                transition: Transition.fadeIn, duration: const Duration(milliseconds: 800));
+          } else if (userType == 'Tenant') {
+            Get.offAll(() => const TenantMainPage(),
+                transition: Transition.fadeIn, duration: const Duration(milliseconds: 800));
+          } else {
+            // fallback to intro if unknown usertype
+            Get.offAll(() => const IntroPage(),
+                transition: Transition.fadeIn, duration: const Duration(milliseconds: 800));
+          }
+        
+      } catch (e) {
+        // in case of error go to intro
+        Get.offAll(() => const IntroPage(),
+            transition: Transition.fadeIn, duration: const Duration(milliseconds: 800));
+      }
+    } else {
+      // No logged in user, go to intro
+      Get.offAll(() => const IntroPage(),
+          transition: Transition.fadeIn, duration: const Duration(milliseconds: 800));
+    }
   }
 
   @override

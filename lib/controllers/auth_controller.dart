@@ -50,43 +50,7 @@ class AuthController extends GetxController {
     }
   }
   
-  // Update user profile
-  Future<void> updateUserProfile({
-    String? email,
-    String? phone,
-    String? firstName,
-    String? lastName,
-    String? profileImage,
-    String? userType,
-    bool? isVerified,
-    Map<String, dynamic>? additionalInfo,
-  }) async {
-    isLoading.value = true;
-    errorMessage.value = '';
-    
-    try {
-      if (firebaseUser.value != null) {
-        await _authService.updateUserProfile(
-          uid: firebaseUser.value!.uid,
-          email: email,
-          phone: phone,
-          firstName: firstName,
-          lastName: lastName,
-          profileImage: profileImage,
-          userType: userType,
-          isVerified: isVerified,
-          additionalInfo: additionalInfo,
-        );
-      } else {
-        errorMessage.value = 'User not logged in';
-      }
-    } catch (e) {
-      errorMessage.value = 'Failed to update profile';
-      print('Error updating profile: $e');
-    } finally {
-      isLoading.value = false;
-    }
-  }
+ 
   
   // Check user type
   bool get isLandlord => userModel.value?.isLandlord ?? false;

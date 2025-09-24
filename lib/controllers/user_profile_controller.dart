@@ -1,6 +1,6 @@
 ﻿import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
-import 'package:payrent_business/screens/auth/signup_successful_page.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../controllers/auth_controller.dart';
@@ -18,12 +18,12 @@ class UserProfileController extends GetxController {
   final RxString successMessage = ''.obs;
   final RxString profileImagePath = ''.obs;
   final RxString profileImageUrl = ''.obs;
-  final RxString name = 'User'.obs;
+  final RxString name = ''.obs;
   final RxString businessName = ''.obs;
   final RxString email = ''.obs;
   final RxString phone = ''.obs;
   final RxString userType = 'landlord'.obs;
-  
+  String uid = FirebaseAuth.instance.currentUser?.uid ?? '';
   // Upload profile image
   Future<void> uploadProfileImage(File imageFile) async {
     isLoading.value = true;
@@ -45,7 +45,7 @@ class UserProfileController extends GetxController {
       );
       
       // Update user profile
-      await _authController.updateUserProfile(
+      await _authService.updateUserProfile(uid: uid,
         profileImage: downloadUrl,
       );
       
@@ -61,11 +61,12 @@ class UserProfileController extends GetxController {
   
   // Update user profile
   Future<void> updateProfile({
-    required String firstName,
-    required String lastName,
+    String? name,
+    String? businessName,
     String? email,
     String? phone,
     String? userType,
+    String? address,
   }) async {
     isLoading.value = true;
     errorMessage.value = '';
@@ -77,12 +78,14 @@ class UserProfileController extends GetxController {
         return;
       }
       
-      await _authController.updateUserProfile(
-        firstName: firstName,
-        lastName: lastName,
+      await _authService.updateUserProfile(
+        uid: uid,
+        name: name,
+        businessName: businessName,
         email: email,
         phone: phone,
         userType: userType,
+        address: address
       );
       
       successMessage.value = 'Profile updated successfully';
@@ -94,45 +97,7 @@ class UserProfileController extends GetxController {
     }
   }
   
-  // Complete user profile setup (for new users)
-  Future<void> completeProfileSetup({
-    required String name,
-    required String businessName,
-    required String userType,
-    String? email ,
-    String? phone,
-  }) async {
-    isLoading.value = true;
-    errorMessage.value = '';
-    
-    try {
-      if (_authController.firebaseUser.value == null) {
-        errorMessage.value = 'User not logged in';
-        return;
-      }
-      
-      final uid = _authController.firebaseUser.value!.uid;
-      final email = _authController.firebaseUser.value!.email ?? '';
-      final phoneNumber = phone ?? _authController.firebaseUser.value!.phoneNumber ?? '';
-      
-      // Create or update user profile
-      await _authService.createUserProfile(
-        uid: uid,
-        email: email,
-        phone: phoneNumber,
-        name: name,
-        businessName: businessName,
-        userType: userType,
-      );
-      
-       Get.to(SignupSuccessfulPage(accountType: userType == "Landlord"));
-    } catch (e) {
-      errorMessage.value = 'Failed to complete profile setup';
-      print('Error completing profile setup: $e');
-    } finally {
-      isLoading.value = false;
-    }
-  }
+  
   
   // Get user profile data
   Future<void> getUserProfile() async {
@@ -151,7 +116,7 @@ class UserProfileController extends GetxController {
       final userData = await _authService.getUserProfile(uid: uid);
       
       if (userData != null) {
-        name.value = userData['name'] ?? 'User';
+        name.value = userData['name'] ?? '';
         businessName.value = userData['businessName'] ?? '';
         email.value = userData['email'] ?? '';
         phone.value = userData['phone'] ?? '';
@@ -164,5 +129,10 @@ class UserProfileController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+  @override
+  void onInit() {
+    getUserProfile();
+    super.onInit();
   }
 }

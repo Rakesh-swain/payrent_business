@@ -4,12 +4,15 @@ import 'package:get/get.dart';
 import 'package:get/state_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:payrent_business/controllers/phone_auth_controller.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/screens/auth/signup_successful_page.dart';
 import 'package:payrent_business/widgets/appbar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileSignupPage extends StatefulWidget {
   final bool isPhoneRequired;
+
   const ProfileSignupPage({super.key, required this.isPhoneRequired});
 
   @override
@@ -21,7 +24,10 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
   final _mobileController = TextEditingController();
   final _emailController = TextEditingController();
   final _businessNameController = TextEditingController();
-  UserProfileController userProfileController = Get.put(UserProfileController());
+ 
+  PhoneAuthController phoneAuthController = Get.put(
+    PhoneAuthController(),
+  );
 
   final Set<String> _invalidFields = {};
   bool _formSubmitted = false; // Track if form has been submitted
@@ -56,13 +62,14 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
 
     // Always validate name and business name
     if (_nameController.text.trim().isEmpty) _invalidFields.add('name');
-    if (_businessNameController.text.trim().isEmpty) _invalidFields.add('business');
+    if (_businessNameController.text.trim().isEmpty)
+      _invalidFields.add('business');
     if (_selectedAccountType.isEmpty) _invalidFields.add('accountType');
 
     // Validate based on isPhoneRequired
     if (!widget.isPhoneRequired) {
       // Validate mobile
-      if (_mobileController.text.trim().isEmpty || 
+      if (_mobileController.text.trim().isEmpty ||
           !phoneRegex.hasMatch(_mobileController.text.trim())) {
         _invalidFields.add('mobile');
       }
@@ -81,10 +88,15 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
     }
   }
 
-  InputDecoration buildInputDecoration(String labelText, {String? hintText, bool required = false, bool hasError = false}) {
+  InputDecoration buildInputDecoration(
+    String labelText, {
+    String? hintText,
+    bool required = false,
+    bool hasError = false,
+  }) {
     final borderColor = hasError ? Colors.red : const Color(0xFFE0E0E0);
     final focusedBorderColor = hasError ? Colors.red : const Color(0xFF4F287D);
-    
+
     return InputDecoration(
       labelText: required ? "$labelText *" : labelText,
       hintText: hintText,
@@ -140,7 +152,8 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: appBar(context),
-      body: SingleChildScrollView( physics: const BouncingScrollPhysics(),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: FadeInUp(
@@ -175,9 +188,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   Center(
                     child: FadeInDown(
                       duration: const Duration(milliseconds: 700),
@@ -191,9 +204,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Full Name Field
                   FadeInLeft(
                     duration: const Duration(milliseconds: 800),
@@ -207,17 +220,20 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFF333333),
                           ),
-                          decoration: buildInputDecoration(
-                            "Full Name",
-                            hintText: "Enter your full name",
-                            required: true, 
-                            hasError: _hasError('name'),
-                          ).copyWith(
-                            prefixIcon: Icon(
-                              Icons.person_outline_rounded,
-                              color: _hasError('name') ? Colors.red : const Color(0xFF6B737A),
-                            ),
-                          ),
+                          decoration:
+                              buildInputDecoration(
+                                "Full Name",
+                                hintText: "Enter your full name",
+                                required: true,
+                                hasError: _hasError('name'),
+                              ).copyWith(
+                                prefixIcon: Icon(
+                                  Icons.person_outline_rounded,
+                                  color: _hasError('name')
+                                      ? Colors.red
+                                      : const Color(0xFF6B737A),
+                                ),
+                              ),
                           textCapitalization: TextCapitalization.words,
                           textInputAction: TextInputAction.next,
                         ),
@@ -236,9 +252,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Business Name Field
                   FadeInRight(
                     duration: const Duration(milliseconds: 900),
@@ -252,17 +268,20 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                             fontWeight: FontWeight.w500,
                             color: const Color(0xFF333333),
                           ),
-                          decoration: buildInputDecoration(
-                            "Business Name",
-                            hintText: "Enter your business name",
-                            required: true,
-                            hasError: _hasError('business'),
-                          ).copyWith(
-                            prefixIcon: Icon(
-                              Icons.business_outlined,
-                              color: _hasError('business') ? Colors.red : const Color(0xFF6B737A),
-                            ),
-                          ),
+                          decoration:
+                              buildInputDecoration(
+                                "Business Name",
+                                hintText: "Enter your business name",
+                                required: true,
+                                hasError: _hasError('business'),
+                              ).copyWith(
+                                prefixIcon: Icon(
+                                  Icons.business_outlined,
+                                  color: _hasError('business')
+                                      ? Colors.red
+                                      : const Color(0xFF6B737A),
+                                ),
+                              ),
                           textCapitalization: TextCapitalization.words,
                           textInputAction: TextInputAction.next,
                         ),
@@ -281,9 +300,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Conditionally show Mobile or Email field
                   if (!widget.isPhoneRequired)
                     FadeInLeft(
@@ -298,17 +317,20 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                               fontWeight: FontWeight.w500,
                               color: const Color(0xFF333333),
                             ),
-                            decoration: buildInputDecoration(
-                              "Mobile Number",
-                              hintText: "Enter your 10-digit mobile number",
-                              required: true,
-                              hasError: _hasError('mobile'),
-                            ).copyWith(
-                              prefixIcon: Icon(
-                                Icons.phone_android_rounded,
-                                color: _hasError('mobile') ? Colors.red : const Color(0xFF6B737A),
-                              ),
-                            ),
+                            decoration:
+                                buildInputDecoration(
+                                  "Mobile Number",
+                                  hintText: "Enter your 10-digit mobile number",
+                                  required: true,
+                                  hasError: _hasError('mobile'),
+                                ).copyWith(
+                                  prefixIcon: Icon(
+                                    Icons.phone_android_rounded,
+                                    color: _hasError('mobile')
+                                        ? Colors.red
+                                        : const Color(0xFF6B737A),
+                                  ),
+                                ),
                             keyboardType: TextInputType.phone,
                             inputFormatters: [
                               FilteringTextInputFormatter.digitsOnly,
@@ -344,17 +366,20 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                               fontWeight: FontWeight.w500,
                               color: const Color(0xFF333333),
                             ),
-                            decoration: buildInputDecoration(
-                              "Email Address",
-                              hintText: "Enter your email address",
-                              required: true,
-                              hasError: _hasError('email'),
-                            ).copyWith(
-                              prefixIcon: Icon(
-                                Icons.email_outlined,
-                                color: _hasError('email') ? Colors.red : const Color(0xFF6B737A),
-                              ),
-                            ),
+                            decoration:
+                                buildInputDecoration(
+                                  "Email Address",
+                                  hintText: "Enter your email address",
+                                  required: true,
+                                  hasError: _hasError('email'),
+                                ).copyWith(
+                                  prefixIcon: Icon(
+                                    Icons.email_outlined,
+                                    color: _hasError('email')
+                                        ? Colors.red
+                                        : const Color(0xFF6B737A),
+                                  ),
+                                ),
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                           ),
@@ -373,9 +398,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                         ],
                       ),
                     ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Account Type Selection
                   FadeInLeft(
                     duration: const Duration(milliseconds: 1100),
@@ -387,7 +412,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: _hasError('accountType') ? Colors.red : const Color(0xFF333333),
+                            color: _hasError('accountType')
+                                ? Colors.red
+                                : const Color(0xFF333333),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -427,9 +454,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Error message
                   if (formError != null && _formSubmitted)
                     FadeIn(
@@ -439,11 +466,17 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                         decoration: BoxDecoration(
                           color: Colors.red.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.red.withOpacity(0.3)),
+                          border: Border.all(
+                            color: Colors.red.withOpacity(0.3),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                            const Icon(
+                              Icons.error_outline,
+                              color: Colors.red,
+                              size: 20,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -459,9 +492,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                         ),
                       ),
                     ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Continue Button
                   FadeInUp(
                     duration: const Duration(milliseconds: 1200),
@@ -469,27 +502,33 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
                           setState(() {
                             _formSubmitted = true;
                           });
-                          
+
                           _validateForm();
-                          
+
                           if (_invalidFields.isEmpty) {
                             setState(() => formError = null);
-                            userProfileController.completeProfileSetup(
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setString(
+                              'userType',
+                              _selectedAccountType,
+                            );
+
+                            phoneAuthController.completeProfileSetup(
                               name: _nameController.text.trim(),
                               businessName: _businessNameController.text.trim(),
                               userType: _selectedAccountType,
-                              email: widget.isPhoneRequired ? '' : _emailController.text.trim(),
-                              phone: widget.isPhoneRequired ? _mobileController.text.trim() : '',
+                              email: _emailController.text.trim(),
+                              phone: _mobileController.text.isEmpty ? phoneAuthController.mobileNumber.value : _mobileController.text.trim(),
                             );
-                           
-                            
-                          
                           } else {
-                            setState(() => formError = "Please fill all required fields correctly.");
+                            setState(
+                              () => formError =
+                                  "Please fill all required fields correctly.",
+                            );
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -545,7 +584,7 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
       ),
     );
   }
-  
+
   Widget _buildAccountTypeOption({
     required String type,
     required bool isSelected,
@@ -565,8 +604,11 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
           color: isSelected ? const Color(0xFFECE6F0) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: hasError ? Colors.red : 
-                   isSelected ? const Color(0xFF4F287D) : const Color(0xFFE0E0E0),
+            color: hasError
+                ? Colors.red
+                : isSelected
+                ? const Color(0xFF4F287D)
+                : const Color(0xFFE0E0E0),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -576,7 +618,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
             Icon(
               icon,
               size: 32,
-              color: isSelected ? const Color(0xFF4F287D) : const Color(0xFF6B737A),
+              color: isSelected
+                  ? const Color(0xFF4F287D)
+                  : const Color(0xFF6B737A),
             ),
             const SizedBox(height: 12),
             Text(
@@ -584,7 +628,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? const Color(0xFF4F287D) : const Color(0xFF333333),
+                color: isSelected
+                    ? const Color(0xFF4F287D)
+                    : const Color(0xFF333333),
               ),
             ),
           ],

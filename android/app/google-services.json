@@ -1,0 +1,47 @@
+﻿{
+  "project_info": {
+    "project_number": "397212126520",
+    "project_id": "payrent-business",
+    "storage_bucket": "payrent-business.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:397212126520:android:1be8b62241b483837445cd",
+        "android_client_info": {
+          "package_name": "com.example.payrent_business"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "397212126520-ti974se600pbtdnc0pv2g97s05oo3g36.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.payrent_business",
+            "certificate_hash": "4186e5e440ae0280165291c9a02ce038e8bf1d0d"
+          }
+        },
+        {
+          "client_id": "397212126520-ssa1mjndm44b5jgsqfmto08bg4o15ua4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDw_2b2qkKMItTE2Oq_lGVdBkMq9XGz_9c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "397212126520-ssa1mjndm44b5jgsqfmto08bg4o15ua4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

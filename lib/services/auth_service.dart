@@ -111,6 +111,7 @@ class AuthService {
     required String businessName,
     required String userType,
     String? profileImage,
+    String? countryCode,
   }) async {
     final UserModel user = UserModel(
       uid: uid,
@@ -123,6 +124,7 @@ class AuthService {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       isVerified: false,
+      countryCode: countryCode
     );
     
     await _firestore.collection('users').doc(uid).set(user.toFirestore());
@@ -133,12 +135,13 @@ class AuthService {
     required String uid,
     String? email,
     String? phone,
-    String? firstName,
-    String? lastName,
+    String? name,
+    String? businessName,
     String? profileImage,
     String? userType,
     bool? isVerified,
     Map<String, dynamic>? additionalInfo,
+    String? address,
   }) async {
     final userDoc = await _firestore.collection('users').doc(uid).get();
     
@@ -147,12 +150,13 @@ class AuthService {
       final updatedUser = currentUser.copyWith(
         email: email,
         phone: phone,
-        firstName: firstName,
-        lastName: lastName,
+        name: name,
+        businessName: businessName,
         profileImage: profileImage,
         userType: userType,
         isVerified: isVerified,
         additionalInfo: additionalInfo,
+        address: address,
       );
       
       await _firestore.collection('users').doc(uid).update(updatedUser.toFirestore());

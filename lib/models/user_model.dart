@@ -4,6 +4,7 @@ class UserModel {
   final String uid;
   final String? email;
   final String? phone;
+  final String? countryCode;
   final String name;
   final String businessName;
   final String? profileImage;
@@ -11,12 +12,14 @@ class UserModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isVerified;
+  final String? address;
   final Map<String, dynamic>? additionalInfo;
 
   UserModel({
     required this.uid,
     this.email,
     this.phone,
+    this.countryCode,
     required this.name,
     required this.businessName,
     this.profileImage,
@@ -25,6 +28,7 @@ class UserModel {
     required this.updatedAt,
     this.isVerified = false,
     this.additionalInfo,
+    this.address,
   });
 
   // Create a user model from a Firebase user
@@ -43,6 +47,7 @@ class UserModel {
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
       isVerified: data['isVerified'] ?? false,
       additionalInfo: data['additionalInfo'],
+      address: data['address'],  
     );
   }
 
@@ -59,6 +64,7 @@ class UserModel {
       'updatedAt': Timestamp.fromDate(updatedAt),
       'isVerified': isVerified,
       'additionalInfo': additionalInfo,
+      'address': address,
     };
   }
 
@@ -66,12 +72,13 @@ class UserModel {
   UserModel copyWith({
     String? email,
     String? phone,
-    String? firstName,
-    String? lastName,
+    String? name,
+    String? businessName,
     String? profileImage,
     String? userType,
     bool? isVerified,
     Map<String, dynamic>? additionalInfo,
+    String? address,
   }) {
     return UserModel(
       uid: this.uid,
@@ -84,7 +91,7 @@ class UserModel {
       createdAt: this.createdAt,
       updatedAt: DateTime.now(),
       isVerified: isVerified ?? this.isVerified,
-      additionalInfo: additionalInfo ?? this.additionalInfo,
+      address: address ?? this.address,
     );
   }
   
