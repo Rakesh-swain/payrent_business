@@ -1,328 +1,308 @@
+// lib/screens/landlord/property_management/property_details_page.dart
+
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as path;
 import 'package:payrent_business/config/theme.dart';
-import 'package:payrent_business/screens/landlord/tenant_management/tenant_detail_page.dart';
-import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:payrent_business/models/property_model.dart';
+import 'package:payrent_business/models/tenant_model.dart';
+import 'package:payrent_business/screens/landlord/property_management/edit_property_page.dart';
+import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
 
-class PropertyDetailPage extends StatefulWidget {
+class PropertyDetailsPage extends StatefulWidget {
   final String propertyId;
   
-  const PropertyDetailPage({super.key, required this.propertyId});
+  const PropertyDetailsPage({
+    Key? key,
+    required this.propertyId,
+  }) : super(key: key);
 
   @override
-  State<PropertyDetailPage> createState() => _PropertyDetailPageState();
+  _PropertyDetailsPageState createState() => _PropertyDetailsPageState();
 }
 
-class _PropertyDetailPageState extends State<PropertyDetailPage> with SingleTickerProviderStateMixin {
+class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerProviderStateMixin {
   late TabController _tabController;
-  
-  Map<String, dynamic>? _propertyData;
   bool _isLoading = true;
-  
-  // Sample tenant data
-  final List<Map<String, dynamic>> _tenants = [
-    {
-      'id': '1',
-      'name': 'John Doe',
-      'email': 'john.doe@example.com',
-      'phone': '+1 (123) 456-7890',
-      'image': 'assets/tenant1.jpg',
-      'status': 'Active',
-      'leaseStart': '2023-01-15',
-      'leaseEnd': '2024-01-15',
-    },
-    {
-      'id': '2',
-      'name': 'Emma Wilson',
-      'email': 'emma.wilson@example.com',
-      'phone': '+1 (234) 567-8901',
-      'image': 'assets/tenant2.jpg',
-      'status': 'Active',
-      'leaseStart': '2023-02-01',
-      'leaseEnd': '2024-02-01',
-    },
-  ];
-  
-  // Sample maintenance history
-  final List<Map<String, dynamic>> _maintenanceHistory = [
-    {
-      'id': '1',
-      'title': 'Leaking Faucet',
-      'description': 'The kitchen sink faucet is leaking and needs repair.',
-      'status': 'Completed',
-      'date': '2023-08-10',
-      'completedDate': '2023-08-12',
-      'cost': 150.00,
-      'priority': 'Medium',
-    },
-    {
-      'id': '2',
-      'title': 'Air Conditioner Not Cooling',
-      'description': 'The bedroom AC is not cooling properly.',
-      'status': 'In Progress',
-      'date': '2023-08-15',
-      'completedDate': null,
-      'cost': null,
-      'priority': 'High',
-    },
-    {
-      'id': '3',
-      'title': 'Repaint Walls',
-      'description': 'Scheduled repainting of living room walls.',
-      'status': 'Scheduled',
-      'date': '2023-08-20',
-      'scheduledDate': '2023-09-10',
-      'completedDate': null,
-      'cost': 550.00,
-      'priority': 'Low',
-    },
-  ];
-  
-  // Sample documents
-  final List<Map<String, dynamic>> _documents = [
-    {
-      'id': '1',
-      'title': 'Property Deed',
-      'type': 'PDF',
-      'size': '3.5 MB',
-      'uploadDate': '2023-01-10',
-      'url': 'https://example.com/documents/deed.pdf',
-    },
-    {
-      'id': '2',
-      'title': 'Property Insurance',
-      'type': 'PDF',
-      'size': '1.8 MB',
-      'uploadDate': '2023-01-15',
-      'url': 'https://example.com/documents/insurance.pdf',
-    },
-    {
-      'id': '3',
-      'title': 'Property Photos',
-      'type': 'ZIP',
-      'size': '12.4 MB',
-      'uploadDate': '2023-01-12',
-      'url': 'https://example.com/documents/photos.zip',
-    },
-  ];
-  
-  // Sample financial data
-  final List<Map<String, dynamic>> _financialHistory = [
-    {
-      'id': '1',
-      'title': 'Rent Income',
-      'amount': 2200.00,
-      'date': '2023-08-15',
-      'type': 'Income',
-    },
-    {
-      'id': '2',
-      'title': 'Maintenance',
-      'amount': 150.00,
-      'date': '2023-08-12',
-      'type': 'Expense',
-    },
-    {
-      'id': '3',
-      'title': 'Property Tax',
-      'amount': 450.00,
-      'date': '2023-07-30',
-      'type': 'Expense',
-    },
-    {
-      'id': '4',
-      'title': 'Rent Income',
-      'amount': 2200.00,
-      'date': '2023-07-15',
-      'type': 'Income',
-    },
-  ];
-  
+  PropertyModel? _property;
+  List<DocumentSnapshot> _propertyDocuments = [];
+  List<DocumentSnapshot> _tenants = [];
+  bool _isUploading = false;
+  double _uploadProgress = 0.0;
+  String? _errorMessage;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
-    // Fetch property data
     _fetchPropertyData();
   }
-  
+
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _fetchPropertyData() async {
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    // Sample data
-    _propertyData = {
-      'id': widget.propertyId,
-      'name': 'Modern Apartment in Downtown',
-      'address': '123 Main St, Apt 303, New York, NY 10001',
-      'type': 'Apartment',
-      'bedrooms': 2,
-      'bathrooms': 2,
-      'area': 1200,
-      'areaUnit': 'sq ft',
-      'rent': 2200,
-      'status': 'Occupied',
-      'occupancyRate': 1.0, // 100% occupied
-      'acquisitionDate': '2020-06-15',
-      'images': [
-        'assets/property1.jpg',
-        'assets/property1_interior1.jpg',
-        'assets/property1_interior2.jpg',
-      ],
-      'features': [
-        'Air Conditioning',
-        'In-unit Laundry',
-        'Hardwood Floors',
-        'Stainless Steel Appliances',
-        'Balcony',
-        'Gym Access',
-      ],
-      'location': {
-        'latitude': 40.7128,
-        'longitude': -74.0060,
-      },
-      'financials': {
-        'monthlyIncome': 2200,
-        'yearlyIncome': 26400,
-        'expenses': {
-          'monthly': 420,
-          'yearly': 5040,
-        },
-        'netIncome': {
-          'monthly': 1780,
-          'yearly': 21360,
-        },
-        'roi': 5.8,
-      },
-    };
-    
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not logged in');
+      }
+
+      // Fetch property data
+      final propertyDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('properties')
+          .doc(widget.propertyId)
+          .get();
+
+      if (!propertyDoc.exists) {
+        throw Exception('Property not found');
+      }
+
+      // Convert to property model
+      final property = PropertyModel.fromFirestore(propertyDoc);
+
+      // Fetch property documents
+      final documentsSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('properties')
+          .doc(widget.propertyId)
+          .collection('documents')
+          .orderBy('uploadDate', descending: true)
+          .get();
+
+      // Fetch tenants for this property
+      final tenantSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('tenants')
+          .where('propertyId', isEqualTo: widget.propertyId)
+          .get();
+
+      setState(() {
+        _property = property;
+        _propertyDocuments = documentsSnapshot.docs;
+        _tenants = tenantSnapshot.docs;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
   }
-  
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          title: const Text('Property Details'),
-        ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
+
+  Future<void> _uploadDocument() async {
+    try {
+      // Pick file
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = File(result.files.single.path!);
+      final fileName = result.files.single.name;
+
+      setState(() {
+        _isUploading = true;
+        _uploadProgress = 0;
+      });
+
+      // Create storage reference
+      final userId = FirebaseAuth.instance.currentUser!.uid;
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('users')
+          .child(userId)
+          .child('properties')
+          .child(widget.propertyId)
+          .child('documents')
+          .child(DateTime.now().millisecondsSinceEpoch.toString() + '_' + fileName);
+
+      // Upload file with progress tracking
+      final uploadTask = storageRef.putFile(file);
+
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        setState(() {
+          _uploadProgress = snapshot.bytesTransferred / snapshot.totalBytes;
+        });
+      });
+
+      // Wait for upload to complete
+      await uploadTask.whenComplete(() {});
+
+      // Get download URL
+      final downloadUrl = await storageRef.getDownloadURL();
+
+      // Save document metadata to Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('properties')
+          .doc(widget.propertyId)
+          .collection('documents')
+          .add({
+            'name': fileName,
+            'url': downloadUrl,
+            'uploadDate': FieldValue.serverTimestamp(),
+            'type': path.extension(fileName),
+            'size': await file.length(),
+          });
+
+      // Refresh documents list
+      final documentsSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('properties')
+          .doc(widget.propertyId)
+          .collection('documents')
+          .orderBy('uploadDate', descending: true)
+          .get();
+
+      setState(() {
+        _propertyDocuments = documentsSnapshot.docs;
+        _isUploading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Document uploaded successfully')),
+      );
+    } catch (e) {
+      setState(() {
+        _isUploading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error uploading document: $e')),
       );
     }
-    
-    // Determine status color
-    Color statusColor;
-    switch (_propertyData!['status']) {
-      case 'Occupied':
-        statusColor = AppTheme.successColor;
-        break;
-      case 'Vacant':
-        statusColor = AppTheme.warningColor;
-        break;
-      case 'Maintenance':
-        statusColor = AppTheme.infoColor;
-        break;
-      default:
-        statusColor = AppTheme.textLight;
-    }
-    
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: CustomScrollView(
-        slivers: [
-          // App Bar with Property Image
+      backgroundColor: Color(0xFFF8F9FB),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? _buildErrorView()
+              : _buildContent(),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+          const SizedBox(height: 16),
+          Text(
+            'Error',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _errorMessage ?? 'Something went wrong',
+            style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _fetchPropertyData,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_property == null) return SizedBox.shrink();
+    
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
           SliverAppBar(
-            expandedHeight: 250.0,
+            expandedHeight: 200.0,
+            backgroundColor: Colors.deepPurple,
+            foregroundColor: Colors.white,
             floating: false,
             pinned: true,
             elevation: 0,
             flexibleSpace: FlexibleSpaceBar(
+              centerTitle: true,
+              titlePadding: const EdgeInsets.only(bottom: 15),
+              title: Text(
+                _property!.name,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 25,
+                  color: Colors.white,
+                  shadows: [Shadow(color: Colors.black26, blurRadius: 2)],
+                ),
+              ),
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Property Image
-                  Image.asset(
-                    _propertyData!['images'][0],
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey.shade200,
-                        child: const Icon(
-                          Icons.home_outlined,
-                          size: 80,
-                          color: Colors.grey,
-                        ),
-                      );
-                    },
-                  ),
-                  // Gradient overlay for better text visibility
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withOpacity(0.7),
-                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color.fromARGB(255, 11, 12, 61), Color(0xFFA78BFA)],
                       ),
                     ),
                   ),
-                  // Property information
+                  Center(
+                    child: Icon(
+                      Icons.home_rounded,
+                      size: 64,
+                      color: Colors.white.withOpacity(0.5),
+                    ),
+                  ),
                   Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 16,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _propertyData!['name'],
-                          style: GoogleFonts.poppins(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(30),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on_outlined,
-                              size: 14,
-                              color: Colors.white70,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                _propertyData!['address'],
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.white70,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
@@ -330,1317 +310,996 @@ class _PropertyDetailPageState extends State<PropertyDetailPage> with SingleTick
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.more_vert),
+                icon: const Icon(Icons.edit,color: Colors.white,),
+                tooltip: 'Edit Property',
                 onPressed: () {
-                  _showOptionsBottomSheet();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EditPropertyPage(
+                        propertyId: widget.propertyId,
+                        property: _property!,
+                      ),
+                    ),
+                  ).then((updated) {
+                    if (updated == true) {
+                      _fetchPropertyData();
+                    }
+                  });
                 },
               ),
             ],
           ),
-          
-          // Content
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          SliverPersistentHeader(
+            delegate: _SliverAppBarDelegate(
+              TabBar(
+                controller: _tabController,
+                labelColor: AppTheme.primaryColor,
+                unselectedLabelColor: Colors.grey,
+                indicatorColor: AppTheme.primaryColor,
+                indicatorWeight: 3,
+                labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                unselectedLabelStyle: GoogleFonts.poppins(),
+                tabs: const [
+                  Tab(text: 'Property Info'),
+                  Tab(text: 'Tenants'),
+                  Tab(text: 'Maintenance'),
+                ],
+              ),
+            ),
+            pinned: true,
+          ),
+        ];
+      },
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildPropertyInfoTab(),
+          _buildTenantsTab(),
+          _buildMaintenanceTab(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPropertyInfoTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Property Details Card
+        FadeInUp(
+          duration: Duration(milliseconds: 300),
+          child: _buildInfoCard(
+            title: 'Property Details',
+            icon: Icons.home_outlined,
+            content: Column(
               children: [
-                // Property Summary Card
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: FadeInDown(
-                    duration: const Duration(milliseconds: 500),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: AppTheme.cardShadow,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      _propertyData!['status'],
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: statusColor,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Text(
-                                      _propertyData!['type'],
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                '\$${NumberFormat('#,##0').format(_propertyData!['rent'])}/mo',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                          // Property Features
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildPropertyFeature(
-                                icon: Icons.king_bed_outlined,
-                                label: '${_propertyData!['bedrooms']} Beds',
-                              ),
-                              _buildPropertyFeature(
-                                icon: Icons.bathtub_outlined,
-                                label: '${_propertyData!['bathrooms']} Baths',
-                              ),
-                              _buildPropertyFeature(
-                                icon: Icons.straighten_outlined,
-                                label: '${NumberFormat('#,##0').format(_propertyData!['area'])} ${_propertyData!['areaUnit']}',
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          const Divider(),
-                          const SizedBox(height: 16),
-                          // Occupancy Rate
-                          Row(
-                            children: [
-                              CircularPercentIndicator(
-                                radius: 35.0,
-                                lineWidth: 8.0,
-                                percent: _propertyData!['occupancyRate'],
-                                center: Text(
-                                  '${(_propertyData!['occupancyRate'] * 100).toInt()}%',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                progressColor: AppTheme.primaryColor,
-                                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                                circularStrokeCap: CircularStrokeCap.round,
-                                animation: true,
-                                animationDuration: 1000,
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Occupancy Rate',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _propertyData!['occupancyRate'] == 1.0
-                                          ? 'Property is fully occupied'
-                                          : _propertyData!['occupancyRate'] == 0.0
-                                              ? 'Property is vacant'
-                                              : 'Property is partially occupied',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                _buildInfoRow('Property Type', _property?.type ?? 'No data'),
+                _buildInfoRow('Units', _property?.isMultiUnit == true 
+                  ? 'Multi-Unit (${_property?.units.length ?? 0} units)' 
+                  : 'Single Unit'),
+                _buildInfoRow('Description', _property?.description ?? 'No description'),
+              ],
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Address Card
+        FadeInUp(
+          duration: Duration(milliseconds: 400),
+          child: _buildInfoCard(
+            title: 'Address',
+            icon: Icons.location_on_outlined,
+            content: Column(
+              children: [
+                _buildInfoRow('Street', _property?.address ?? 'No data'),
+                _buildInfoRow('City', _property?.city ?? 'No data'),
+                _buildInfoRow('State', _property?.state ?? 'No data'),
+                _buildInfoRow('Zip Code', _property?.zipCode ?? 'No data'),
+              ],
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Financial Details Card
+        FadeInUp(
+          duration: Duration(milliseconds: 500),
+          child: _buildInfoCard(
+            title: 'Financial Summary',
+            icon: Icons.attach_money,
+            content: Column(
+              children: [
+                _buildInfoRow('Total Monthly Rent', '\$${_calculateTotalRent().toStringAsFixed(2)}'),
+                _buildInfoRow('Average Unit Rent', '\$${_calculateAverageRent().toStringAsFixed(2)}'),
+                _buildInfoRow('Occupancy Rate', '${_calculateOccupancyRate().toStringAsFixed(0)}%'),
+              ],
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Documents Section
+        FadeInUp(
+          duration: Duration(milliseconds: 600),
+          child: _buildDocumentsSection(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTenantsTab() {
+    final propertyUnits = _property?.units ?? [];
+    final hasUnits = propertyUnits.isNotEmpty;
+    
+    return ListView(
+      padding: EdgeInsets.all(16),
+      children: [
+        // Occupancy summary card
+        FadeInUp(
+          duration: Duration(milliseconds: 300),
+          child: _buildInfoCard(
+            title: 'Occupancy Summary',
+            icon: Icons.people_outline,
+            content: Column(
+              children: [
+                _buildInfoRow('Total Units', '${propertyUnits.length}'),
+                _buildInfoRow(
+                  'Occupied Units', 
+                  '${propertyUnits.where((unit) => unit.tenantId != null).length}',
                 ),
-                
-                // Financial Summary
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: FadeInDown(
-                    duration: const Duration(milliseconds: 600),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: AppTheme.cardShadow,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Financial Summary',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _buildFinancialStat(
-                                label: 'Monthly Income',
-                                value: '\$${NumberFormat('#,##0').format(_propertyData!['financials']['monthlyIncome'])}',
-                                icon: Icons.attach_money_outlined,
-                                iconColor: AppTheme.successColor,
-                              ),
-                              _buildFinancialStat(
-                                label: 'Monthly Expenses',
-                                value: '\$${NumberFormat('#,##0').format(_propertyData!['financials']['expenses']['monthly'])}',
-                                icon: Icons.money_off_outlined,
-                                iconColor: AppTheme.errorColor,
-                              ),
-                              _buildFinancialStat(
-                                label: 'Net Monthly',
-                                value: '\$${NumberFormat('#,##0').format(_propertyData!['financials']['netIncome']['monthly'])}',
-                                icon: Icons.account_balance_wallet_outlined,
-                                iconColor: AppTheme.primaryColor,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: AppTheme.infoColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.trending_up,
-                                  size: 16,
-                                  color: AppTheme.infoColor,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Annual ROI: ${_propertyData!['financials']['roi']}%',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppTheme.infoColor,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Tab Bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: FadeInDown(
-                    duration: const Duration(milliseconds: 700),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: TabBar(
-                        controller: _tabController,
-                        labelColor: AppTheme.primaryColor,
-                        unselectedLabelColor: AppTheme.textSecondary,
-                        indicatorColor: AppTheme.primaryColor,
-                        indicatorPadding: const EdgeInsets.symmetric(horizontal: 16),
-                        tabs: const [
-                          Tab(text: 'Details'),
-                          Tab(text: 'Tenants'),
-                          Tab(text: 'Maintenance'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                
-                // Tab Content
-                SizedBox(
-                  height: 500, // Fixed height for tab content
-                  child: FadeInUp(
-                    duration: const Duration(milliseconds: 800),
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        // Details Tab
-                        _buildDetailsTab(),
-                        
-                        // Tenants Tab
-                        _buildTenantsTab(),
-                        
-                        // Maintenance Tab
-                        _buildMaintenanceTab(),
-                      ],
-                    ),
-                  ),
+                _buildInfoRow(
+                  'Vacant Units', 
+                  '${propertyUnits.where((unit) => unit.tenantId == null).length}',
                 ),
               ],
             ),
           ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Show action sheet with options
-          _showActionsBottomSheet();
-        },
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-  
-  Widget _buildPropertyFeature({
-    required IconData icon,
-    required String label,
-  }) {
-    return Column(
-      children: [
-        Icon(
-          icon,
-          size: 20,
-          color: AppTheme.primaryColor,
         ),
-        const SizedBox(height: 8),
+        
+        SizedBox(height: 24),
+        
+        // Title
         Text(
-          label,
+          'Units & Tenants',
           style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildFinancialStat({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color iconColor,
-  }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            size: 16,
-            color: iconColor,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: AppTheme.textSecondary,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
           ),
         ),
+        
+        SizedBox(height: 16),
+        
+        hasUnits
+            ? ListView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                itemCount: propertyUnits.length,
+                itemBuilder: (context, index) {
+                  final unit = propertyUnits[index];
+                  final tenantDoc = unit.tenantId != null
+                      ? _tenants.where((t) => t.id == unit.tenantId).firstOrNull
+                      : null;
+                      
+                  return _buildUnitTenantCard(unit, tenantDoc);
+                },
+              )
+            : Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    children: [
+                      Icon(Icons.home_work_outlined, size: 64, color: Colors.grey.shade400),
+                      SizedBox(height: 16),
+                      Text(
+                        'No units available',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Add units to this property to assign tenants',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
       ],
     );
   }
   
-  Widget _buildDetailsTab() {
-    return SingleChildScrollView( physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Property Images
-          Text(
-            'Photos',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 120,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _propertyData!['images'].length,
-              itemBuilder: (context, index) {
-                return Container(
-                  width: 120,
-                  margin: const EdgeInsets.only(right: 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    image: DecorationImage(
-                      image: AssetImage(_propertyData!['images'][index]),
-                      fit: BoxFit.cover,
-                      onError: (exception, stackTrace) {},
+  Widget _buildUnitTenantCard(PropertyUnitModel unit, DocumentSnapshot? tenantDoc) {
+    final hasTenant = tenantDoc != null;
+    Map<String, dynamic>? tenantData;
+    
+    if (hasTenant) {
+      tenantData = tenantDoc!.data() as Map<String, dynamic>;
+    }
+    
+    return FadeInUp(
+      duration: Duration(milliseconds: 300),
+      child: Card(
+        margin: EdgeInsets.only(bottom: 16),
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Unit header
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF0EEFE),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Color(0xFFE0D6FD), width: 1),
+                    ),
+                    child: Text(
+                      'Unit ${unit.unitNumber}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF7C3AED), // Deep purple
+                      ),
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Property Features
-          Text(
-            'Features',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: (_propertyData!['features'] as List).map<Widget>((feature) {
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  feature,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Property Documents
-          Text(
-            'Documents',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...List.generate(_documents.length, (index) {
-            final document = _documents[index];
-            return _buildDocumentItem(document);
-          }),
-          
-          const SizedBox(height: 20),
-          
-          // Financial History
-          Text(
-            'Financial History',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...List.generate(_financialHistory.length, (index) {
-            final transaction = _financialHistory[index];
-            return _buildFinancialHistoryItem(transaction);
-          }),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildTenantsTab() {
-    return SingleChildScrollView( physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Current Tenants',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  // Add tenant functionality
-                },
-                icon: const Icon(
-                  Icons.person_add_outlined,
-                  size: 16,
-                ),
-                label: const Text('Add'),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
-          if (_tenants.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
+                  Spacer(),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: hasTenant
+                          ? Colors.green.withOpacity(0.1)
+                          : Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: hasTenant
+                            ? Colors.green.withOpacity(0.3)
+                            : Colors.orange.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      hasTenant ? 'Occupied' : 'Vacant',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: hasTenant ? Colors.green : Colors.orange,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: Center(
-                child: Column(
+              
+              SizedBox(height: 16),
+              
+              // Unit details
+              Row(
+                children: [
+                  _buildUnitDetailItem('Type', unit.unitType),
+                  _buildUnitDetailItem(
+                    'Size',
+                    '${unit.bedrooms} bed, ${unit.bathrooms} bath',
+                  ),
+                  _buildUnitDetailItem(
+                    'Rent',
+                    '\$${unit.monthlyRent.toStringAsFixed(0)}/mo',
+                    isHighlighted: true,
+                  ),
+                ],
+              ),
+              
+              // Divider if tenant exists
+              if (hasTenant) Divider(height: 32),
+              
+              // Tenant section if exists
+              if (hasTenant) ...[
+                Text(
+                  'Current Tenant',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(height: 12),
+                Row(
                   children: [
-                    Icon(
-                      Icons.person_off_outlined,
-                      size: 48,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No tenants yet',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
+                    CircleAvatar(
+                      backgroundColor: AppTheme.primaryColor.withOpacity(0.2),
+                      child: Text(
+                        '${tenantData?['firstName']?[0] ?? ''}${tenantData?['lastName']?[0] ?? ''}'.toUpperCase(),
+                        style: GoogleFonts.poppins(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${tenantData?['firstName'] ?? 'Unknown'} ${tenantData?['lastName'] ?? ''}',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (tenantData?['phone'] != null)
+                            Text(
+                              tenantData!['phone'],
+                              style: GoogleFonts.poppins(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton(
+                      onPressed: () {
+                        // Navigate to tenant details
+                      },
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: Text('Details'),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                _buildLeaseInfo(tenantData),
+              ] else ...[
+                SizedBox(height: 16),
+                Center(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showAssignTenantBottomSheet(unit),
+                    icon: Icon(Icons.person_add_outlined),
+                    label: Text('Assign Tenant'),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildUnitDetailItem(String label, String value, {bool isHighlighted = false}) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: isHighlighted ? AppTheme.primaryColor : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildLeaseInfo(Map<String, dynamic>? tenantData) {
+    if (tenantData == null) return SizedBox.shrink();
+    
+    final leaseStartTimestamp = tenantData['leaseStartDate'] as Timestamp?;
+    final leaseEndTimestamp = tenantData['leaseEndDate'] as Timestamp?;
+    
+    final leaseStart = leaseStartTimestamp?.toDate();
+    final leaseEnd = leaseEndTimestamp?.toDate();
+    
+    final dateFormat = DateFormat('MMM d, yyyy');
+    final startDateStr = leaseStart != null ? dateFormat.format(leaseStart) : 'Not set';
+    final endDateStr = leaseEnd != null ? dateFormat.format(leaseEnd) : 'Not set';
+    
+    // Calculate days remaining in lease
+    String daysRemaining = 'N/A';
+    if (leaseEnd != null) {
+      final today = DateTime.now();
+      final difference = leaseEnd.difference(today).inDays;
+      
+      if (difference < 0) {
+        daysRemaining = 'Expired';
+      } else {
+        daysRemaining = '$difference days';
+      }
+    }
+    
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Lease Information',
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      'Add a tenant to start collecting rent',
+                      'Start Date',
                       style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppTheme.textLight,
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    Text(
+                      startDateStr,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
                       ),
                     ),
                   ],
                 ),
               ),
-            )
-          else
-            ...List.generate(_tenants.length, (index) {
-              final tenant = _tenants[index];
-              return _buildTenantItem(tenant);
-            }),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildMaintenanceTab() {
-    return SingleChildScrollView( physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Maintenance History',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'End Date',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    Text(
+                      endDateStr,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              TextButton.icon(
-                onPressed: () {
-                  // Add maintenance request functionality
-                },
-                icon: const Icon(
-                  Icons.add_outlined,
-                  size: 16,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Remaining',
+                      style: GoogleFonts.poppins(
+                        fontSize: 11,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    Text(
+                      daysRemaining,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: daysRemaining == 'Expired' 
+                            ? Colors.red 
+                            : daysRemaining != 'N/A' && int.tryParse(daysRemaining.split(' ')[0]) != null && int.parse(daysRemaining.split(' ')[0]) < 30
+                                ? Colors.orange
+                                : null,
+                      ),
+                    ),
+                  ],
                 ),
-                label: const Text('Request'),
               ),
             ],
           ),
-          
-          const SizedBox(height: 12),
-          
-          // Maintenance Requests
-          ...List.generate(_maintenanceHistory.length, (index) {
-            final request = _maintenanceHistory[index];
-            return _buildMaintenanceItem(request);
-          }),
         ],
       ),
     );
   }
-  
-  Widget _buildDocumentItem(Map<String, dynamic> document) {
-    IconData fileIcon;
-    Color fileColor;
-    
-    switch (document['type']) {
-      case 'PDF':
-        fileIcon = Icons.picture_as_pdf_outlined;
-        fileColor = Colors.red;
-        break;
-      case 'JPG':
-      case 'PNG':
-        fileIcon = Icons.image_outlined;
-        fileColor = Colors.blue;
-        break;
-      case 'ZIP':
-        fileIcon = Icons.folder_zip_outlined;
-        fileColor = Colors.orange;
-        break;
-      default:
-        fileIcon = Icons.insert_drive_file_outlined;
-        fileColor = Colors.grey;
-    }
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
+
+  Widget _buildMaintenanceTab() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: fileColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              fileIcon,
-              size: 24,
-              color: fileColor,
-            ),
+          Icon(
+            Icons.construction_outlined,
+            size: 64,
+            color: Colors.grey.shade400,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  document['title'],
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${document['type']} • ${document['size']} • ${_formatDate(document['uploadDate'])}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.download_outlined),
-            color: AppTheme.primaryColor,
-            onPressed: () {
-              // Download document
-            },
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildFinancialHistoryItem(Map<String, dynamic> transaction) {
-    final bool isIncome = transaction['type'] == 'Income';
-    final Color typeColor = isIncome ? AppTheme.successColor : AppTheme.errorColor;
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: typeColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-              size: 16,
-              color: typeColor,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  transaction['title'],
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatDate(transaction['date']),
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          SizedBox(height: 16),
           Text(
-            '${isIncome ? "+" : "-"}\$${NumberFormat('#,##0.00').format(transaction['amount'])}',
+            'Coming Soon',
             style: GoogleFonts.poppins(
-              fontSize: 16,
+              fontSize: 20,
               fontWeight: FontWeight.w600,
-              color: typeColor,
             ),
           ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildTenantItem(Map<String, dynamic> tenant) {
-    // Determine status color
-    Color statusColor;
-    switch (tenant['status']) {
-      case 'Active':
-        statusColor = AppTheme.successColor;
-        break;
-      case 'Inactive':
-        statusColor = AppTheme.errorColor;
-        break;
-      default:
-        statusColor = AppTheme.textLight;
-    }
-    
-    // Calculate lease remaining
-    final leaseStart = DateTime.parse(tenant['leaseStart']);
-    final leaseEnd = DateTime.parse(tenant['leaseEnd']);
-    final today = DateTime.now();
-    
-    final totalDays = leaseEnd.difference(leaseStart).inDays;
-    final daysElapsed = today.difference(leaseStart).inDays;
-    
-    double progress = daysElapsed / totalDays;
-    progress = progress.clamp(0.0, 1.0); // Ensure progress is between 0 and 1
-    
-    final remainingDays = leaseEnd.difference(today).inDays;
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () {
-          // Navigate to tenant details
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TenantDetailPage(
-                tenantId: tenant['id'],
+          SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              'Maintenance tracking and service request features will be available in a future update.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                color: Colors.grey.shade600,
               ),
             ),
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard({
+    required String title,
+    required IconData icon,
+    required Widget content,
+  }) {
+    return Card(
+      elevation: 1,
+      shadowColor: Colors.black.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                // Tenant Image
-                CircleAvatar(
-                  radius: 30,
-                  backgroundImage: AssetImage(tenant['image']),
-                  onBackgroundImageError: (_, __) {},
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: AppTheme.primaryColor,
+                    size: 18,
+                  ),
                 ),
-                const SizedBox(width: 16),
-                // Tenant Info
-                Expanded(
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            content,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentsSection() {
+    return Card(
+      elevation: 1,
+      shadowColor: Colors.black.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.description_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Documents',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Spacer(),
+                if (!_isUploading)
+                  TextButton.icon(
+                    icon: Icon(Icons.upload_file, size: 16),
+                    label: Text('Upload'),
+                    onPressed: _uploadDocument,
+                  ),
+              ],
+            ),
+            if (_isUploading) ...[
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: _uploadProgress,
+                backgroundColor: Colors.grey.shade200,
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Uploading... ${(_uploadProgress * 100).toStringAsFixed(0)}%',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            if (_propertyDocuments.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Icon(Icons.folder_open, size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 16),
                       Text(
-                        tenant['name'],
+                        'No documents yet',
                         style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          tenant['status'],
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: statusColor,
-                          ),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.email_outlined,
-                            size: 14,
-                            color: AppTheme.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              tenant['email'],
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: AppTheme.textSecondary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.phone_outlined,
-                            size: 14,
-                            color: AppTheme.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            tenant['phone'],
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Upload property documents like leases, receipts, and contracts',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Lease progress
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Lease: ${_formatDate(tenant['leaseStart'])} - ${_formatDate(tenant['leaseEnd'])}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: progress,
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  color: AppTheme.primaryColor,
-                  minHeight: 6,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '$remainingDays days remaining',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              ],
-            ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                itemCount: _propertyDocuments.length,
+                itemBuilder: (context, index) {
+                  final document = _propertyDocuments[index].data() as Map<String, dynamic>;
+                  return _buildDocumentItem(document, _propertyDocuments[index].id);
+                },
+              ),
           ],
         ),
       ),
     );
   }
-  
-  Widget _buildMaintenanceItem(Map<String, dynamic> request) {
-    Color statusColor;
+
+  Widget _buildDocumentItem(Map<String, dynamic> document, String documentId) {
+    final fileName = document['name'] ?? 'Unnamed document';
+    final fileType = document['type'] ?? '.pdf';
+    final uploadDate = document['uploadDate'] as Timestamp?;
+    final fileUrl = document['url'] as String?;
+    final fileSize = document['size'] as int?;
     
-    switch (request['status']) {
-      case 'Completed':
-        statusColor = AppTheme.successColor;
-        break;
-      case 'In Progress':
-        statusColor = AppTheme.infoColor;
-        break;
-      case 'Scheduled':
-        statusColor = AppTheme.warningColor;
-        break;
-      default:
-        statusColor = AppTheme.textLight;
+    IconData fileIcon;
+    Color fileColor;
+    
+    // Determine file icon and color based on extension
+    if (fileType.contains('pdf')) {
+      fileIcon = Icons.picture_as_pdf;
+      fileColor = Colors.red;
+    } else if (fileType.contains('doc')) {
+      fileIcon = Icons.article_outlined;
+      fileColor = Colors.blue;
+    } else if (fileType.contains('jpg') || fileType.contains('jpeg') || fileType.contains('png')) {
+      fileIcon = Icons.image;
+      fileColor = Colors.green;
+    } else {
+      fileIcon = Icons.insert_drive_file;
+      fileColor = Colors.amber;
     }
     
-    Color priorityColor;
-    
-    switch (request['priority']) {
-      case 'High':
-        priorityColor = AppTheme.errorColor;
-        break;
-      case 'Medium':
-        priorityColor = AppTheme.warningColor;
-        break;
-      case 'Low':
-        priorityColor = AppTheme.successColor;
-        break;
-      default:
-        priorityColor = AppTheme.textLight;
+    // Format date
+    String dateStr = 'Unknown date';
+    if (uploadDate != null) {
+      final date = uploadDate.toDate();
+      dateStr = DateFormat('MMM d, yyyy').format(date);
     }
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    // Format file size
+    String sizeStr = 'Unknown size';
+    if (fileSize != null) {
+      if (fileSize < 1024) {
+        sizeStr = '$fileSize B';
+      } else if (fileSize < 1024 * 1024) {
+        sizeStr = '${(fileSize / 1024).toStringAsFixed(1)} KB';
+      } else {
+        sizeStr = '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
+      }
+    }
+    
+    return Card(
+      margin: EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      color: Colors.grey.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          // Open document
+          if (fileUrl != null) {
+            // Launch URL
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
             children: [
-              Text(
-                request['title'],
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
+                  color: fileColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  request['status'],
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: statusColor,
-                  ),
+                child: Icon(
+                  fileIcon,
+                  color: fileColor,
+                  size: 24,
                 ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fileName,
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '$dateStr • $sizeStr',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.more_vert, color: Colors.grey.shade600),
+                onPressed: () {
+                  _showDocumentOptions(documentId, document);
+                },
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            request['description'],
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: AppTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+  
+  void _showDocumentOptions(String documentId, Map<String, dynamic> document) {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.visibility_outlined, color: Colors.blue),
+              title: Text('View Document'),
+              onTap: () {
+                Navigator.pop(context);
+                // Launch URL
+              },
             ),
-          ),
-          const SizedBox(height: 12),
-          const Divider(),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 14,
-                    color: AppTheme.textLight,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Reported: ${_formatDate(request['date'])}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppTheme.textLight,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.flag_outlined,
-                    size: 14,
-                    color: AppTheme.textLight,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${request['priority']} Priority',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: priorityColor,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          if (request['status'] == 'Completed' && request['cost'] != null) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(
-                  Icons.attach_money_outlined,
-                  size: 14,
-                  color: AppTheme.textLight,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Cost: \$${NumberFormat('#,##0.00').format(request['cost'])}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ],
+            ListTile(
+              leading: Icon(Icons.download_outlined, color: Colors.green),
+              title: Text('Download'),
+              onTap: () {
+                Navigator.pop(context);
+                // Download logic
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: Colors.red),
+              title: Text('Delete'),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDeleteDocument(documentId);
+              },
             ),
           ],
-          if (request['status'] == 'Scheduled' && request['scheduledDate'] != null) ...[
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(
-                  Icons.event_outlined,
-                  size: 14,
-                  color: AppTheme.textLight,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Scheduled for: ${_formatDate(request['scheduledDate'])}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.warningColor,
-                  ),
-                ),
-              ],
-            ),
-          ],
+        ),
+      ),
+    );
+  }
+  
+  void _confirmDeleteDocument(String documentId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Document'),
+        content: Text('Are you sure you want to delete this document? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              try {
+                final userId = FirebaseAuth.instance.currentUser!.uid;
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .collection('properties')
+                    .doc(widget.propertyId)
+                    .collection('documents')
+                    .doc(documentId)
+                    .delete();
+                    
+                // Refresh documents list
+                _fetchPropertyData();
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Document deleted successfully')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error deleting document: $e')),
+                );
+              }
+            },
+            child: Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
   }
+
+  double _calculateTotalRent() {
+    double total = 0;
+    for (var unit in _property?.units ?? []) {
+      total += unit.monthlyRent;
+    }
+    return total;
+  }
+
+  double _calculateAverageRent() {
+    final units = _property?.units ?? [];
+    if (units.isEmpty) return 0;
+    return _calculateTotalRent() / units.length;
+  }
+
+  double _calculateOccupancyRate() {
+    final units = _property?.units ?? [];
+    if (units.isEmpty) return 0;
+    
+    final occupiedUnits = units.where((unit) => unit.tenantId != null).length;
+    return (occupiedUnits / units.length) * 100;
+  }
   
-  void _showOptionsBottomSheet() {
+  void _showAssignTenantBottomSheet(PropertyUnitModel unit) {
+    // Will be implemented with tenant selection functionality
+    // Showing a placeholder for now
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Property Options',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildOptionItem(
-                icon: Icons.edit_outlined,
-                label: 'Edit Property',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to edit property page
-                },
-              ),
-              _buildOptionItem(
-                icon: Icons.pin_drop_outlined,
-                label: 'View on Map',
-                onTap: () {
-                  Navigator.pop(context);
-                  // View property on map
-                },
-              ),
-              _buildOptionItem(
-                icon: Icons.description_outlined,
-                label: 'Upload Documents',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Upload documents
-                },
-              ),
-              if (_propertyData!['status'] == 'Occupied')
-                _buildOptionItem(
-                  icon: Icons.home_outlined,
-                  label: 'Mark as Vacant',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Show confirmation dialog
-                    _showConfirmationDialog(
-                      title: 'Mark as Vacant',
-                      message: 'Are you sure you want to mark this property as vacant?',
-                      onConfirm: () {
-                        // Update property status
-                        setState(() {
-                          _propertyData!['status'] = 'Vacant';
-                          _propertyData!['occupancyRate'] = 0.0;
-                        });
-                      },
-                    );
-                  },
-                  isDestructive: true,
-                ),
-            ],
-          ),
+        return UnitActionBottomSheet(
+          propertyId: widget.propertyId,
+          unit: unit,
+          onComplete: () {
+            _fetchPropertyData();
+          },
         );
       },
     );
   }
-  
-  void _showActionsBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Actions',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildOptionItem(
-                icon: Icons.person_add_outlined,
-                label: 'Add Tenant',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to add tenant page
-                },
-              ),
-              _buildOptionItem(
-                icon: Icons.home_repair_service_outlined,
-                label: 'Create Maintenance Request',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to create maintenance request page
-                },
-              ),
-              _buildOptionItem(
-                icon: Icons.attach_money_outlined,
-                label: 'Record Payment',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to record payment page
-                },
-              ),
-              _buildOptionItem(
-                icon: Icons.description_outlined,
-                label: 'Upload Document',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to upload document page
-                },
-              ),
-            ],
-          ),
-        );
-      },
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(this._tabBar);
+
+  final TabBar _tabBar;
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Color(0xFFF8F9FB),
+      child: _tabBar,
     );
   }
-  
-  Widget _buildOptionItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isDestructive = false,
-  }) {
-    return ListTile(
-      leading: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isDestructive
-              ? AppTheme.errorColor.withOpacity(0.1)
-              : AppTheme.primaryColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: isDestructive ? AppTheme.errorColor : AppTheme.primaryColor,
-        ),
-      ),
-      title: Text(
-        label,
-        style: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: isDestructive ? AppTheme.errorColor : null,
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
-  
-  void _showConfirmationDialog({
-    required String title,
-    required String message,
-    required VoidCallback onConfirm,
-  }) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                onConfirm();
-              },
-              child: const Text('Confirm'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-  
-  String _formatDate(String dateStr) {
-    final date = DateTime.parse(dateStr);
-    return DateFormat('dd MMM, yyyy').format(date);
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }

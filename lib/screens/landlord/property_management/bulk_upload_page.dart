@@ -991,8 +991,6 @@ Future<void> _uploadBoth(String userId) async {
                   if (_currentStep == 0)
                     _buildStep1()
                   else if (_currentStep == 1)
-                    _buildStep2()
-                  else if (_currentStep == 2)
                     _buildStep3(),
                 ],
               ),
@@ -1022,7 +1020,7 @@ Future<void> _uploadBoth(String userId) async {
                 ElevatedButton(
                   onPressed: _currentStep == 0 && _selectedFile == null
                       ? null
-                      : _currentStep < 2
+                      : _currentStep < 1
                           ? _nextStep
                           : _isUploading
                               ? null
@@ -1036,7 +1034,7 @@ Future<void> _uploadBoth(String userId) async {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _currentStep < 2
+                  child: _currentStep < 1
                       ? const Text('Next')
                       : _isUploading
                           ? Row(
@@ -1072,9 +1070,9 @@ Future<void> _uploadBoth(String userId) async {
       children: [
         _buildStepCircle(0, 'Select File'),
         _buildStepConnector(0),
-        _buildStepCircle(1, 'Map Columns'),
-        _buildStepConnector(1),
-        _buildStepCircle(2, 'Review & Upload'),
+        // _buildStepCircle(1, 'Map Columns'),
+        // _buildStepConnector(1),
+        _buildStepCircle(1, 'Review & Upload'),
       ],
     );
   }
@@ -1161,22 +1159,29 @@ Future<void> _uploadBoth(String userId) async {
           
           // Upload type selection
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildUploadTypeOption(
-                'Properties',
-                Icons.home_outlined,
-                'properties',
+              Expanded(
+                child: _buildUploadTypeOption(
+                  'Properties',
+                  Icons.home_outlined,
+                  'properties',
+                ),
               ),
-              _buildUploadTypeOption(
-                'Tenants',
-                Icons.people_outline,
-                'tenants',
+              SizedBox(width: 15),
+              Expanded(
+                child: _buildUploadTypeOption(
+                  'Tenants',
+                  Icons.people_outline,
+                  'tenants',
+                ),
               ),
-              _buildUploadTypeOption(
-                'Both',
-                Icons.apartment_outlined,
-                'both',
+              SizedBox(width: 15),
+              Expanded(
+                child: _buildUploadTypeOption(
+                  'Both',
+                  Icons.apartment_outlined,
+                  'both',
+                ),
               ),
             ],
           ),
@@ -1418,189 +1423,189 @@ Future<void> _uploadBoth(String userId) async {
     );
   }
   
-  Widget _buildStep2() {
-    // Get file columns from the preview data
-    final fileColumns = _previewData.isNotEmpty 
-        ? _previewData.first.keys.toList() 
-        : ['Column A', 'Column B', 'Column C', 'Column D', 'Column E', 'Column F', 'Column G', 'Column H'];
+  // Widget _buildStep2() {
+  //   // Get file columns from the preview data
+  //   final fileColumns = _previewData.isNotEmpty 
+  //       ? _previewData.first.keys.toList() 
+  //       : ['Column A', 'Column B', 'Column C', 'Column D', 'Column E', 'Column F', 'Column G', 'Column H'];
     
-    return FadeInUp(
-      duration: const Duration(milliseconds: 300),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Map Columns',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Match columns from your file to the required fields in our system',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 20),
+  //   return FadeInUp(
+  //     duration: const Duration(milliseconds: 300),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Text(
+  //           'Map Columns',
+  //           style: GoogleFonts.poppins(
+  //             fontSize: 18,
+  //             fontWeight: FontWeight.w600,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 8),
+  //         Text(
+  //           'Match columns from your file to the required fields in our system',
+  //           style: GoogleFonts.poppins(
+  //             fontSize: 14,
+  //             color: AppTheme.textSecondary,
+  //           ),
+  //         ),
+  //         const SizedBox(height: 20),
           
-          // Column mapping
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 5,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Column mappings
-                ..._requiredColumns.map((column) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Required Field',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                column,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.arrow_forward,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          flex: 3,
-                          child: DropdownButtonFormField<String>(
-                            value: _columnMappings[column],
-                            decoration: InputDecoration(
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 12,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              hintText: 'Select column',
-                            ),
-                            items: fileColumns.map((String column) {
-                              return DropdownMenuItem<String>(
-                                value: column,
-                                child: Text(
-                                  column,
-                                  style: GoogleFonts.poppins(fontSize: 14),
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (String? value) {
-                              if (value != null) {
-                                setState(() {
-                                  _columnMappings[column] = value;
-                                });
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ],
-            ),
-          ),
+  //         // Column mapping
+  //         Container(
+  //           padding: const EdgeInsets.all(16),
+  //           decoration: BoxDecoration(
+  //             color: Colors.white,
+  //             borderRadius: BorderRadius.circular(16),
+  //             boxShadow: [
+  //               BoxShadow(
+  //                 color: Colors.black.withOpacity(0.05),
+  //                 blurRadius: 5,
+  //                 offset: const Offset(0, 2),
+  //               ),
+  //             ],
+  //           ),
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               // Column mappings
+  //               ..._requiredColumns.map((column) {
+  //                 return Padding(
+  //                   padding: const EdgeInsets.only(bottom: 16),
+  //                   child: Row(
+  //                     children: [
+  //                       Expanded(
+  //                         flex: 2,
+  //                         child: Column(
+  //                           crossAxisAlignment: CrossAxisAlignment.start,
+  //                           children: [
+  //                             Text(
+  //                               'Required Field',
+  //                               style: GoogleFonts.poppins(
+  //                                 fontSize: 12,
+  //                                 color: AppTheme.textSecondary,
+  //                               ),
+  //                             ),
+  //                             const SizedBox(height: 4),
+  //                             Text(
+  //                               column,
+  //                               style: GoogleFonts.poppins(
+  //                                 fontSize: 14,
+  //                                 fontWeight: FontWeight.w500,
+  //                               ),
+  //                             ),
+  //                           ],
+  //                         ),
+  //                       ),
+  //                       const Icon(
+  //                         Icons.arrow_forward,
+  //                         color: Colors.grey,
+  //                       ),
+  //                       const SizedBox(width: 16),
+  //                       Expanded(
+  //                         flex: 3,
+  //                         child: DropdownButtonFormField<String>(
+  //                           value: _columnMappings[column],
+  //                           decoration: InputDecoration(
+  //                             isDense: true,
+  //                             contentPadding: const EdgeInsets.symmetric(
+  //                               horizontal: 12,
+  //                               vertical: 12,
+  //                             ),
+  //                             border: OutlineInputBorder(
+  //                               borderRadius: BorderRadius.circular(8),
+  //                             ),
+  //                             hintText: 'Select column',
+  //                           ),
+  //                           items: fileColumns.map((String column) {
+  //                             return DropdownMenuItem<String>(
+  //                               value: column,
+  //                               child: Text(
+  //                                 column,
+  //                                 style: GoogleFonts.poppins(fontSize: 14),
+  //                               ),
+  //                             );
+  //                           }).toList(),
+  //                           onChanged: (String? value) {
+  //                             if (value != null) {
+  //                               setState(() {
+  //                                 _columnMappings[column] = value;
+  //                               });
+  //                             }
+  //                           },
+  //                         ),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                 );
+  //               }).toList(),
+  //             ],
+  //           ),
+  //         ),
           
-          const SizedBox(height: 20),
+  //         const SizedBox(height: 20),
           
-          // Auto-map button
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () {
-                // Auto-mapping functionality
-                final Map<String, String> newMappings = {};
+  //         // Auto-map button
+  //         SizedBox(
+  //           width: double.infinity,
+  //           child: OutlinedButton.icon(
+  //             onPressed: () {
+  //               // Auto-mapping functionality
+  //               final Map<String, String> newMappings = {};
                 
-                // Try to match columns exactly
-                for (var requiredColumn in _requiredColumns) {
-                  if (fileColumns.contains(requiredColumn)) {
-                    newMappings[requiredColumn] = requiredColumn;
-                  }
-                }
+  //               // Try to match columns exactly
+  //               for (var requiredColumn in _requiredColumns) {
+  //                 if (fileColumns.contains(requiredColumn)) {
+  //                   newMappings[requiredColumn] = requiredColumn;
+  //                 }
+  //               }
                 
-                // For any remaining columns, try case-insensitive match
-                for (var requiredColumn in _requiredColumns) {
-                  if (!newMappings.containsKey(requiredColumn)) {
-                    for (var fileColumn in fileColumns) {
-                      if (fileColumn.toLowerCase() == requiredColumn.toLowerCase()) {
-                        newMappings[requiredColumn] = fileColumn;
-                        break;
-                      }
-                    }
-                  }
-                }
+  //               // For any remaining columns, try case-insensitive match
+  //               for (var requiredColumn in _requiredColumns) {
+  //                 if (!newMappings.containsKey(requiredColumn)) {
+  //                   for (var fileColumn in fileColumns) {
+  //                     if (fileColumn.toLowerCase() == requiredColumn.toLowerCase()) {
+  //                       newMappings[requiredColumn] = fileColumn;
+  //                       break;
+  //                     }
+  //                   }
+  //                 }
+  //               }
                 
-                // Update mappings
-                setState(() {
-                  _columnMappings = {..._columnMappings, ...newMappings};
-                });
+  //               // Update mappings
+  //               setState(() {
+  //                 _columnMappings = {..._columnMappings, ...newMappings};
+  //               });
                 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Columns mapped automatically',
-                      style: GoogleFonts.poppins(),
-                    ),
-                    backgroundColor: AppTheme.infoColor,
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-              icon: const Icon(Icons.auto_awesome),
-              label: Text(
-                'Auto-Map Columns',
-                style: GoogleFonts.poppins(),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                side: BorderSide(color: AppTheme.primaryColor),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  //               ScaffoldMessenger.of(context).showSnackBar(
+  //                 SnackBar(
+  //                   content: Text(
+  //                     'Columns mapped automatically',
+  //                     style: GoogleFonts.poppins(),
+  //                   ),
+  //                   backgroundColor: AppTheme.infoColor,
+  //                   behavior: SnackBarBehavior.floating,
+  //                 ),
+  //               );
+  //             },
+  //             icon: const Icon(Icons.auto_awesome),
+  //             label: Text(
+  //               'Auto-Map Columns',
+  //               style: GoogleFonts.poppins(),
+  //             ),
+  //             style: OutlinedButton.styleFrom(
+  //               padding: const EdgeInsets.symmetric(vertical: 12),
+  //               side: BorderSide(color: AppTheme.primaryColor),
+  //               shape: RoundedRectangleBorder(
+  //                 borderRadius: BorderRadius.circular(12),
+  //               ),
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   
   Widget _buildStep3() {
     return FadeInUp(
@@ -1788,7 +1793,6 @@ Future<void> _uploadBoth(String userId) async {
       onTap: () => _changeUploadType(type),
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        width: 100,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryColor : Colors.white,

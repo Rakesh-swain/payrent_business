@@ -692,7 +692,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => BulkUploadPage(),
+                                    builder: (context) => const BulkUploadPage(),
                                   ),
                                 ),
                               ),

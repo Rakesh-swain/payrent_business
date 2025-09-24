@@ -166,11 +166,11 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text('Add Property', style: GoogleFonts.poppins()),
+        title: Text('Add Property', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context)
         ),
       ),
       body: _isLoading
@@ -433,6 +433,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
+                                  color: Colors.white,
                                 ),
                               ),
                         ),

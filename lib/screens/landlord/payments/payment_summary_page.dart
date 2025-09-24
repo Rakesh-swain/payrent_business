@@ -1143,7 +1143,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => PropertyDetailPage(propertyId: id),
+                              builder: (context) => PropertyDetailsPage(propertyId: id),
                             ),
                           );
                         },

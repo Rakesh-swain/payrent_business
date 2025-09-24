@@ -1235,7 +1235,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => PropertyDetailPage(
+                      builder: (context) => PropertyDetailsPage(
                         propertyId: _tenantData!['propertyId'],
                       ),
                     ),
