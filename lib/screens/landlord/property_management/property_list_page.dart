@@ -115,7 +115,7 @@ class _PropertyListPageState extends State<PropertyListPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const BulkUploadPage(),
+                  builder: (context) => BulkUploadPage(),
                 ),
               );
             },

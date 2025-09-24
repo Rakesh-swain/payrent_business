@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/models/property_model.dart';
+
 
 class AddPropertyPage extends StatefulWidget {
-  const AddPropertyPage({super.key});
+  const AddPropertyPage({Key? key}) : super(key: key);
 
   @override
   State<AddPropertyPage> createState() => _AddPropertyPageState();
@@ -13,78 +17,154 @@ class AddPropertyPage extends StatefulWidget {
 
 class _AddPropertyPageState extends State<AddPropertyPage> {
   final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
   
-  final _propertyNameController = TextEditingController();
+  // Text controllers for property fields
+  final _nameController = TextEditingController();
   final _addressController = TextEditingController();
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
-  final _zipController = TextEditingController();
+  final _zipCodeController = TextEditingController();
+  final _descriptionController = TextEditingController();
   
-  String _propertyType = 'Single Family';
-  bool _isMultiUnit = false;
-  
-  List<Map<String, dynamic>> _units = [];
-  
+  // Property type dropdown
+  String _selectedPropertyType = 'Single Family';
   final List<String> _propertyTypes = [
     'Single Family',
+    'Multi Family',
     'Apartment',
     'Condo',
     'Townhouse',
-    'Duplex',
     'Commercial',
-    'Other',
+    'Other'
   ];
+  
+  // Multi-unit toggle
+  bool _isMultiUnit = false;
+  
+  // List of units
+  List<PropertyUnitModel> _units = [];
+  
+  @override
+  void initState() {
+    super.initState();
+    // Add a default unit
+    _addUnit();
+  }
   
   @override
   void dispose() {
-    _propertyNameController.dispose();
+    _nameController.dispose();
     _addressController.dispose();
     _cityController.dispose();
     _stateController.dispose();
-    _zipController.dispose();
+    _zipCodeController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
   
+  // Add a new unit to the list
   void _addUnit() {
+    final newUnit = PropertyUnitModel(
+      unitNumber: _units.isEmpty ? "Main" : "Unit ${_units.length + 1}",
+      unitType: "Standard",
+      bedrooms: 1,
+      bathrooms: 1.0,
+      monthlyRent: 0.0,
+    );
+    
     setState(() {
-      _units.add({
-        'unitNumber': '',
-        'unitType': 'Apartment',
-        'bedrooms': 1,
-        'bathrooms': 1,
-        'rent': 0,
-      });
+      _units.add(newUnit);
     });
   }
   
+  // Remove a unit from the list
   void _removeUnit(int index) {
-    setState(() {
-      _units.removeAt(index);
-    });
-  }
-  
-  void _updateUnit(int index, String field, dynamic value) {
-    setState(() {
-      _units[index][field] = value;
-    });
-  }
-  
-  void _submitForm() {
-    if (_formKey.currentState!.validate()) {
-      // In a real app, this would save the property data
+    if (_units.length > 1) {
+      setState(() {
+        _units.removeAt(index);
+      });
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Property saved successfully!',
-            style: GoogleFonts.poppins(),
-          ),
-          backgroundColor: AppTheme.successColor,
-          behavior: SnackBarBehavior.floating,
-        ),
+        const SnackBar(content: Text('Property must have at least one unit')),
       );
-      
-      // Navigate back to the property list
-      Navigator.pop(context);
+    }
+  }
+  
+  // Update a unit in the list
+  void _updateUnit(int index, PropertyUnitModel updatedUnit) {
+    setState(() {
+      _units[index] = updatedUnit;
+    });
+  }
+  
+  // Submit the form
+  Future<void> _submitForm() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Get the current user ID
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        if (userId == null) {
+          throw Exception('User not logged in');
+        }
+        
+        // Create the property model
+        final property = PropertyModel(
+          name: _nameController.text,
+          address: _addressController.text,
+          city: _cityController.text,
+          state: _stateController.text,
+          zipCode: _zipCodeController.text,
+          type: _selectedPropertyType,
+          isMultiUnit: _isMultiUnit,
+          units: _units,
+          landlordId: userId,
+          description: _descriptionController.text,
+        );
+        
+        // Convert to Firestore data
+        final propertyData = property.toFirestore();
+        
+        // Save to Firestore in users/properties collection
+        await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('properties')
+          .add(propertyData);
+        
+        // Also save to the main properties collection
+        await FirebaseFirestore.instance
+          .collection('properties')
+          .add({
+            ...propertyData,
+            'landlordId': userId, // Ensure landlordId is saved
+          });
+
+        setState(() {
+          _isLoading = false;
+        });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Property added successfully')),
+        );
+
+        // Navigate back
+        Navigator.pop(context);
+      } catch (e) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding property: $e')),
+        );
+      }
     }
   }
   
@@ -93,717 +173,517 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        title: Text('Add Property', style: GoogleFonts.poppins()),
         elevation: 0,
-        title: const Text('Add Property'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView( physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Property Type Selection
-              FadeInDown(
-                duration: const Duration(milliseconds: 500),
-                child: Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Property Type',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
+                child: FadeInUp(
+                  duration: const Duration(milliseconds: 500),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Property Details Section
+                      _buildSectionTitle('Property Details'),
+                      
+                      // Property Name
+                      TextFormField(
+                        controller: _nameController,
+                        decoration: InputDecoration(
+                          labelText: 'Property Name',
+                          hintText: 'Enter property name',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
+                          fillColor: Colors.white,
+                          filled: true,
                         ),
-                        const SizedBox(height: 16),
-                        
-                        // Property Type Dropdown
-                        DropdownButtonFormField<String>(
-                          value: _propertyType,
-                          decoration: const InputDecoration(
-                            labelText: 'Select Property Type',
-                            prefixIcon: Icon(Icons.home_outlined),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter property name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16.0),
+                      
+                      // Property Address
+                      TextFormField(
+                        controller: _addressController,
+                        decoration: InputDecoration(
+                          labelText: 'Address',
+                          hintText: 'Enter property address',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          items: _propertyTypes.map((String type) {
-                            return DropdownMenuItem<String>(
-                              value: type,
-                              child: Text(type),
-                            );
-                          }).toList(),
-                          onChanged: (String? value) {
-                            setState(() {
-                              _propertyType = value!;
-                            });
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select a property type';
-                            }
-                            return null;
-                          },
+                          fillColor: Colors.white,
+                          filled: true,
                         ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Multi-unit Switch
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Multi-unit Property',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter property address';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16.0),
+                      
+                      // Property City
+                      TextFormField(
+                        controller: _cityController,
+                        decoration: InputDecoration(
+                          labelText: 'City',
+                          hintText: 'Enter city',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          fillColor: Colors.white,
+                          filled: true,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter city';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16.0),
+                      
+                      // State and Zip Code Row
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextFormField(
+                              controller: _stateController,
+                              decoration: InputDecoration(
+                                labelText: 'State',
+                                hintText: 'Enter state',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                fillColor: Colors.white,
+                                filled: true,
                               ),
-                            ),
-                            Switch(
-                              value: _isMultiUnit,
-                              activeColor: AppTheme.primaryColor,
-                              onChanged: (value) {
-                                setState(() {
-                                  _isMultiUnit = value;
-                                  if (value && _units.isEmpty) {
-                                    _addUnit(); // Add first unit automatically
-                                  }
-                                });
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter state';
+                                }
+                                return null;
                               },
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Property Details
-              FadeInDown(
-                duration: const Duration(milliseconds: 600),
-                child: Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Property Details',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Property Name
-                        TextFormField(
-                          controller: _propertyNameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Property Name',
-                            prefixIcon: Icon(Icons.business_outlined),
-                            hintText: 'e.g., Serene Apartments',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a property name';
-                            }
-                            return null;
-                          },
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Address
-                        TextFormField(
-                          controller: _addressController,
-                          decoration: const InputDecoration(
-                            labelText: 'Street Address',
-                            prefixIcon: Icon(Icons.location_on_outlined),
-                            hintText: 'e.g., 123 Main St',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter the street address';
-                            }
-                            return null;
-                          },
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // City, State, Zip
-                        Row(
-                          children: [
-                            // City
-                            Expanded(
-                              flex: 3,
-                              child: TextFormField(
-                                controller: _cityController,
-                                decoration: const InputDecoration(
-                                  labelText: 'City',
-                                  hintText: 'e.g., New York',
+                          const SizedBox(width: 16.0),
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: _zipCodeController,
+                              decoration: InputDecoration(
+                                labelText: 'Zip Code',
+                                hintText: 'Enter zip code',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Required';
-                                  }
-                                  return null;
-                                },
+                                fillColor: Colors.white,
+                                filled: true,
                               ),
-                            ),
-                            
-                            const SizedBox(width: 16),
-                            
-                            // State
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _stateController,
-                                decoration: const InputDecoration(
-                                  labelText: 'State',
-                                  hintText: 'e.g., NY',
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Required';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                            
-                            const SizedBox(width: 16),
-                            
-                            // Zip
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _zipController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Zip',
-                                  hintText: 'e.g., 10001',
-                                ),
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(6),
-                                ],
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Required';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              
-              // Property Images
-              const SizedBox(height: 16),
-              
-              FadeInDown(
-                duration: const Duration(milliseconds: 700),
-                child: Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Property Images',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Image Upload Box
-                        Container(
-                          height: 150,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 1,
+                              keyboardType: TextInputType.number,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter zip code';
+                                }
+                                return null;
+                              },
                             ),
                           ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.cloud_upload_outlined,
-                                  size: 48,
-                                  color: Colors.grey.shade400,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Tap to upload property images',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'PNG, JPG or JPEG (max. 5MB)',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    color: AppTheme.textLight,
-                                  ),
-                                ),
-                              ],
-                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16.0),
+                      
+                      // Property Type Dropdown
+                      DropdownButtonFormField<String>(
+                        value: _selectedPropertyType,
+                        decoration: InputDecoration(
+                          labelText: 'Property Type',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8.0),
                           ),
+                          fillColor: Colors.white,
+                          filled: true,
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              
-              // Unit Details (for multi-unit properties)
-              if (_isMultiUnit) ...[
-                const SizedBox(height: 16),
-                
-                FadeInDown(
-                  duration: const Duration(milliseconds: 800),
-                  child: Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        items: _propertyTypes.map((String type) {
+                          return DropdownMenuItem<String>(
+                            value: type,
+                            child: Text(type),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            setState(() {
+                              _selectedPropertyType = newValue;
+                            });
+                          }
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please select property type';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16.0),
+                      
+                      // Description
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: InputDecoration(
+                          labelText: 'Description',
+                          hintText: 'Enter property description',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          fillColor: Colors.white,
+                          filled: true,
+                        ),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 24.0),
+                      
+                      // Multi-Unit Toggle
+                      Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
                             children: [
                               Text(
-                                'Unit Details',
+                                'Multi-Unit Property',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16.0,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              TextButton.icon(
-                                icon: const Icon(Icons.add),
-                                label: const Text('Add Unit'),
-                                onPressed: _addUnit,
+                              const Spacer(),
+                              Switch(
+                                value: _isMultiUnit,
+                                onChanged: (bool value) {
+                                  setState(() {
+                                    _isMultiUnit = value;
+                                    // Reset units when toggling
+                                    _units.clear();
+                                    _addUnit(); // Add a default unit
+                                  });
+                                },
+                                activeColor: AppTheme.primaryColor,
                               ),
                             ],
                           ),
-                          
-                          const SizedBox(height: 16),
-                          
-                          // List of Units
-                          ..._units.asMap().entries.map((entry) {
-                            int index = entry.key;
-                            Map<String, dynamic> unit = entry.value;
-                            
-                            return _buildUnitForm(index, unit);
-                          }).toList(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              
-              // If not multi-unit, ask for rent
-              if (!_isMultiUnit) ...[
-                const SizedBox(height: 16),
-                
-                FadeInDown(
-                  duration: const Duration(milliseconds: 800),
-                  child: Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Rent Details',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          // Rent
-                          TextFormField(
-                            decoration: const InputDecoration(
-                              labelText: 'Monthly Rent',
-                              prefixIcon: Icon(Icons.attach_money_outlined),
-                              hintText: 'e.g., 1500',
-                            ),
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter the monthly rent';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              
-              const SizedBox(height: 32),
-              
-              // Submit Button
-              FadeInUp(
-                duration: const Duration(milliseconds: 900),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _submitForm,
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      elevation: 4,
-                      shadowColor: AppTheme.primaryColor.withOpacity(0.3),
-                    ),
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: AppTheme.primaryGradient,
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
                         ),
-                        borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Container(
+                      const SizedBox(height: 16.0),
+                      
+                      // Units Section
+                      _buildSectionTitle('Units'),
+                      
+                      // Units List
+                      ..._buildUnitsList(),
+                      
+                      // Add Unit Button
+                      if (_isMultiUnit) ...[
+                        const SizedBox(height: 16.0),
+                        Center(
+                          child: ElevatedButton.icon(
+                            onPressed: _addUnit,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Unit'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.accentColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      
+                      const SizedBox(height: 32.0),
+                      
+                      // Submit Button
+                      SizedBox(
                         width: double.infinity,
-                        height: 56,
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Save Property',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _submitForm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
+                          child: _isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : Text(
+                                'Save Property',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 24.0),
+                    ],
                   ),
                 ),
               ),
-              
-              const SizedBox(height: 32),
-            ],
-          ),
+            ),
+    );
+  }
+  
+  // Build section title
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0, top: 8.0),
+      child: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontSize: 18.0,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.primaryColor,
         ),
       ),
     );
   }
   
-  Widget _buildUnitForm(int index, Map<String, dynamic> unit) {
-    final List<String> unitTypes = [
-      'Apartment',
-      'Studio',
-      'Office',
-      'Shop',
-      'Other',
-    ];
+  // Build units list
+  List<Widget> _buildUnitsList() {
+    final widgets = <Widget>[];
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.grey.shade300,
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Unit header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Unit ${index + 1}',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (_units.length > 1)
-                IconButton(
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    color: AppTheme.errorColor,
+    for (var i = 0; i < _units.length; i++) {
+      final unit = _units[i];
+      
+      widgets.add(
+        FadeInUp(
+          duration: Duration(milliseconds: 300 + (i * 100)),
+          child: Card(
+            margin: const EdgeInsets.only(bottom: 16.0),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              side: BorderSide(color: Colors.grey[300]!),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Unit ${i + 1}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16.0,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_isMultiUnit)
+                        IconButton(
+                          onPressed: () => _removeUnit(i),
+                          icon: const Icon(Icons.delete),
+                          color: Colors.red,
+                        ),
+                    ],
                   ),
-                  onPressed: () => _removeUnit(index),
-                ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Unit Number
-          TextFormField(
-            initialValue: unit['unitNumber'],
-            decoration: const InputDecoration(
-              labelText: 'Unit Number',
-              prefixIcon: Icon(Icons.tag_outlined),
-              hintText: 'e.g., 101',
-            ),
-            onChanged: (value) => _updateUnit(index, 'unitNumber', value),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter unit number';
-              }
-              return null;
-            },
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Unit Type
-          DropdownButtonFormField<String>(
-            value: unit['unitType'],
-            decoration: const InputDecoration(
-              labelText: 'Unit Type',
-              prefixIcon: Icon(Icons.apartment_outlined),
-            ),
-            items: unitTypes.map((String type) {
-              return DropdownMenuItem<String>(
-                value: type,
-                child: Text(type),
-              );
-            }).toList(),
-            onChanged: (String? value) {
-              _updateUnit(index, 'unitType', value);
-            },
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please select unit type';
-              }
-              return null;
-            },
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Bedrooms and Bathrooms
-          Row(
-            children: [
-              // Bedrooms
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bedrooms',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppTheme.textSecondary,
+                  const Divider(),
+                  const SizedBox(height: 12.0),
+                  
+                  // Unit Number
+                  TextFormField(
+                    initialValue: unit.unitNumber,
+                    decoration: InputDecoration(
+                      labelText: 'Unit Number/Name',
+                      hintText: 'e.g. 101, A, Basement',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      fillColor: Colors.white,
+                      filled: true,
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        InkWell(
-                          onTap: () {
-                            if (unit['bedrooms'] > 0) {
-                              _updateUnit(index, 'bedrooms', unit['bedrooms'] - 1);
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.remove,
-                              size: 16,
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            '${unit['bedrooms']}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () {
-                            _updateUnit(index, 'bedrooms', unit['bedrooms'] + 1);
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.add,
-                              size: 16,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(width: 16),
-              
-              // Bathrooms
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Bathrooms',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppTheme.textSecondary,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter unit number';
+                      }
+                      return null;
+                    },
+                    onChanged: (value) {
+                      _updateUnit(
+                        i,
+                        unit.copyWith(unitNumber: value),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12.0),
+                  
+                  // Unit Type
+                  TextFormField(
+                    initialValue: unit.unitType,
+                    decoration: InputDecoration(
+                      labelText: 'Unit Type',
+                      hintText: 'e.g. Studio, 1BR, 2BR',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      fillColor: Colors.white,
+                      filled: true,
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        InkWell(
-                          onTap: () {
-                            if (unit['bathrooms'] > 0) {
-                              _updateUnit(index, 'bathrooms', unit['bathrooms'] - 1);
-                            }
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
+                    onChanged: (value) {
+                      _updateUnit(
+                        i,
+                        unit.copyWith(unitType: value),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12.0),
+                  
+                  // Bedrooms & Bathrooms
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: unit.bedrooms.toString(),
+                          decoration: InputDecoration(
+                            labelText: 'Bedrooms',
+                            border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(
-                              Icons.remove,
-                              size: 16,
-                            ),
+                            fillColor: Colors.white,
+                            filled: true,
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            '${unit['bathrooms']}',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () {
-                            _updateUnit(index, 'bathrooms', unit['bathrooms'] + 1);
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            _updateUnit(
+                              i,
+                              unit.copyWith(bedrooms: int.tryParse(value) ?? 0),
+                            );
                           },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
+                        ),
+                      ),
+                      const SizedBox(width: 12.0),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: unit.bathrooms.toString(),
+                          decoration: InputDecoration(
+                            labelText: 'Bathrooms',
+                            border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Icon(
-                              Icons.add,
-                              size: 16,
-                              color: AppTheme.primaryColor,
-                            ),
+                            fillColor: Colors.white,
+                            filled: true,
                           ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            _updateUnit(
+                              i,
+                              unit.copyWith(bathrooms: double.tryParse(value) ?? 0.0),
+                            );
+                          },
                         ),
-                      ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12.0),
+                  
+                  // Monthly Rent & Security Deposit
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: unit.monthlyRent.toString(),
+                          decoration: InputDecoration(
+                            labelText: 'Monthly Rent',
+                            prefixText: '\$',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            fillColor: Colors.white,
+                            filled: true,
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            _updateUnit(
+                              i,
+                              unit.copyWith(monthlyRent: double.tryParse(value) ?? 0.0),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12.0),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: unit.securityDeposit?.toString() ?? '',
+                          decoration: InputDecoration(
+                            labelText: 'Security Deposit',
+                            prefixText: '\$',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            fillColor: Colors.white,
+                            filled: true,
+                          ),
+                          keyboardType: TextInputType.number,
+                          onChanged: (value) {
+                            _updateUnit(
+                              i,
+                              unit.copyWith(securityDeposit: value.isNotEmpty ? double.tryParse(value) : null),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12.0),
+                  
+                  // Notes
+                  TextFormField(
+                    initialValue: unit.notes ?? '',
+                    decoration: InputDecoration(
+                      labelText: 'Notes',
+                      hintText: 'Any additional information about this unit',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      fillColor: Colors.white,
+                      filled: true,
                     ),
-                  ],
-                ),
+                    maxLines: 2,
+                    onChanged: (value) {
+                      _updateUnit(
+                        i,
+                        unit.copyWith(notes: value),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Unit Rent
-          TextFormField(
-            initialValue: unit['rent'].toString(),
-            decoration: const InputDecoration(
-              labelText: 'Monthly Rent',
-              prefixIcon: Icon(Icons.attach_money_outlined),
-              hintText: 'e.g., 1500',
             ),
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            onChanged: (value) => _updateUnit(index, 'rent', int.tryParse(value) ?? 0),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter the monthly rent';
-              }
-              return null;
-            },
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    }
+    
+    return widgets;
   }
 }

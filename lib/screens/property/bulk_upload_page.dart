@@ -5,14 +5,12 @@ import 'dart:io';
 import 'package:excel/excel.dart' hide Border;
 import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
-
 import '../../controllers/property_controller.dart';
 import '../../controllers/tenant_controller.dart';
 import '../../models/property_model.dart';
-import '../../models/tenant_model.dart';
 
 class BulkUploadPage extends StatefulWidget {
-  const BulkUploadPage({Key? key}) : super(key: key);
+   BulkUploadPage({Key? key}) : super(key: key);
 
   @override
   State<BulkUploadPage> createState() => _BulkUploadPageState();
@@ -48,7 +46,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
         title: const Text('Bulk Upload'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding:  EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -70,7 +68,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                 });
               },
             ),
-            const SizedBox(height: 24.0),
+             SizedBox(height: 24.0),
             
             // File Upload Section
             _buildSectionTitle('Upload File'),
@@ -81,14 +79,14 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                 color: Colors.grey[700],
               ),
             ),
-            const SizedBox(height: 16.0),
+             SizedBox(height: 16.0),
             
             // File Selection
             Row(
               children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                    padding:  EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey),
                       borderRadius: BorderRadius.circular(4.0),
@@ -99,28 +97,28 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 16.0),
+                 SizedBox(width: 16.0),
                 ElevatedButton(
                   onPressed: _selectFile,
-                  child: const Text('Browse'),
+                  child:  Text('Browse'),
                 ),
               ],
             ),
-            const SizedBox(height: 24.0),
+             SizedBox(height: 24.0),
             
             // Template Download Button
             Center(
               child: ElevatedButton.icon(
                 onPressed: _downloadTemplate,
-                icon: const Icon(Icons.download),
-                label: const Text('Download Template'),
+                icon:  Icon(Icons.download),
+                label:  Text('Download Template'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
                 ),
               ),
             ),
-            const SizedBox(height: 24.0),
+             SizedBox(height: 24.0),
             
             // Preview Section (if file is selected)
             if (_fileData != null && _fileData!.isNotEmpty) ...[
@@ -140,7 +138,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24.0),
+               SizedBox(height: 24.0),
             ],
             
             // Validation Errors (if any)
@@ -148,7 +146,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
               _buildSectionTitle('Validation Errors'),
               
               Container(
-                padding: const EdgeInsets.all(12.0),
+                padding:  EdgeInsets.all(12.0),
                 decoration: BoxDecoration(
                   color: Colors.red[50],
                   border: Border.all(color: Colors.red[200]!),
@@ -159,16 +157,16 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                   children: [
                     for (final error in _validationErrors)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
+                        padding:  EdgeInsets.only(bottom: 8.0),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.error_outline, color: Colors.red, size: 16),
-                            const SizedBox(width: 8.0),
+                             Icon(Icons.error_outline, color: Colors.red, size: 16),
+                             SizedBox(width: 8.0),
                             Expanded(
                               child: Text(
                                 error,
-                                style: const TextStyle(color: Colors.red),
+                                style:  TextStyle(color: Colors.red),
                               ),
                             ),
                           ],
@@ -177,13 +175,13 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24.0),
+               SizedBox(height: 24.0),
             ],
             
             // Upload Status Message
             if (_statusMessage.isNotEmpty) ...[
               Container(
-                padding: const EdgeInsets.all(12.0),
+                padding:  EdgeInsets.all(12.0),
                 decoration: BoxDecoration(
                   color: _validationError ? Colors.red[50] : Colors.green[50],
                   border: Border.all(
@@ -197,7 +195,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                       _validationError ? Icons.error_outline : Icons.check_circle_outline,
                       color: _validationError ? Colors.red : Colors.green,
                     ),
-                    const SizedBox(width: 8.0),
+                     SizedBox(width: 8.0),
                     Expanded(
                       child: Text(
                         _statusMessage,
@@ -209,7 +207,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24.0),
+               SizedBox(height: 24.0),
             ],
             
             // Upload Results
@@ -222,7 +220,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                     child: Card(
                       color: Colors.green[50],
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding:  EdgeInsets.all(16.0),
                         child: Column(
                           children: [
                             Text(
@@ -233,7 +231,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                                 color: Colors.green[700],
                               ),
                             ),
-                            const SizedBox(height: 8.0),
+                             SizedBox(height: 8.0),
                             Text(
                               'Successful',
                               style: TextStyle(
@@ -245,12 +243,12 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16.0),
+                   SizedBox(width: 16.0),
                   Expanded(
                     child: Card(
                       color: Colors.red[50],
                       child: Padding(
-                        padding: const EdgeInsets.all(16.0),
+                        padding:  EdgeInsets.all(16.0),
                         child: Column(
                           children: [
                             Text(
@@ -261,7 +259,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                                 color: Colors.red[700],
                               ),
                             ),
-                            const SizedBox(height: 8.0),
+                             SizedBox(height: 8.0),
                             Text(
                               'Failed',
                               style: TextStyle(
@@ -275,26 +273,17 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24.0),
+               SizedBox(height: 24.0),
             ],
             
             // Upload Button
-            // Upload Button
             Center(
-              child: ElevatedButton(
-                onPressed: _selectedFile != null && !_isUploading ? _processUpload : null,
-                child: _isUploading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Upload'),
+              child: TextButton(
+                onPressed: _selectedFile != null ? _processUpload : null,
+                child: const Text('Upload'),
               ),
             ),
+             SizedBox(height: 32.0),
           ],
         ),
       ),
@@ -304,10 +293,10 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
   // Build section title
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+      padding:  EdgeInsets.only(bottom: 12.0),
       child: Text(
         title,
-        style: const TextStyle(
+        style:  TextStyle(
           fontSize: 18.0,
           fontWeight: FontWeight.bold,
         ),
@@ -368,7 +357,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
       if (extension == 'csv') {
         // Parse CSV file
         final input = _selectedFile!.readAsStringSync();
-        final csv = const CsvToListConverter().convert(input);
+        final csv =  CsvToListConverter().convert(input);
         setState(() {
           _fileData = csv;
         });
@@ -520,30 +509,30 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
       
       // Add headers
       if (_selectedUploadType == 'Properties') {
-        sheet.appendRow( [
-          TextCellValue('name'), TextCellValue('address'), TextCellValue('city'), TextCellValue('state'), TextCellValue('zip_code'), TextCellValue('type'), 
-          TextCellValue('is_multi_unit'), TextCellValue('description'), TextCellValue('unit_number'), TextCellValue('unit_type'),
-          TextCellValue('bedrooms'), TextCellValue('bathrooms'), TextCellValue('monthly_rent'), TextCellValue('security_deposit'), TextCellValue('notes')
+        sheet.appendRow([
+           TextCellValue('name'),  TextCellValue('address'),  TextCellValue('city'),  TextCellValue('state'),  TextCellValue('zip_code'),  TextCellValue('type'), 
+           TextCellValue('is_multi_unit'),  TextCellValue('description'),  TextCellValue('unit_number'),  TextCellValue('unit_type'),
+           TextCellValue('bedrooms'),  TextCellValue('bathrooms'),  TextCellValue('monthly_rent'),  TextCellValue('security_deposit'),  TextCellValue('notes')
         ]);
         
         // Add sample data
-        sheet.appendRow( [
-          TextCellValue('Sample Property'), TextCellValue('123 Main St'), TextCellValue('New York'), TextCellValue('NY'), TextCellValue('10001'),
-          TextCellValue('Apartment'), TextCellValue('TRUE'), TextCellValue('Sample description'), TextCellValue('Unit 1'), TextCellValue('Standard'),
-          TextCellValue('2'), TextCellValue('1'), TextCellValue('1500'), TextCellValue('2000'), TextCellValue('Sample notes')
+        sheet.appendRow([
+           TextCellValue('Sample Property'),  TextCellValue('123 Main St'),  TextCellValue('New York'),  TextCellValue('NY'),  TextCellValue('10001'),
+           TextCellValue('Apartment'),  TextCellValue('TRUE'),  TextCellValue('Sample description'),  TextCellValue('Unit 1'),  TextCellValue('Standard'),
+           TextCellValue('2'),  TextCellValue('1'),  TextCellValue('1500'),  TextCellValue('2000'),  TextCellValue('Sample notes')
         ]);
       } else {
-        sheet.appendRow( [
-          TextCellValue('first_name'), TextCellValue('last_name'), TextCellValue('email'), TextCellValue('phone'), TextCellValue('property_id'),
-          TextCellValue('unit_number'), TextCellValue('lease_start_date'), TextCellValue('lease_end_date'),
-          TextCellValue('rent_amount'), TextCellValue('rent_due_day'), TextCellValue('security_deposit'), TextCellValue('notes')
+        sheet.appendRow([
+           TextCellValue('first_name'),  TextCellValue('last_name'),  TextCellValue('email'),  TextCellValue('phone'),  TextCellValue('property_id'),
+           TextCellValue('unit_number'),  TextCellValue('lease_start_date'),  TextCellValue('lease_end_date'),
+           TextCellValue('rent_amount'),  TextCellValue('rent_due_day'),  TextCellValue('security_deposit'),  TextCellValue('notes')
         ]);
         
         // Add sample data
-        sheet.appendRow( [
-          TextCellValue('John'), TextCellValue('Doe'), TextCellValue('john.doe@example.com'), TextCellValue('555-123-4567'),
-          TextCellValue('property_id_here'), TextCellValue('Unit 1'), TextCellValue('2023-01-01'), TextCellValue('2024-01-01'),
-          TextCellValue('1500'), TextCellValue('1'), TextCellValue('2000'), TextCellValue('Sample notes')
+        sheet.appendRow([
+           TextCellValue('John'),  TextCellValue('Doe'),  TextCellValue('john.doe@example.com'),  TextCellValue('555-123-4567'),
+           TextCellValue('property_id_here'),  TextCellValue('Unit 1'),  TextCellValue('2023-01-01'),  TextCellValue('2024-01-01'),
+           TextCellValue('1500'),  TextCellValue('1'),  TextCellValue('2000'),  TextCellValue('Sample notes')
         ]);
       }
       
@@ -762,7 +751,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
           }
         }
         
-        DateTime leaseEndDate = DateTime.now().add(const Duration(days: 365));
+        DateTime leaseEndDate = DateTime.now().add( Duration(days: 365));
         if (leaseEndDateIndex >= 0 && row[leaseEndDateIndex] != null) {
           try {
             leaseEndDate = DateTime.parse(row[leaseEndDateIndex].toString());

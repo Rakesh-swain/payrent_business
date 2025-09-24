@@ -1,19 +1,17 @@
-// lib/screens/landlord/property_management/bulk_upload_page.dart
-
 import 'dart:io';
-import 'dart:convert';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:csv/csv.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import 'package:permission_handler/permission_handler.dart';
+import 'package:payrent_business/screens/landlord/property_management/template_viewer_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/models/property_model.dart';
 
 class BulkUploadPage extends StatefulWidget {
   const BulkUploadPage({super.key});
@@ -36,123 +34,143 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
   // Step indicator
   int _currentStep = 0;
   
-  // Sample data for preview
-  final List<Map<String, dynamic>> _previewData = [];
+  // Data for preview with editing support
+  List<Map<String, dynamic>> _previewData = [];
+  List<Map<String, dynamic>> _originalData = []; // For tracking changes
   
-  // Sample column mappings
-   Map<String, String> _columnMappings = {};
-   List<String> _requiredColumns = [];
-   List<String> _availableColumns = [];
+  // Column mappings
+  Map<String, String> _columnMappings = {};
+  List<String> _requiredColumns = [];
+  List<String> _availableColumns = [];
+  
+  // Upload results
+  int _successCount = 0;
+  int _errorCount = 0;
+  List<String> _errorMessages = [];
   
   @override
   void initState() {
     super.initState();
     _initializeColumns();
   }
+  
   Future<int> _androidVersion() async {
-  var version = await DeviceInfoPlugin().androidInfo;
-  return version.version.sdkInt;
-}
+    var version = await DeviceInfoPlugin().androidInfo;
+    return version.version.sdkInt;
+  }
 
   void _initializeColumns() {
-    // Initialize based on upload type
-    if (_uploadType == 'properties') {
-      _requiredColumns = [
-        'Property Name',
-        'Address',
-        'City',
-        'State',
-        'Zip',
-        'Property Type',
-        'Monthly Rent',
-      ];
-      
-      _availableColumns = [
-        'Property Name',
-        'Address',
-        'City',
-        'State',
-        'Zip',
-        'Property Type',
-        'Monthly Rent',
-        'Bedrooms',
-        'Bathrooms',
-        'Square Feet',
-        'Year Built',
-        'Description',
-      ];
-    } else if (_uploadType == 'tenants') {
-      _requiredColumns = [
-        'First Name',
-        'Last Name',
-        'Email',
-        'Phone',
-        'Property',
-        'Unit',
-        'Lease Start',
-        'Lease End',
-      ];
-      
-      _availableColumns = [
-        'First Name',
-        'Last Name',
-        'Email',
-        'Phone',
-        'Property',
-        'Unit',
-        'Lease Start',
-        'Lease End',
-        'Monthly Rent',
-        'Security Deposit',
-        'Emergency Contact Name',
-        'Emergency Contact Phone',
-      ];
-    } else if (_uploadType == 'both') {
-      _requiredColumns = [
-        'Property Name',
-        'Address',
-        'City',
-        'State',
-        'Zip',
-        'Property Type',
-        'Monthly Rent',
-        'Tenant First Name',
-        'Tenant Last Name',
-        'Tenant Email',
-        'Tenant Phone',
-        'Lease Start',
-        'Lease End',
-      ];
-      
-      _availableColumns = [
-        'Property Name',
-        'Address',
-        'City',
-        'State',
-        'Zip',
-        'Property Type',
-        'Monthly Rent',
-        'Bedrooms',
-        'Bathrooms',
-        'Square Feet',
-        'Tenant First Name',
-        'Tenant Last Name',
-        'Tenant Email',
-        'Tenant Phone',
-        'Lease Start',
-        'Lease End',
-        'Security Deposit',
-        'Emergency Contact Name',
-        'Emergency Contact Phone',
-      ];
-    }
+  // Initialize based on upload type
+  if (_uploadType == 'properties') {
+    _requiredColumns = [
+      'Property Name',
+      'Address',
+      'City',
+      'State',
+      'Zip',
+      'Property Type',
+      'Is Multi Unit',
+      'Unit Number',
+      'Monthly Rent',
+    ];
     
-    // Initialize default mappings
-    _columnMappings.clear();
-    for (var column in _requiredColumns) {
-      _columnMappings[column] = column;
-    }
+    _availableColumns = [
+      'Property Name',
+      'Address',
+      'City',
+      'State',
+      'Zip',
+      'Property Type',
+      'Is Multi Unit',
+      'Unit Number',
+      'Unit Type',
+      'Monthly Rent',
+      'Bedrooms',
+      'Bathrooms',
+      'Square Feet',
+      'Year Built',
+      'Description',
+      'Notes',
+    ];
+  } else if (_uploadType == 'tenants') {
+    _requiredColumns = [
+      'First Name',
+      'Last Name',
+      'Email',
+      'Phone',
+      'Property',
+      'Unit',
+      'Lease Start',
+      'Lease End',
+      'Monthly Rent',
+    ];
+    
+    _availableColumns = [
+      'First Name',
+      'Last Name',
+      'Email',
+      'Phone',
+      'Property',
+      'Unit',
+      'Lease Start',
+      'Lease End',
+      'Monthly Rent',
+      'Security Deposit',
+      'Emergency Contact Name',
+      'Emergency Contact Phone',
+    ];
+  } else if (_uploadType == 'both') {
+    _requiredColumns = [
+      'Property Name',
+      'Address',
+      'City',
+      'State',
+      'Zip',
+      'Property Type',
+      'Is Multi Unit',
+      'Unit Number',
+      'Monthly Rent',
+      'Tenant First Name',
+      'Tenant Last Name',
+      'Tenant Email',
+      'Lease Start',
+      'Lease End',
+    ];
+    
+    _availableColumns = [
+      'Property Name',
+      'Address',
+      'City',
+      'State',
+      'Zip',
+      'Property Type',
+      'Is Multi Unit',
+      'Unit Number',
+      'Unit Type',
+      'Monthly Rent',
+      'Bedrooms',
+      'Bathrooms',
+      'Square Feet',
+      'Tenant First Name',
+      'Tenant Last Name',
+      'Tenant Email',
+      'Tenant Phone',
+      'Lease Start',
+      'Lease End',
+      'Security Deposit',
+      'Emergency Contact Name',
+      'Emergency Contact Phone',
+    ];
   }
+  
+  // Initialize default mappings
+  _columnMappings.clear();
+  for (var column in _requiredColumns) {
+    _columnMappings[column] = column;
+  }
+}
+    
+    
   
   Future<void> _selectFile() async {
     setState(() {
@@ -189,8 +207,8 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                 _selectedFilePath = filePath;
                 _fileSize = fileSize;
                 _fileRowCount = parsedData.length;
-                _previewData.clear();
-                _previewData.addAll(parsedData);
+                _previewData = List<Map<String, dynamic>>.from(parsedData);
+                _originalData = List<Map<String, dynamic>>.from(parsedData);
                 _isLoading = false;
               });
             } else {
@@ -321,92 +339,468 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
     return result;
   }
   
-  Future<void> downloadTemplate() async {
-    try {
-      // Request storage permission
-      // var status = await Permission.storage.request();
-
-      PermissionStatus status;
-if (Platform.isAndroid && (await _androidVersion()) >= 30) {
-  status = await Permission.manageExternalStorage.request();
-} else {
-  status = await Permission.storage.request();
-}
-        if (!status.isGranted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Storage permission is required to download templates')),
-        );
-        return;
+  void _showTemplateFormatDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Choose Template Format', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Select your preferred template format',
+              style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildFormatOption(context, 'CSV', Icons.insert_drive_file_outlined),
+                _buildFormatOption(context, 'Excel', Icons.table_chart_outlined),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ).then((format) {
+      if (format != null) {
+        _navigateToTemplateViewer(format);
       }
-      // Get the template content based on upload type
-      final templateName = _uploadType == 'properties' 
-          ? 'property_template.csv' 
-          : _uploadType == 'tenants' 
-              ? 'tenant_template.csv' 
-              : 'combined_template.csv';
-      
-      // Load the template from assets
-      String templateContent = '';
+    });
+  }
+
+  Widget _buildFormatOption(BuildContext context, String format, IconData icon) {
+    return InkWell(
+      onTap: () => Navigator.pop(context, format),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 32, color: AppTheme.primaryColor),
+            const SizedBox(height: 8),
+            Text(
+              format,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _navigateToTemplateViewer(String format) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TemplateViewerPage(
+          format: format.toLowerCase(),
+          uploadType: _uploadType,
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _uploadFile() async {
+    setState(() {
+      _isUploading = true;
+      _successCount = 0;
+      _errorCount = 0;
+      _errorMessages = [];
+    });
+    
+    try {
+      // Get current user ID
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not logged in');
+      }
       
       if (_uploadType == 'properties') {
-        templateContent = '''Property Name,Address,City,State,Zip,Property Type,Monthly Rent,Bedrooms,Bathrooms,Square Feet,Year Built,Description
-Lakeside Apartment,123 Lake View Dr,Chicago,IL,60601,Apartment,1850,2,1,950,2005,Modern apartment with lake view and updated kitchen. Close to public transportation and shopping centers.
-Oakwood Townhouse,456 Oak Street,San Francisco,CA,94107,Townhouse,3200,3,2.5,1650,1998,Spacious townhouse with private backyard and garage. Recently renovated with hardwood floors throughout.
-Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,2010,Beautiful family home in quiet neighborhood with large yard. Features open floor plan and updated appliances.''';
+        await _uploadProperties(userId);
       } else if (_uploadType == 'tenants') {
-        templateContent = '''First Name,Last Name,Email,Phone,Property,Unit,Lease Start,Lease End,Monthly Rent,Security Deposit,Emergency Contact Name,Emergency Contact Phone
-John,Doe,john.doe@example.com,(312) 555-7890,Lakeside Apartment,Unit 303,2023-06-01,2024-05-31,1850,2775,Mary Doe,(312) 555-9876
-Sarah,Johnson,sarah.j@example.com,(415) 555-1234,Oakwood Townhouse,Unit B,2023-04-15,2024-04-14,3200,4800,Robert Johnson,(415) 555-5678
-Michael,Smith,msmith@example.com,(512) 555-3456,Highland Villa,Main House,2023-08-01,2024-07-31,2750,4125,Jennifer Smith,(512) 555-7890
-Emily,Williams,emily.w@example.com,(312) 555-4321,Lakeside Apartment,Unit 305,2023-07-15,2024-07-14,1850,2775,Thomas Williams,(312) 555-8765''';
-      } else {
-        templateContent = '''Property Name,Address,City,State,Zip,Property Type,Monthly Rent,Bedrooms,Bathrooms,Square Feet,Tenant First Name,Tenant Last Name,Tenant Email,Tenant Phone,Unit,Lease Start,Lease End,Security Deposit,Emergency Contact Name,Emergency Contact Phone
-Lakeside Apartment,123 Lake View Dr,Chicago,IL,60601,Apartment,1850,2,1,950,John,Doe,john.doe@example.com,(312) 555-7890,Unit 303,2023-06-01,2024-05-31,2775,Mary Doe,(312) 555-9876
-Oakwood Townhouse,456 Oak Street,San Francisco,CA,94107,Townhouse,3200,3,2.5,1650,Sarah,Johnson,sarah.j@example.com,(415) 555-1234,Unit B,2023-04-15,2024-04-14,4800,Robert Johnson,(415) 555-5678
-Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Michael,Smith,msmith@example.com,(512) 555-3456,Main House,2023-08-01,2024-07-31,4125,Jennifer Smith,(512) 555-7890''';
+        await _uploadTenants(userId);
+      } else { // Both
+        await _uploadBoth(userId);
       }
       
-      // Get the download directory
-      final directory = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
-      final filePath = path.join(directory.path, templateName);
+      setState(() {
+        _isUploading = false;
+      });
       
-      // Write the template to a file
-      final file = File(filePath);
-      await file.writeAsString(templateContent);
-      
-      // Show success message with file path
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Template downloaded to: $filePath'),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'OK',
-            onPressed: () {},
-          ),
-        ),
-      );
+      // Show success dialog
+      _showUploadResultDialog(_errorCount == 0);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error downloading template: ${e.toString()}')),
-      );
+      setState(() {
+        _isUploading = false;
+        _errorMessages.add(e.toString());
+        _errorCount++;
+      });
+      
+      _showUploadResultDialog(false);
     }
   }
   
-  void _uploadFile() async {
-    setState(() {
-      _isUploading = true;
-    });
-    
-    // Simulate upload process
-    await Future.delayed(const Duration(seconds: 2));
-    
-    setState(() {
-      _isUploading = false;
-    });
-    
-    // Show success dialog
-    _showUploadResultDialog(true);
+  // Upload properties to Firebase
+// Upload properties to Firebase
+Future<void> _uploadProperties(String userId) async {
+  final firestore = FirebaseFirestore.instance;
+  final batch = firestore.batch();
+  
+  // Group by property name to handle multi-unit properties
+  Map<String, List<Map<String, dynamic>>> propertyGroups = {};
+  
+  // Group the properties by name for multi-unit handling
+  for (final propertyData in _previewData) {
+    final propertyName = propertyData['Property Name'] ?? '';
+    if (!propertyGroups.containsKey(propertyName)) {
+      propertyGroups[propertyName] = [];
+    }
+    propertyGroups[propertyName]!.add(propertyData);
   }
+  
+  // Process each property group
+  for (final propertyName in propertyGroups.keys) {
+    try {
+      final propertyRows = propertyGroups[propertyName]!;
+      
+      // Use the first row for common property data
+      final firstRow = propertyRows[0];
+      
+      // Determine if property is multi-unit based on row count or explicit flag
+      final isMultiUnitStr = firstRow['Is Multi Unit']?.toString().toLowerCase() ?? 'false';
+      final isMultiUnit = (isMultiUnitStr == 'true' || isMultiUnitStr == 'yes' || isMultiUnitStr == '1') 
+                          || propertyRows.length > 1;
+      
+      // Create units
+      List<PropertyUnitModel> units = [];
+      
+      for (final unitRow in propertyRows) {
+        units.add(PropertyUnitModel(
+          unitNumber: unitRow['Unit Number'] ?? (units.isEmpty ? 'Main' : 'Unit ${units.length + 1}'),
+          unitType: unitRow['Unit Type'] ?? 'Standard',
+          bedrooms: int.tryParse(unitRow['Bedrooms']?.toString() ?? '1') ?? 1,
+          bathrooms: double.tryParse(unitRow['Bathrooms']?.toString() ?? '1.0') ?? 1.0,
+          monthlyRent: double.tryParse(unitRow['Monthly Rent']?.toString() ?? '0.0') ?? 0.0,
+          squareFeet: int.tryParse(unitRow['Square Feet']?.toString() ?? '0'),
+          notes: unitRow['Notes'],
+        ));
+      }
+      
+      // Create property model
+      final property = PropertyModel(
+        name: propertyName,
+        address: firstRow['Address'] ?? '',
+        city: firstRow['City'] ?? '',
+        state: firstRow['State'] ?? '',
+        zipCode: firstRow['Zip'] ?? '',
+        type: firstRow['Property Type'] ?? 'Single Family',
+        isMultiUnit: isMultiUnit,
+        units: units,
+        landlordId: userId,
+        description: firstRow['Description'],
+      );
+      
+      // Create a new document reference
+      final propertyRef = firestore.collection('users').doc(userId).collection('properties').doc();
+      
+      // Add property to batch
+      batch.set(propertyRef, property.toFirestore());
+      
+      setState(() {
+        _successCount++;
+      });
+    } catch (e) {
+      setState(() {
+        _errorCount++;
+        _errorMessages.add('Error adding property: ${e.toString()}');
+      });
+    }
+  }
+  
+  // Commit the batch
+  await batch.commit();
+}
+
+// Upload both properties and tenants
+Future<void> _uploadBoth(String userId) async {
+  final firestore = FirebaseFirestore.instance;
+  final batch = firestore.batch();
+  
+  // Group by property name to handle multi-unit properties
+  Map<String, List<Map<String, dynamic>>> propertyGroups = {};
+  
+  // Group the properties by name for multi-unit handling
+  for (final rowData in _previewData) {
+    final propertyName = rowData['Property Name'] ?? '';
+    if (!propertyGroups.containsKey(propertyName)) {
+      propertyGroups[propertyName] = [];
+    }
+    propertyGroups[propertyName]!.add(rowData);
+  }
+  
+  // Process each property group
+  for (final propertyName in propertyGroups.keys) {
+    try {
+      final propertyRows = propertyGroups[propertyName]!;
+      
+      // Use the first row for common property data
+      final firstRow = propertyRows[0];
+      
+      // Determine if property is multi-unit based on row count or explicit flag
+      final isMultiUnitStr = firstRow['Is Multi Unit']?.toString().toLowerCase() ?? 'false';
+      final isMultiUnit = (isMultiUnitStr == 'true' || isMultiUnitStr == 'yes' || isMultiUnitStr == '1') 
+                          || propertyRows.length > 1;
+      
+      // 1. Create and save the property first
+      List<PropertyUnitModel> units = [];
+      List<Map<String, dynamic>> tenants = [];
+      Map<String, String> unitToTenantIds = {};
+      
+      // Create property reference
+      final propertyRef = firestore.collection('users').doc(userId).collection('properties').doc();
+      
+      // Process each unit and its tenant
+      for (int i = 0; i < propertyRows.length; i++) {
+        final rowData = propertyRows[i];
+        
+        // Create unit
+        final unit = PropertyUnitModel(
+          unitNumber: rowData['Unit Number'] ?? (i == 0 && !isMultiUnit ? 'Main' : 'Unit ${i + 1}'),
+          unitType: rowData['Unit Type'] ?? 'Standard',
+          bedrooms: int.tryParse(rowData['Bedrooms']?.toString() ?? '1') ?? 1,
+          bathrooms: double.tryParse(rowData['Bathrooms']?.toString() ?? '1.0') ?? 1.0,
+          monthlyRent: double.tryParse(rowData['Monthly Rent']?.toString() ?? '0.0') ?? 0.0,
+          squareFeet: int.tryParse(rowData['Square Feet']?.toString() ?? '0'),
+        );
+        
+        units.add(unit);
+        
+        // Parse dates
+        DateTime leaseStart = DateTime.now();
+        DateTime leaseEnd = DateTime.now().add(const Duration(days: 365));
+        
+        try {
+          if (rowData['Lease Start'] != null) {
+            leaseStart = DateTime.parse(rowData['Lease Start'].toString());
+          }
+          if (rowData['Lease End'] != null) {
+            leaseEnd = DateTime.parse(rowData['Lease End'].toString());
+          }
+        } catch (e) {
+          _errorMessages.add('Error parsing dates: ${e.toString()}');
+        }
+        
+        // Check if we have tenant data
+        if (rowData['Tenant First Name'] != null && rowData['Tenant First Name'].toString().isNotEmpty) {
+          // Create tenant document reference
+          final tenantRef = firestore.collection('users').doc(userId).collection('tenants').doc();
+          
+          // Create tenant data
+          final tenant = {
+            'firstName': rowData['Tenant First Name'] ?? '',
+            'lastName': rowData['Tenant Last Name'] ?? '',
+            'email': rowData['Tenant Email'] ?? '',
+            'phone': rowData['Tenant Phone'] ?? '',
+            'landlordId': userId,
+            'propertyId': propertyRef.id,
+            'propertyName': propertyName,
+            'propertyAddress': rowData['Address'] ?? '',
+            'unitNumber': unit.unitNumber,
+            'unitId': unit.unitId,
+            'leaseStartDate': Timestamp.fromDate(leaseStart),
+            'leaseEndDate': Timestamp.fromDate(leaseEnd),
+            'rentAmount': unit.monthlyRent,
+            'rentDueDay': 1, // Default
+            'securityDeposit': double.tryParse(rowData['Security Deposit']?.toString() ?? '0.0'),
+            'status': 'active',
+            'isArchived': false,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          };
+          
+          // Add tenant to batch
+          batch.set(tenantRef, tenant);
+          
+          // Store tenant ID to link with unit
+          unitToTenantIds[unit.unitId] = tenantRef.id;
+          
+          // Store tenant data for unit subcollection
+          tenants.add({
+            'tenantId': tenantRef.id,
+            'unitId': unit.unitId,
+            'unitNumber': unit.unitNumber,
+            'startDate': Timestamp.fromDate(leaseStart),
+            'endDate': Timestamp.fromDate(leaseEnd),
+            'rentAmount': unit.monthlyRent,
+          });
+        }
+      }
+      
+      // Update units with tenant IDs if applicable
+      for (int i = 0; i < units.length; i++) {
+        if (unitToTenantIds.containsKey(units[i].unitId)) {
+          units[i] = units[i].copyWith(tenantId: unitToTenantIds[units[i].unitId]);
+        }
+      }
+      
+      // Create property model
+      final property = PropertyModel(
+        name: propertyName,
+        address: firstRow['Address'] ?? '',
+        city: firstRow['City'] ?? '',
+        state: firstRow['State'] ?? '',
+        zipCode: firstRow['Zip'] ?? '',
+        type: firstRow['Property Type'] ?? 'Single Family',
+        isMultiUnit: isMultiUnit,
+        units: units,
+        landlordId: userId,
+        description: firstRow['Description'],
+      );
+      
+      // Add property to batch
+      batch.set(propertyRef, property.toFirestore());
+      
+      // Add tenant assignments to unit subcollections
+      for (final tenantData in tenants) {
+        final String tenantId = tenantData['tenantId'];
+        final String unitId = tenantData['unitId'];
+        
+        batch.set(
+          firestore
+              .collection('users')
+              .doc(userId)
+              .collection('properties')
+              .doc(propertyRef.id)
+              .collection('units')
+              .doc(unitId)
+              .collection('tenants')
+              .doc(tenantId),
+          {
+            'tenantId': tenantId,
+            'startDate': tenantData['startDate'],
+            'endDate': tenantData['endDate'],
+            'rentAmount': tenantData['rentAmount'],
+            'status': 'active',
+            'createdAt': FieldValue.serverTimestamp(),
+          }
+        );
+      }
+      
+      setState(() {
+        _successCount++;
+      });
+    } catch (e) {
+      setState(() {
+        _errorCount++;
+        _errorMessages.add('Error adding property with tenants: ${e.toString()}');
+      });
+    }
+  }
+  
+  // Commit the batch
+  await batch.commit();
+}
+  
+  // Upload tenants to Firebase
+  Future<void> _uploadTenants(String userId) async {
+    final firestore = FirebaseFirestore.instance;
+    final batch = firestore.batch();
+    
+    for (final tenantData in _previewData) {
+      try {
+        // Parse dates
+        DateTime leaseStart = DateTime.now();
+        DateTime leaseEnd = DateTime.now().add(const Duration(days: 365));
+        
+        try {
+          if (tenantData['Lease Start'] != null) {
+            leaseStart = DateTime.parse(tenantData['Lease Start'].toString());
+          }
+          if (tenantData['Lease End'] != null) {
+            leaseEnd = DateTime.parse(tenantData['Lease End'].toString());
+          }
+        } catch (e) {
+          _errorMessages.add('Error parsing dates: ${e.toString()}');
+        }
+        
+        // Find property ID by name (if it exists)
+        String propertyId = '';
+        String propertyName = tenantData['Property'] ?? '';
+        String propertyAddress = '';
+        
+        if (propertyName.isNotEmpty) {
+          final propertyQuery = await firestore
+            .collection('users')
+            .doc(userId)
+            .collection('properties')
+            .where('name', isEqualTo: propertyName)
+            .limit(1)
+            .get();
+            
+          if (propertyQuery.docs.isNotEmpty) {
+            propertyId = propertyQuery.docs.first.id;
+            final propertyData = propertyQuery.docs.first.data();
+            propertyAddress = propertyData['address'] ?? '';
+          }
+        }
+        
+        // Create tenant model
+        final tenant = {
+          'firstName': tenantData['First Name'] ?? '',
+          'lastName': tenantData['Last Name'] ?? '',
+          'email': tenantData['Email'] ?? '',
+          'phone': tenantData['Phone'] ?? '',
+          'landlordId': userId,
+          'propertyId': propertyId,
+          'propertyName': propertyName,
+          'propertyAddress': propertyAddress,
+          'unitNumber': tenantData['Unit'] ?? '',
+          'leaseStartDate': Timestamp.fromDate(leaseStart),
+          'leaseEndDate': Timestamp.fromDate(leaseEnd),
+          'rentAmount': double.tryParse(tenantData['Monthly Rent']?.toString() ?? '0.0') ?? 0.0,
+          'rentDueDay': int.tryParse(tenantData['Rent Due Day']?.toString() ?? '1') ?? 1,
+          'securityDeposit': double.tryParse(tenantData['Security Deposit']?.toString() ?? '0.0'),
+          'status': 'active',
+          'isArchived': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        
+        // Create a new document reference
+        final tenantRef = firestore.collection('users').doc(userId).collection('tenants').doc();
+        
+        // Add tenant to batch
+        batch.set(tenantRef, tenant);
+        
+        setState(() {
+          _successCount++;
+        });
+      } catch (e) {
+        setState(() {
+          _errorCount++;
+          _errorMessages.add('Error adding tenant: ${e.toString()}');
+        });
+      }
+    }
+    
+    // Commit the batch
+    await batch.commit();
+  }
+  
+  
   
   void _changeUploadType(String type) {
     setState(() {
@@ -414,6 +808,7 @@ Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Mich
       _selectedFile = null;
       _selectedFilePath = null;
       _previewData.clear();
+      _originalData.clear();
       _currentStep = 0;
       _fileRowCount = 0;
       _fileSize = '';
@@ -478,17 +873,57 @@ Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Mich
               Text(
                 isSuccess
                     ? _uploadType == 'properties'
-                        ? '$_fileRowCount properties have been uploaded successfully'
+                        ? '$_successCount properties have been uploaded successfully'
                         : _uploadType == 'tenants'
-                            ? '$_fileRowCount tenants have been uploaded successfully'
-                            : '$_fileRowCount properties with tenants have been uploaded successfully'
-                    : 'There was an issue uploading your file. Please try again.',
+                            ? '$_successCount tenants have been uploaded successfully'
+                            : '$_successCount properties with tenants have been uploaded successfully'
+                    : 'There were issues with the upload. Please check the errors below.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
                   color: AppTheme.textSecondary,
                 ),
               ),
+              
+              // Show error messages
+              if (_errorMessages.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  height: 100,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _errorMessages.map((message) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red, size: 14),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  message,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
+              
               const SizedBox(height: 16),
               if (isSuccess)
                 Text(
@@ -532,7 +967,7 @@ Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Mich
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Bulk Upload'),
+        title: Text('Bulk Upload', style: GoogleFonts.poppins()),
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -902,6 +1337,7 @@ Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Mich
                                     _selectedFile = null;
                                     _selectedFilePath = null;
                                     _previewData.clear();
+                                    _originalData.clear();
                                     _fileRowCount = 0;
                                     _fileSize = '';
                                   });
@@ -960,9 +1396,9 @@ Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Mich
                       ),
                       const SizedBox(height: 8),
                       InkWell(
-                        onTap: downloadTemplate,
+                        onTap: _showTemplateFormatDialog,
                         child: Text(
-                          'Download Template',
+                          'See Template Format',
                           style: GoogleFonts.poppins(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -1181,7 +1617,7 @@ Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Mich
           ),
           const SizedBox(height: 8),
           Text(
-            'Review the data before uploading to ensure everything is correct',
+            'Review and edit the data before uploading',
             style: GoogleFonts.poppins(
               fontSize: 14,
               color: AppTheme.textSecondary,
@@ -1189,7 +1625,7 @@ Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Mich
           ),
           const SizedBox(height: 20),
           
-          // Data preview
+          // Editable data preview
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1204,46 +1640,7 @@ Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Mich
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columnSpacing: 24,
-                dataRowHeight: 64,
-                headingRowColor: MaterialStateProperty.all(Colors.grey.shade100),
-                border: TableBorder(
-                  horizontalInside: BorderSide(
-                    color: Colors.grey.shade200,
-                    width: 1,
-                  ),
-                ),
-                columns: _previewData.isEmpty
-                    ? [const DataColumn(label: Text('No data to preview'))]
-                    : _previewData.first.keys.map((key) {
-                        return DataColumn(
-                          label: Text(
-                            key,
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                rows: _previewData.isEmpty
-                    ? [
-                        DataRow(cells: [DataCell(Container())]),
-                      ]
-                    : _previewData.map((data) {
-                        return DataRow(
-                          cells: data.values.map((value) {
-                            return DataCell(
-                              Text(
-                                value.toString(),
-                                style: GoogleFonts.poppins(fontSize: 14),
-                              ),
-                            );
-                          }).toList(),
-                        );
-                      }).toList(),
-              ),
+              child: _buildEditableDataTable(),
             ),
           ),
           
@@ -1314,6 +1711,73 @@ Highland Villa,789 Highland Ave,Austin,TX,78703,Single-Family,2750,4,3,2200,Mich
           ),
         ],
       ),
+    );
+  }
+  
+  // Build an editable data table with TextField widgets
+  Widget _buildEditableDataTable() {
+    if (_previewData.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Text(
+            'No data to preview',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    final headers = _previewData.first.keys.toList();
+    
+    return DataTable(
+      columnSpacing: 24,
+      dataRowHeight: 64,
+      headingRowColor: MaterialStateProperty.all(Colors.grey.shade100),
+      border: TableBorder(
+        horizontalInside: BorderSide(
+          color: Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      columns: headers.map((header) {
+        return DataColumn(
+          label: Text(
+            header,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
+      }).toList(),
+      rows: List.generate(_previewData.length, (rowIndex) {
+        return DataRow(
+          cells: headers.map((header) {
+            return DataCell(
+              TextField(
+                controller: TextEditingController(text: _previewData[rowIndex][header]?.toString() ?? ''),
+                onChanged: (value) {
+                  setState(() {
+                    _previewData[rowIndex][header] = value;
+                  });
+                },
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  isDense: true,
+                ),
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      }),
     );
   }
   

@@ -80,7 +80,7 @@ class ManagePropertiesPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const BulkUploadPage(),
+                      builder: (context) =>  BulkUploadPage(),
                     ),
                   );
                 },

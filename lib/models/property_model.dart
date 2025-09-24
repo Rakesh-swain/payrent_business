@@ -131,6 +131,8 @@ class PropertyUnitModel {
   final double? securityDeposit;
   final String? tenantId;
   final String? notes;
+  final int? squareFeet;
+
   
   PropertyUnitModel({
     String? unitId,
@@ -142,6 +144,7 @@ class PropertyUnitModel {
     this.securityDeposit,
     this.tenantId,
     this.notes,
+    this.squareFeet,
   }) : unitId = unitId ?? DateTime.now().millisecondsSinceEpoch.toString();
   
   // Factory constructor to create PropertyUnitModel from a Map
@@ -156,6 +159,7 @@ class PropertyUnitModel {
       securityDeposit: map['securityDeposit'] != null ? map['securityDeposit'].toDouble() : null,
       tenantId: map['tenantId'],
       notes: map['notes'],
+      squareFeet: map['squareFeet'],
     );
   }
   
@@ -171,6 +175,7 @@ class PropertyUnitModel {
       'securityDeposit': securityDeposit,
       'tenantId': tenantId,
       'notes': notes,
+      'squareFeet': squareFeet,
     };
   }
   
@@ -195,6 +200,7 @@ class PropertyUnitModel {
       securityDeposit: securityDeposit ?? this.securityDeposit,
       tenantId: tenantId ?? this.tenantId,
       notes: notes ?? this.notes,
+      squareFeet: squareFeet ?? this.squareFeet,
     );
   }
 }
