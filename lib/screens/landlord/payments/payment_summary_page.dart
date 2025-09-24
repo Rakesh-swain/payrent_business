@@ -43,6 +43,8 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
 
   Future<void> _loadData() async {
     await _propertyController.fetchProperties();
+    await _tenantController.fetchTenants();
+    await _paymentController.fetchPayments();
   }
 
   @override

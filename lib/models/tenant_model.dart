@@ -19,6 +19,7 @@ class TenantModel {
   final int? securityDeposit;
   final String? notes;
   final String status;
+  final String paymentFrequency;
   final bool isArchived;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -42,6 +43,7 @@ class TenantModel {
     this.securityDeposit,
     this.notes,
     this.status = 'active',
+    this.paymentFrequency = 'monthly',
     this.isArchived = false,
     this.createdAt,
     this.updatedAt,
@@ -76,6 +78,7 @@ class TenantModel {
           : null,
       notes: data['notes'],
       status: data['status'] ?? 'active',
+      paymentFrequency: data['paymentFrequency'] ?? 'monthly',
       isArchived: data['isArchived'] ?? false,
       createdAt: data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : null,
       updatedAt: data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : null,
@@ -100,6 +103,7 @@ class TenantModel {
       'rentAmount': rentAmount,
       'rentDueDay': rentDueDay,
       'securityDeposit': securityDeposit,
+      'paymentFrequency': paymentFrequency,
       'notes': notes,
       'status': status,
       'isArchived': isArchived,
@@ -125,6 +129,7 @@ class TenantModel {
     int? rentAmount,
     int? rentDueDay,
     int? securityDeposit,
+    String? paymentFrequency,
     String? notes,
     String? status,
     bool? isArchived,
@@ -146,6 +151,7 @@ class TenantModel {
       rentAmount: rentAmount ?? this.rentAmount,
       rentDueDay: rentDueDay ?? this.rentDueDay,
       securityDeposit: securityDeposit ?? this.securityDeposit,
+      paymentFrequency: paymentFrequency ?? this.paymentFrequency,
       notes: notes ?? this.notes,
       status: status ?? this.status,
       isArchived: isArchived ?? this.isArchived,

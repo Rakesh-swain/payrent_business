@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+﻿﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -136,8 +136,8 @@ class PaymentController extends GetxController {
     }
   }
   
-  // Generate monthly payments for all active tenants
-  Future<void> generateMonthlyPayments({
+  // Generate payments for all active tenants based on their payment frequency
+  Future<void> generatePayments({
     required DateTime month,
     String? description,
   }) async {
@@ -168,76 +168,112 @@ class PaymentController extends GetxController {
       
       int createdCount = 0;
       
-      // Create payment for each tenant
+      // Create payment for each tenant based on their payment frequency
       for (final tenant in activeTenants) {
         final data = tenant.data() as Map<String, dynamic>;
         
         // Get tenant details
         final tenantId = tenant.id;
         final propertyId = data['propertyId'] as String? ?? '';
-        final rentAmount = data['rentAmount'] as double? ?? 0.0;
+        final rentAmount = (data['rentAmount'] is int) 
+            ? (data['rentAmount'] as int).toDouble() 
+            : (data['rentAmount'] ?? 0.0);
         final rentDueDay = data['rentDueDay'] as int? ?? 1;
+        final paymentFrequency = data['paymentFrequency'] as String? ?? 'monthly';
         final tenantName = '${data['firstName']} ${data['lastName']}';
         final propertyName = data['propertyName'] as String? ?? '';
         final unitNumber = data['unitNumber'] as String? ?? '';
         
-        // Create due date based on the tenant's due day in the specified month
-        final dueDate = DateTime(month.year, month.month, rentDueDay);
-        final formattedDueDate = DateFormat('yyyy-MM-dd').format(dueDate);
-        final monthName = DateFormat('MMMM').format(dueDate);
-        final year = DateFormat('yyyy').format(dueDate);
+        // Get lease dates
+        DateTime? leaseStartDate;
+        DateTime? leaseEndDate;
         
-        // Check if payment already exists for this tenant and month
-        final existingPayments = await _firestoreService.queryDocuments(
-          collection: 'payments',
-          filters: [
-            ['tenantId', tenantId],
-            ['month', monthName],
-            ['year', year],
-          ],
-        );
-        
-        if (existingPayments.docs.isNotEmpty) {
-          print('Payment already exists for tenant $tenantName for $monthName $year');
-          continue;
+        if (data['leaseStartDate'] != null) {
+          leaseStartDate = (data['leaseStartDate'] as Timestamp).toDate();
         }
         
-        // Create payment document
-        await _firestoreService.createDocument(
-          collection: 'payments',
-          data: {
-            'tenantId': tenantId,
-            'tenantName': tenantName,
-            'landlordId': uid,
-            'propertyId': propertyId,
-            'propertyName': propertyName,
-            'unitNumber': unitNumber,
-            'amount': rentAmount,
-            'dueDate': Timestamp.fromDate(dueDate),
-            'formattedDueDate': formattedDueDate,
-            'month': monthName,
-            'year': year,
-            'description': description ?? 'Monthly Rent',
-            'status': 'pending',
-            'paymentDate': null,
-            'paymentMethod': null,
-            'transactionId': null,
-            'notes': null,
-            'isLate': false,
-          },
-        );
+        if (data['leaseEndDate'] != null) {
+          leaseEndDate = (data['leaseEndDate'] as Timestamp).toDate();
+        }
         
-        createdCount++;
+        // Calculate payment data using tenant controller
+        if (leaseStartDate != null && leaseEndDate != null) {
+          final paymentData = _tenantController.calculatePaymentData(
+            paymentFrequency: paymentFrequency,
+            leaseStartDate: leaseStartDate,
+            leaseEndDate: leaseEndDate,
+            rentAmount: rentAmount,
+            currentDate: month,
+          );
+          
+          final dueDate = paymentData['nextPaymentDate'] as DateTime;
+          final formattedDueDate = DateFormat('yyyy-MM-dd').format(dueDate);
+          final monthName = DateFormat('MMMM').format(dueDate);
+          final year = DateFormat('yyyy').format(dueDate);
+          
+          // Check if payment already exists for this tenant and due date
+          final existingPayments = await _firestoreService.queryDocuments(
+            collection: 'payments',
+            filters: [
+              ['tenantId', tenantId],
+              ['formattedDueDate', formattedDueDate],
+            ],
+          );
+          
+          if (existingPayments.docs.isNotEmpty) {
+            print('Payment already exists for tenant $tenantName for ${paymentData['formattedNextPaymentDate']}');
+            continue;
+          }
+          
+          // Create payment document
+          await _firestoreService.createDocument(
+            collection: 'payments',
+            data: {
+              'tenantId': tenantId,
+              'tenantName': tenantName,
+              'landlordId': uid,
+              'propertyId': propertyId,
+              'propertyName': propertyName,
+              'unitNumber': unitNumber,
+              'amount': rentAmount,
+              'dueDate': Timestamp.fromDate(dueDate),
+              'formattedDueDate': formattedDueDate,
+              'month': monthName,
+              'year': year,
+              'paymentFrequency': paymentFrequency,
+              'periodDescription': paymentData['periodDescription'],
+              'description': description ?? '${paymentData['periodDescription']}ly Rent',
+              'status': paymentData['paymentStatus'],
+              'paymentDate': null,
+              'paymentMethod': null,
+              'transactionId': null,
+              'notes': null,
+              'isLate': paymentData['isOverdue'],
+              'isDueToday': paymentData['isDueToday'],
+              'daysUntilDue': paymentData['daysUntilDue'],
+            },
+          );
+          
+          createdCount++;
+        }
       }
       
       successMessage.value = 'Created $createdCount payments for ${DateFormat('MMMM yyyy').format(month)}';
       fetchPayments(); // Refresh payments list
     } catch (e) {
-      errorMessage.value = 'Failed to generate monthly payments';
-      print('Error generating monthly payments: $e');
+      errorMessage.value = 'Failed to generate payments';
+      print('Error generating payments: $e');
     } finally {
       isLoading.value = false;
     }
+  }
+  
+  // Generate monthly payments for all active tenants (legacy method for backwards compatibility)
+  Future<void> generateMonthlyPayments({
+    required DateTime month,
+    String? description,
+  }) async {
+    await generatePayments(month: month, description: description);
   }
   
   // Update payment status

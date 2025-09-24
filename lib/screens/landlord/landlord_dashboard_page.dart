@@ -49,20 +49,23 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
   }
   
   Future<void> _loadDashboardData() async {
-    
     try {
       await _profileController.getUserProfile();
       
-      // Load properties, tenants and payments data
-      await _propertyController.fetchProperties();
-      await _tenantController.fetchTenants();
-      await _paymentController.fetchPayments();
+      // Load properties, tenants and payments data in parallel for better performance
+      await Future.wait([
+        _propertyController.fetchProperties(),
+        _tenantController.fetchTenants(),
+        _paymentController.fetchPayments(),
+      ]);
+      
+      print('Dashboard data loaded successfully');
+      print('Properties: ${_propertyController.propertyCount}');
+      print('Tenants: ${_tenantController.tenantCount}');
+      print('Payments: ${_paymentController.payments.length}');
       
     } catch (e) {
       print('Error loading dashboard data: $e');
-    } finally {
-      // _isLoading.value = false;
-      print(_profileController.name.value);
     }
   }
 
