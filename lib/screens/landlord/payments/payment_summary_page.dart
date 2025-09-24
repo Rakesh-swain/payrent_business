@@ -478,7 +478,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
     
     // Get occupancy information
     final propertyTenants = _getTenantsForProperty(id);
-    final int totalUnits = data['units'] ?? 1;
+    final int totalUnits = data['units'].length;
     final int occupiedUnits = propertyTenants.length;
     
     return GestureDetector(

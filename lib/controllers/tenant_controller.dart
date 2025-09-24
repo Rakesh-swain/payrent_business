@@ -1,4 +1,4 @@
-﻿﻿import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../controllers/auth_controller.dart';
@@ -24,7 +24,7 @@ class TenantController extends GetxController {
     fetchTenants();
   }
   
-  // Fetch tenants for current landlord
+  // Fetch tenants for current landlord from users subcollection
   Future<void> fetchTenants() async {
     isLoading.value = true;
     errorMessage.value = '';
@@ -37,12 +37,11 @@ class TenantController extends GetxController {
       
       final uid = _authController.firebaseUser.value!.uid;
       
-      // Query tenants where landlordId equals current user's ID
-      final querySnapshot = await _firestoreService.queryDocuments(
-        collection: 'tenants',
-        filters: [
-          ['landlordId', uid],
-        ],
+      // Query tenants from user's subcollection
+      final querySnapshot = await _firestoreService.querySubcollectionDocuments(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'tenants',
       );
       
       tenants.value = querySnapshot.docs;
@@ -55,11 +54,20 @@ class TenantController extends GetxController {
     }
   }
   
-  // Get tenant by ID
+  // Get tenant by ID from user's subcollection
   Future<DocumentSnapshot?> getTenantById(String tenantId) async {
     try {
-      final doc = await _firestoreService.getDocument(
-        collection: 'tenants',
+      if (_authController.firebaseUser.value == null) {
+        errorMessage.value = 'User not logged in';
+        return null;
+      }
+      
+      final uid = _authController.firebaseUser.value!.uid;
+      
+      final doc = await _firestoreService.getSubcollectionDocument(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'tenants',
         documentId: tenantId,
       );
       
@@ -295,9 +303,11 @@ class TenantController extends GetxController {
         notes: notes,
       );
       
-      // Create tenant document
-      final tenantRef = await _firestoreService.createDocument(
-        collection: 'tenants',
+      // Create tenant document in user's subcollection
+      final tenantRef = await _firestoreService.createSubcollectionDocument(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'tenants',
         data: tenant.toFirestore(),
       );
       
@@ -371,9 +381,12 @@ class TenantController extends GetxController {
         isArchived: isArchived,
       );
       
-      // Update the document
-      await _firestoreService.updateDocument(
-        collection: 'tenants',
+      // Update the document in user's subcollection
+      final uid = _authController.firebaseUser.value!.uid;
+      await _firestoreService.updateSubcollectionDocument(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'tenants',
         documentId: tenantId,
         data: updatedTenant.toFirestore(),
       );
@@ -397,9 +410,18 @@ class TenantController extends GetxController {
     errorMessage.value = '';
     
     try {
-      // Delete the tenant document
-      await _firestoreService.deleteDocument(
-        collection: 'tenants',
+      if (_authController.firebaseUser.value == null) {
+        errorMessage.value = 'User not logged in';
+        return false;
+      }
+      
+      final uid = _authController.firebaseUser.value!.uid;
+      
+      // Delete the tenant document from user's subcollection
+      await _firestoreService.deleteSubcollectionDocument(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'tenants',
         documentId: tenantId,
       );
       
@@ -479,28 +501,30 @@ class TenantController extends GetxController {
   }
   
   // Calculate total monthly rent
-  int get totalMonthlyRent {
-    int total = 0;
+  double get totalMonthlyRent {
+    double total = 0.0;
     
     for (final tenant in tenants) {
       final data = tenant.data() as Map<String, dynamic>;
       if ((data['status'] as String? ?? '') == 'active') {
-        final rentAmount = (data['rentAmount'] as int? ?? 0);
+        final rentAmount = (data['rentAmount'] is int) 
+            ? (data['rentAmount'] as int).toDouble() 
+            : (data['rentAmount'] ?? 0.0);
         final paymentFrequency = data['paymentFrequency'] as String? ?? 'monthly';
         
         // Convert to monthly equivalent
         switch (paymentFrequency.toLowerCase()) {
           case 'weekly':
-            total += rentAmount * 4; // Approximate weeks per month
+            total += rentAmount * 4.33; // Approximate weeks per month
             break;
           case 'monthly':
             total += rentAmount;
             break;
           case 'quarterly':
-            total += (rentAmount / 3).toInt(); // Quarterly to monthly
+            total += rentAmount / 3; // Quarterly to monthly
             break;
           case 'yearly':
-            total += (rentAmount / 12).toInt(); // Yearly to monthly
+            total += rentAmount / 12; // Yearly to monthly
             break;
           default:
             total += rentAmount; // Default to monthly

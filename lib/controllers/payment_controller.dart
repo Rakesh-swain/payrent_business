@@ -1,4 +1,4 @@
-﻿﻿import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -29,7 +29,7 @@ class PaymentController extends GetxController {
     fetchPayments();
   }
   
-  // Fetch payments for current landlord
+  // Fetch payments for current landlord from users subcollection
   Future<void> fetchPayments() async {
     isLoading.value = true;
     errorMessage.value = '';
@@ -42,12 +42,11 @@ class PaymentController extends GetxController {
       
       final uid = _authController.firebaseUser.value!.uid;
       
-      // Query payments where landlordId equals current user's ID
-      final querySnapshot = await _firestoreService.queryDocuments(
-        collection: 'payments',
-        filters: [
-          ['landlordId', uid],
-        ],
+      // Query payments from user's subcollection
+      final querySnapshot = await _firestoreService.querySubcollectionDocuments(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'payments',
         orderBy: 'dueDate',
         descending: true,
       );
@@ -101,9 +100,11 @@ class PaymentController extends GetxController {
       final month = DateFormat('MMMM').format(dueDate);
       final year = DateFormat('yyyy').format(dueDate);
       
-      // Create payment document
-      await _firestoreService.createDocument(
-        collection: 'payments',
+      // Create payment document in user's subcollection
+      await _firestoreService.createSubcollectionDocument(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'payments',
         data: {
           'tenantId': tenantId,
           'tenantName': tenantName,
@@ -212,8 +213,10 @@ class PaymentController extends GetxController {
           final year = DateFormat('yyyy').format(dueDate);
           
           // Check if payment already exists for this tenant and due date
-          final existingPayments = await _firestoreService.queryDocuments(
-            collection: 'payments',
+          final existingPayments = await _firestoreService.querySubcollectionDocuments(
+            parentCollection: 'users',
+            parentDocumentId: uid,
+            subcollection: 'payments',
             filters: [
               ['tenantId', tenantId],
               ['formattedDueDate', formattedDueDate],
@@ -225,9 +228,11 @@ class PaymentController extends GetxController {
             continue;
           }
           
-          // Create payment document
-          await _firestoreService.createDocument(
-            collection: 'payments',
+          // Create payment document in user's subcollection
+          await _firestoreService.createSubcollectionDocument(
+            parentCollection: 'users',
+            parentDocumentId: uid,
+            subcollection: 'payments',
             data: {
               'tenantId': tenantId,
               'tenantName': tenantName,
@@ -301,9 +306,18 @@ class PaymentController extends GetxController {
       if (transactionId != null) updateData['transactionId'] = transactionId;
       if (notes != null) updateData['notes'] = notes;
       
-      // Update the document
-      await _firestoreService.updateDocument(
-        collection: 'payments',
+      if (_authController.firebaseUser.value == null) {
+        errorMessage.value = 'User not logged in';
+        return;
+      }
+      
+      final uid = _authController.firebaseUser.value!.uid;
+      
+      // Update the document in user's subcollection
+      await _firestoreService.updateSubcollectionDocument(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'payments',
         documentId: paymentId,
         data: updateData,
       );
@@ -324,9 +338,18 @@ class PaymentController extends GetxController {
     errorMessage.value = '';
     
     try {
-      // Delete the payment document
-      await _firestoreService.deleteDocument(
-        collection: 'payments',
+      if (_authController.firebaseUser.value == null) {
+        errorMessage.value = 'User not logged in';
+        return;
+      }
+      
+      final uid = _authController.firebaseUser.value!.uid;
+      
+      // Delete the payment document from user's subcollection
+      await _firestoreService.deleteSubcollectionDocument(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'payments',
         documentId: paymentId,
       );
       

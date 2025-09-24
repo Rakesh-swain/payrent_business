@@ -1,4 +1,4 @@
-﻿﻿import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
 import '../services/firestore_service.dart';
@@ -22,7 +22,7 @@ class PropertyController extends GetxController {
     fetchProperties();
   }
   
-  // Fetch properties for current landlord
+  // Fetch properties for current landlord from users subcollection
   Future<void> fetchProperties() async {
     isLoading.value = true;
     errorMessage.value = '';
@@ -35,12 +35,11 @@ class PropertyController extends GetxController {
       
       final uid = _authController.firebaseUser.value!.uid;
       
-      // Query properties where landlordId equals current user's ID
-      final querySnapshot = await _firestoreService.queryDocuments(
-        collection: 'properties',
-        filters: [
-          ['landlordId', uid],
-        ],
+      // Query properties from user's subcollection
+      final querySnapshot = await _firestoreService.querySubcollectionDocuments(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'properties',
       );
       
       properties.value = querySnapshot.docs;
@@ -53,11 +52,20 @@ class PropertyController extends GetxController {
     }
   }
   
-  // Get property by ID
+  // Get property by ID from user's subcollection
   Future<DocumentSnapshot?> getPropertyById(String propertyId) async {
     try {
-      final doc = await _firestoreService.getDocument(
-        collection: 'properties',
+      if (_authController.firebaseUser.value == null) {
+        errorMessage.value = 'User not logged in';
+        return null;
+      }
+      
+      final uid = _authController.firebaseUser.value!.uid;
+      
+      final doc = await _firestoreService.getSubcollectionDocument(
+        parentCollection: 'users',
+        parentDocumentId: uid,
+        subcollection: 'properties',
         documentId: propertyId,
       );
       
