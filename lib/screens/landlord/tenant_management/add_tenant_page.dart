@@ -394,26 +394,13 @@ class _AddTenantPageState extends State<AddTenantPage> {
                         
                         return DropdownMenuItem<String>(
                           value: property.id,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                data['name'] ?? 'Unknown Property',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                '$vacantCount vacant unit${vacantCount != 1 ? 's' : ''}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: AppTheme.successColor,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            data['name'] ?? 'Unknown Property',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         );
                       }).toList(),
@@ -454,7 +441,8 @@ class _AddTenantPageState extends State<AddTenantPage> {
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Row(
                                 children: [
-                                  Expanded(
+                                  Flexible(
+                                    fit: FlexFit.loose,
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,

@@ -124,13 +124,12 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
     await Future.delayed(const Duration(milliseconds: 2500));
 
     final user = FirebaseAuth.instance.currentUser;
-
     if (user != null) {
       try {
        final prefs = await SharedPreferences.getInstance();
       final userType = prefs.getString('userType');
 
-
+print(userType);
           if (userType == 'Landlord') {
             Get.offAll(() => const LandlordMainPage(),
                 transition: Transition.fadeIn, duration: const Duration(milliseconds: 800));
@@ -144,11 +143,13 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
           }
         
       } catch (e) {
+        print(e);
         // in case of error go to intro
         Get.offAll(() => const IntroPage(),
             transition: Transition.fadeIn, duration: const Duration(milliseconds: 800));
       }
     } else {
+      print(user);
       // No logged in user, go to intro
       Get.offAll(() => const IntroPage(),
           transition: Transition.fadeIn, duration: const Duration(milliseconds: 800));

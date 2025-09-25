@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:payrent_business/screens/auth/profile_signup_page.dart';
 import 'package:payrent_business/screens/landlord/landlord_main_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class VerificationCompletePage extends StatefulWidget {
   final bool islogin;
@@ -38,7 +39,11 @@ Future<void> _checkUserTypeAndNavigate() async {
       if (snapshot.docs.isNotEmpty) {
         final userData = snapshot.docs.first.data();
         final userType = userData['userType'];
-
+         final prefs = await SharedPreferences.getInstance();
+                            await prefs.setString(
+                              'userType',
+                              userType,
+                            );
         if (userType == 'Landlord') {
           Get.offAll(() => const LandlordMainPage());
         } else {
