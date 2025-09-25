@@ -174,6 +174,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
       }
       
       paymentNumber++;
+      _generatedPayments = _generatedPayments.reversed.toList();
     }
   }
   

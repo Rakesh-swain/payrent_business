@@ -493,8 +493,8 @@ Future<void> _uploadBoth(String userId) async {
           final tenant = {
             'firstName': rowData['Tenant First Name'] ?? '',
             'lastName': rowData['Tenant Last Name'] ?? '',
-            'email': rowData['Tenant Email'] ?? '',
-            'phone': rowData['Tenant Phone'] ?? '',
+            'email': rowData['Email'] ?? '',
+            'phone': rowData['Phone'] ?? '',
             'landlordId': userId,
             'propertyId': propertyRef.id,
             'propertyName': propertyName,

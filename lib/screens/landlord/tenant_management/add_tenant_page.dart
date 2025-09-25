@@ -99,12 +99,12 @@ class _AddTenantPageState extends State<AddTenantPage> {
         bool hasVacantUnit = false;
         for (final unit in units) {
           final unitData = unit as Map<String, dynamic>;
-          final unitId = unitData['id'] ?? '';
+          final unitId = unitData['unitId'] ?? '';
           
           final isOccupied = _tenantController.tenants.any((tenant) {
             final tenantData = tenant.data() as Map<String, dynamic>;
             return tenantData['propertyId'] == property.id && 
-                   (tenantData['unitId'] == unitId || tenantData['unitNumber'] == unitData['number']);
+                   (tenantData['unitId'] == unitId || tenantData['unitNumber'] == unitData['unitNumber']);
           });
           
           if (!isOccupied) {
@@ -143,8 +143,8 @@ class _AddTenantPageState extends State<AddTenantPage> {
       // Multi-unit property
       for (final unit in units) {
         final unitData = unit as Map<String, dynamic>;
-        final unitId = unitData['id'] ?? '';
-        final unitNumber = unitData['number'] ?? '';
+        final unitId = unitData['unitId'] ?? '';
+        final unitNumber = unitData['unitNumber'] ?? '';
         
         final isOccupied = _tenantController.tenants.any((tenant) {
           final tenantData = tenant.data() as Map<String, dynamic>;
@@ -183,6 +183,8 @@ class _AddTenantPageState extends State<AddTenantPage> {
   }
   
   void _onUnitSelected(String? unitId) {
+    print(_availableUnits);
+    print(unitId);
     setState(() => _selectedUnitId = unitId);
     
     if (unitId != null) {
@@ -394,13 +396,26 @@ class _AddTenantPageState extends State<AddTenantPage> {
                         
                         return DropdownMenuItem<String>(
                           value: property.id,
-                          child: Text(
-                            data['name'] ?? 'Unknown Property',
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                data['name'] ?? 'Unknown Property',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '$vacantCount vacant unit${vacantCount != 1 ? 's' : ''}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppTheme.successColor,
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       }).toList(),
@@ -440,9 +455,10 @@ class _AddTenantPageState extends State<AddTenantPage> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Flexible(
-                                    fit: FlexFit.loose,
+                                Flexible(
+                                  fit: FlexFit.loose,
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
