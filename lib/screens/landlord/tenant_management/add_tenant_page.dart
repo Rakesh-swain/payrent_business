@@ -22,24 +22,24 @@ class _AddTenantPageState extends State<AddTenantPage> {
   final TenantController _tenantController = Get.find<TenantController>();
   final PropertyController _propertyController = Get.find<PropertyController>();
   
-  // Mandatory fields - Required for Firebase consistency
-  final _firstNameController = TextEditingController(); // firstName
-  final _lastNameController = TextEditingController();  // lastName
-  final _emailController = TextEditingController();     // email
-  final _phoneController = TextEditingController();     // phone
+  // Form Controllers
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _rentAmountController = TextEditingController();
+  final _securityDepositController = TextEditingController();
+  final _rentDueDayController = TextEditingController();
+  final _notesController = TextEditingController();
   
-  // Optional fields - Match bulk upload structure
-  String? _selectedPropertyId;                          // propertyId
-  String? _selectedUnitId;                              // unitId
-  final _rentAmountController = TextEditingController(); // rentAmount
-  String _selectedPaymentFrequency = 'monthly';         // paymentFrequency
-  DateTime? _leaseStartDate;                            // leaseStartDate
-  DateTime? _leaseEndDate;                              // leaseEndDate
-  final _securityDepositController = TextEditingController(); // securityDeposit
-  final _rentDueDayController = TextEditingController(); // rentDueDay
-  final _notesController = TextEditingController();     // notes
-  final _unitNumberController = TextEditingController(); // unitNumber
+  // Form Data
+  String? _selectedPropertyId;
+  String? _selectedUnitId;
+  String _selectedPaymentFrequency = 'monthly';
+  DateTime? _leaseStartDate;
+  DateTime? _leaseEndDate;
   
+  // State Management
   bool _isLoading = false;
   bool _isSaving = false;
   List<DocumentSnapshot> _properties = [];
@@ -48,15 +48,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
   @override
   void initState() {
     super.initState();
-    
-    // Initialize with property ID if provided
-    if (widget.propertyId != null) {
-      _selectedPropertyId = widget.propertyId;
-    }
-    
-    // Set default values
     _rentDueDayController.text = '1'; // Default to 1st of month
-    
     _fetchProperties();
   }
   
@@ -70,7 +62,6 @@ class _AddTenantPageState extends State<AddTenantPage> {
     _securityDepositController.dispose();
     _rentDueDayController.dispose();
     _notesController.dispose();
-    _unitNumberController.dispose();
     super.dispose();
   }
   
@@ -79,21 +70,15 @@ class _AddTenantPageState extends State<AddTenantPage> {
     
     try {
       await _propertyController.fetchProperties();
-      await _tenantController.fetchTenants(); // Need tenants to check occupancy
+      await _tenantController.fetchTenants();
       
       // Filter to only show properties with vacant units
       _properties = _getPropertiesWithVacantUnits();
       
-      // If property ID is provided, load units for that property
-      if (widget.propertyId != null && _properties.isNotEmpty) {
-        final property = _properties.firstWhere(
-          (p) => p.id == widget.propertyId,
-          orElse: () => _properties.first,
-        );
-        
-        if (property.exists) {
-          await _loadAvailableUnits(widget.propertyId!);
-        }
+      // Auto-load units if propertyId is provided
+      if (widget.propertyId != null) {
+        _selectedPropertyId = widget.propertyId;
+        await _loadAvailableUnits(widget.propertyId!);
       }
     } catch (e) {
       Get.snackbar('Error', 'Failed to load properties: $e');
@@ -102,7 +87,6 @@ class _AddTenantPageState extends State<AddTenantPage> {
     }
   }
   
-  // Get properties that have at least one vacant unit
   List<DocumentSnapshot> _getPropertiesWithVacantUnits() {
     List<DocumentSnapshot> vacantProperties = [];
     
@@ -111,13 +95,12 @@ class _AddTenantPageState extends State<AddTenantPage> {
       final units = data['units'] ?? [];
       
       if (units is List && units.isNotEmpty) {
-        // Check if any unit is vacant
+        // Multi-unit property - check if any unit is vacant
         bool hasVacantUnit = false;
         for (final unit in units) {
           final unitData = unit as Map<String, dynamic>;
           final unitId = unitData['id'] ?? '';
           
-          // Check if this unit is occupied
           final isOccupied = _tenantController.tenants.any((tenant) {
             final tenantData = tenant.data() as Map<String, dynamic>;
             return tenantData['propertyId'] == property.id && 
@@ -134,7 +117,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
           vacantProperties.add(property);
         }
       } else {
-        // If no units defined, consider the entire property as one unit
+        // Single-unit property - check if property is vacant
         final isOccupied = _tenantController.tenants.any((tenant) {
           final tenantData = tenant.data() as Map<String, dynamic>;
           return tenantData['propertyId'] == property.id;
@@ -149,7 +132,6 @@ class _AddTenantPageState extends State<AddTenantPage> {
     return vacantProperties;
   }
   
-  // Load available (vacant) units for a selected property
   Future<void> _loadAvailableUnits(String propertyId) async {
     final property = _properties.firstWhere((p) => p.id == propertyId);
     final data = property.data() as Map<String, dynamic>;
@@ -158,12 +140,12 @@ class _AddTenantPageState extends State<AddTenantPage> {
     _availableUnits.clear();
     
     if (units is List && units.isNotEmpty) {
+      // Multi-unit property
       for (final unit in units) {
         final unitData = unit as Map<String, dynamic>;
         final unitId = unitData['id'] ?? '';
         final unitNumber = unitData['number'] ?? '';
         
-        // Check if this unit is occupied
         final isOccupied = _tenantController.tenants.any((tenant) {
           final tenantData = tenant.data() as Map<String, dynamic>;
           return tenantData['propertyId'] == propertyId && 
@@ -176,23 +158,47 @@ class _AddTenantPageState extends State<AddTenantPage> {
             'number': unitNumber,
             'rent': unitData['rent'] ?? 0,
             'type': unitData['type'] ?? 'Unit',
+            'bedrooms': unitData['bedrooms'] ?? 1,
+            'bathrooms': unitData['bathrooms'] ?? 1,
           });
         }
       }
     } else {
-      // If no units defined, add the whole property as one unit
+      // Single-unit property (whole property as one unit)
       _availableUnits.add({
         'id': 'main',
         'number': 'Main Unit',
         'rent': data['rent'] ?? 0,
         'type': 'Property',
+        'bedrooms': data['bedrooms'] ?? 1,
+        'bathrooms': data['bathrooms'] ?? 1,
       });
     }
     
     // Reset unit selection when property changes
     _selectedUnitId = null;
+    _rentAmountController.clear();
     
     setState(() {});
+  }
+  
+  void _onUnitSelected(String? unitId) {
+    setState(() => _selectedUnitId = unitId);
+    
+    if (unitId != null) {
+      // Find the selected unit and auto-fill rent amount
+      final selectedUnit = _availableUnits.firstWhere(
+        (unit) => unit['id'] == unitId,
+        orElse: () => {},
+      );
+      
+      if (selectedUnit.isNotEmpty && selectedUnit['rent'] != null) {
+        _rentAmountController.text = selectedUnit['rent'].toString();
+      }
+    } else {
+      // Clear rent when no unit is selected
+      _rentAmountController.clear();
+    }
   }
   
   Future<void> _saveTenant() async {
@@ -201,7 +207,6 @@ class _AddTenantPageState extends State<AddTenantPage> {
     setState(() => _isSaving = true);
     
     try {
-      // Get unit info if selected
       String unitNumber = '';
       if (_selectedUnitId != null && _availableUnits.isNotEmpty) {
         final selectedUnit = _availableUnits.firstWhere(
@@ -209,21 +214,13 @@ class _AddTenantPageState extends State<AddTenantPage> {
           orElse: () => {},
         );
         unitNumber = selectedUnit['number'] ?? '';
-        
-        // Set rent amount from unit if not manually entered
-        if (_rentAmountController.text.isEmpty && selectedUnit['rent'] != null) {
-          _rentAmountController.text = selectedUnit['rent'].toString();
-        }
       }
       
       final tenantId = await _tenantController.addTenant(
-        // Mandatory fields
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
-        
-        // Optional fields
         propertyId: _selectedPropertyId,
         unitId: _selectedUnitId,
         unitNumber: unitNumber,
@@ -238,7 +235,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
       
       if (tenantId != null) {
         Get.back();
-        Get.snackbar('Success', 'Tenant added successfully');
+        Get.snackbar('Success', 'Tenant added successfully', backgroundColor: AppTheme.successColor);
       } else {
         Get.snackbar('Error', _tenantController.errorMessage.value);
       }
@@ -269,24 +266,6 @@ class _AddTenantPageState extends State<AddTenantPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text('Add Tenant', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
-        actions: [
-          TextButton(
-            onPressed: _isSaving ? null : _saveTenant,
-            child: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    'Save',
-                    style: GoogleFonts.poppins(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-          ),
-        ],
       ),
       body: Form(
         key: _formKey,
@@ -296,10 +275,9 @@ class _AddTenantPageState extends State<AddTenantPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Mandatory Information
+              // Personal Information Section
               _buildSection(
                 'Personal Information *',
-                Icons.person_outline,
                 [
                   Text(
                     'Required fields to create a tenant',
@@ -312,9 +290,13 @@ class _AddTenantPageState extends State<AddTenantPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildTextField(
+                        child: TextFormField(
                           controller: _firstNameController,
-                          label: 'First Name *',
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'First Name *',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'First name is required';
@@ -325,9 +307,13 @@ class _AddTenantPageState extends State<AddTenantPage> {
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: _buildTextField(
+                        child: TextFormField(
                           controller: _lastNameController,
-                          label: 'Last Name *',
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(
+                            labelText: 'Last Name *',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'Last name is required';
@@ -339,10 +325,13 @@ class _AddTenantPageState extends State<AddTenantPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildTextField(
+                  TextFormField(
                     controller: _emailController,
-                    label: 'Email Address *',
                     keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email Address *',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Email is required';
@@ -354,10 +343,13 @@ class _AddTenantPageState extends State<AddTenantPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  _buildTextField(
+                  TextFormField(
                     controller: _phoneController,
-                    label: 'Phone Number *',
                     keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number *',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Phone number is required';
@@ -370,10 +362,9 @@ class _AddTenantPageState extends State<AddTenantPage> {
 
               const SizedBox(height: 24),
 
-              // Optional Property Information
+              // Property Assignment Section
               _buildSection(
-                'Property Information',
-                Icons.home_outlined,
+                'Property Assignment',
                 [
                   Text(
                     'Optional: Assign to a vacant property and unit',
@@ -383,23 +374,143 @@ class _AddTenantPageState extends State<AddTenantPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildPropertyDropdown(),
+                  
+                  // Property Dropdown
+                  DropdownButtonFormField<String>(
+                    value: _selectedPropertyId,
+                    decoration: const InputDecoration(
+                      labelText: 'Select Property',
+                      prefixIcon: Icon(Icons.home_outlined),
+                      hintText: 'Choose a property',
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('No Property Selected'),
+                      ),
+                      ..._properties.map((property) {
+                        final data = property.data() as Map<String, dynamic>;
+                        final vacantCount = _getVacantUnitCount(property.id);
+                        
+                        return DropdownMenuItem<String>(
+                          value: property.id,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                data['name'] ?? 'Unknown Property',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '$vacantCount vacant unit${vacantCount != 1 ? 's' : ''}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppTheme.successColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                    onChanged: (value) async {
+                      setState(() => _selectedPropertyId = value);
+                      if (value != null) {
+                        await _loadAvailableUnits(value);
+                      } else {
+                        setState(() {
+                          _availableUnits.clear();
+                          _selectedUnitId = null;
+                          _rentAmountController.clear();
+                        });
+                      }
+                    },
+                  ),
+                  
+                  // Unit Dropdown (appears only when property is selected)
                   if (_selectedPropertyId != null && _availableUnits.isNotEmpty) ...[
                     const SizedBox(height: 16),
-                    _buildUnitDropdown(),
+                    DropdownButtonFormField<String>(
+                      value: _selectedUnitId,
+                      decoration: const InputDecoration(
+                        labelText: 'Select Unit',
+                        prefixIcon: Icon(Icons.door_front_door_outlined),
+                        hintText: 'Choose a unit',
+                      ),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('No Unit Selected'),
+                        ),
+                        ..._availableUnits.map((unit) {
+                          return DropdownMenuItem<String>(
+                            value: unit['id'],
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          unit['number'] ?? 'Unknown Unit',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Rent: \$${unit['rent']} • ${unit['bedrooms']}BR/${unit['bathrooms']}BA',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.successColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'VACANT',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.successColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                      onChanged: _onUnitSelected,
+                    ),
                   ],
                 ],
               ),
 
               const SizedBox(height: 24),
 
-              // Optional Lease Information
+              // Lease Information Section
               _buildSection(
                 'Lease Information',
-                Icons.description_outlined,
                 [
                   Text(
-                    'Optional: Set lease terms (can be updated later)',
+                    'Optional: Set lease terms and rent details',
                     style: GoogleFonts.poppins(
                       fontSize: 12,
                       color: AppTheme.textSecondary,
@@ -417,26 +528,47 @@ class _AddTenantPageState extends State<AddTenantPage> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildTextField(
+                        child: TextFormField(
                           controller: _rentAmountController,
-                          label: 'Rent Amount',
                           keyboardType: TextInputType.number,
-                          prefixText: '\$',
+                          decoration: InputDecoration(
+                            labelText: _selectedUnitId != null ? 'Rent Amount (Auto-filled)' : 'Rent Amount',
+                            prefixIcon: const Icon(Icons.attach_money),
+                            prefixText: '\$',
+                          ),
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Expanded(child: _buildPaymentFrequencyDropdown()),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedPaymentFrequency,
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Frequency',
+                            prefixIcon: Icon(Icons.schedule_outlined),
+                          ),
+                          items: ['weekly', 'monthly', 'quarterly', 'yearly'].map((frequency) {
+                            return DropdownMenuItem<String>(
+                              value: frequency,
+                              child: Text(frequency[0].toUpperCase() + frequency.substring(1)),
+                            );
+                          }).toList(),
+                          onChanged: (value) => setState(() => _selectedPaymentFrequency = value!),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
-                        child: _buildTextField(
+                        child: TextFormField(
                           controller: _rentDueDayController,
-                          label: 'Rent Due Day',
                           keyboardType: TextInputType.number,
-                          suffixText: 'of month',
+                          decoration: const InputDecoration(
+                            labelText: 'Rent Due Day',
+                            prefixIcon: Icon(Icons.calendar_today_outlined),
+                            suffixText: 'of month',
+                          ),
                           validator: (value) {
                             if (value != null && value.isNotEmpty) {
                               final day = int.tryParse(value);
@@ -450,11 +582,14 @@ class _AddTenantPageState extends State<AddTenantPage> {
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: _buildTextField(
+                        child: TextFormField(
                           controller: _securityDepositController,
-                          label: 'Security Deposit',
                           keyboardType: TextInputType.number,
-                          prefixText: '\$',
+                          decoration: const InputDecoration(
+                            labelText: 'Security Deposit',
+                            prefixIcon: Icon(Icons.security_outlined),
+                            prefixText: '\$',
+                          ),
                         ),
                       ),
                     ],
@@ -464,10 +599,9 @@ class _AddTenantPageState extends State<AddTenantPage> {
 
               const SizedBox(height: 24),
 
-              // Optional Additional Information
+              // Additional Information Section
               _buildSection(
                 'Additional Information',
-                Icons.note_outlined,
                 [
                   Text(
                     'Optional: Add any notes about the tenant',
@@ -477,17 +611,21 @@ class _AddTenantPageState extends State<AddTenantPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildTextField(
+                  TextFormField(
                     controller: _notesController,
-                    label: 'Notes',
                     maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes',
+                      prefixIcon: Icon(Icons.note_outlined),
+                      hintText: 'Any additional notes about the tenant...',
+                    ),
                   ),
                 ],
               ),
 
               const SizedBox(height: 32),
 
-              // Add Button
+              // Submit Button
               FadeInUp(
                 duration: const Duration(milliseconds: 800),
                 child: SizedBox(
@@ -541,7 +679,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
 
               const SizedBox(height: 16),
 
-              // Info note
+              // Info Note
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -578,7 +716,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
     );
   }
 
-  Widget _buildSection(String title, IconData icon, List<Widget> children) {
+  Widget _buildSection(String title, List<Widget> children) {
     return FadeInDown(
       duration: const Duration(milliseconds: 500),
       child: Card(
@@ -604,247 +742,6 @@ class _AddTenantPageState extends State<AddTenantPage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-    int maxLines = 1,
-    String? prefixText,
-    String? suffixText,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      validator: validator,
-      maxLines: maxLines,
-      textCapitalization: keyboardType == TextInputType.name 
-          ? TextCapitalization.words 
-          : TextCapitalization.none,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixText: prefixText,
-        suffixText: suffixText,
-      ),
-      style: GoogleFonts.poppins(fontSize: 14),
-    );
-  }
-
-  Widget _buildPropertyDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedPropertyId,
-      decoration: InputDecoration(
-        labelText: 'Select Property (Only Vacant)',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: null,
-          child: Text('Select Property (Optional)'),
-        ),
-        ..._properties.map((property) {
-          final data = property.data() as Map<String, dynamic>;
-          final units = data['units'] ?? [];
-          final vacantCount = _getVacantUnitCount(property.id);
-          
-          return DropdownMenuItem<String>(
-            value: property.id,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data['name'] ?? 'Unknown Property',
-                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-                Text(
-                  '$vacantCount vacant unit${vacantCount != 1 ? 's' : ''}',
-                  style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.successColor),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ],
-      onChanged: (value) async {
-        setState(() => _selectedPropertyId = value);
-        if (value != null) {
-          await _loadAvailableUnits(value);
-        } else {
-          setState(() {
-            _availableUnits.clear();
-            _selectedUnitId = null;
-          });
-        }
-      },
-      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
-    );
-  }
-
-  Widget _buildUnitDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedUnitId,
-      decoration: InputDecoration(
-        labelText: 'Select Unit',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: null,
-          child: Text('Select Unit (Optional)'),
-        ),
-        ..._availableUnits.map((unit) {
-          return DropdownMenuItem<String>(
-            value: unit['id'],
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        unit['number'] ?? 'Unknown Unit',
-                        style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
-                      ),
-                      Text(
-                        'Rent: \$${unit['rent']} • ${unit['type']}',
-                        style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.successColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'VACANT',
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.successColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ],
-      onChanged: (value) {
-        setState(() => _selectedUnitId = value);
-        
-        // Auto-fill rent amount from selected unit
-        if (value != null) {
-          final selectedUnit = _availableUnits.firstWhere(
-            (unit) => unit['id'] == value,
-            orElse: () => {},
-          );
-          if (selectedUnit['rent'] != null && _rentAmountController.text.isEmpty) {
-            _rentAmountController.text = selectedUnit['rent'].toString();
-          }
-        }
-      },
-      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
-    );
-  }
-
-  int _getVacantUnitCount(String propertyId) {
-    final property = _propertyController.properties.firstWhere((p) => p.id == propertyId);
-    final data = property.data() as Map<String, dynamic>;
-    final units = data['units'] ?? [];
-    
-    if (units is List && units.isNotEmpty) {
-      int vacantCount = 0;
-      for (final unit in units) {
-        final unitData = unit as Map<String, dynamic>;
-        final unitId = unitData['id'] ?? '';
-        
-        final isOccupied = _tenantController.tenants.any((tenant) {
-          final tenantData = tenant.data() as Map<String, dynamic>;
-          return tenantData['propertyId'] == propertyId && 
-                 (tenantData['unitId'] == unitId || tenantData['unitNumber'] == unitData['number']);
-        });
-        
-        if (!isOccupied) vacantCount++;
-      }
-      return vacantCount;
-    } else {
-      // Single unit property
-      final isOccupied = _tenantController.tenants.any((tenant) {
-        final tenantData = tenant.data() as Map<String, dynamic>;
-        return tenantData['propertyId'] == propertyId;
-      });
-      return isOccupied ? 0 : 1;
-    }
-  }
-
-  Widget _buildPaymentFrequencyDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedPaymentFrequency,
-      decoration: InputDecoration(
-        labelText: 'Payment Frequency',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      items: ['weekly', 'monthly', 'quarterly', 'yearly'].map((frequency) {
-        return DropdownMenuItem<String>(
-          value: frequency,
-          child: Text(
-            frequency[0].toUpperCase() + frequency.substring(1),
-            style: GoogleFonts.poppins(fontSize: 14),
-          ),
-        );
-      }).toList(),
-      onChanged: (value) {
-        setState(() => _selectedPaymentFrequency = value!);
-      },
-      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
     );
   }
 
@@ -902,5 +799,35 @@ class _AddTenantPageState extends State<AddTenantPage> {
         ),
       ),
     );
+  }
+
+  int _getVacantUnitCount(String propertyId) {
+    final property = _propertyController.properties.firstWhere((p) => p.id == propertyId);
+    final data = property.data() as Map<String, dynamic>;
+    final units = data['units'] ?? [];
+    
+    if (units is List && units.isNotEmpty) {
+      int vacantCount = 0;
+      for (final unit in units) {
+        final unitData = unit as Map<String, dynamic>;
+        final unitId = unitData['id'] ?? '';
+        
+        final isOccupied = _tenantController.tenants.any((tenant) {
+          final tenantData = tenant.data() as Map<String, dynamic>;
+          return tenantData['propertyId'] == propertyId && 
+                 (tenantData['unitId'] == unitId || tenantData['unitNumber'] == unitData['number']);
+        });
+        
+        if (!isOccupied) vacantCount++;
+      }
+      return vacantCount;
+    } else {
+      // Single unit property
+      final isOccupied = _tenantController.tenants.any((tenant) {
+        final tenantData = tenant.data() as Map<String, dynamic>;
+        return tenantData['propertyId'] == propertyId;
+      });
+      return isOccupied ? 0 : 1;
+    }
   }
 }

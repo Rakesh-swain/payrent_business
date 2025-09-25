@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:payrent_business/screens/auth/profile_signup_page.dart';
+import 'package:payrent_business/screens/landlord/landlord_main_page.dart';
+import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
 
 class VerificationCompletePage extends StatefulWidget {
   final bool islogin;
@@ -19,12 +22,39 @@ class _VerificationCompletePageState extends State<VerificationCompletePage> {
   @override
   void initState() {
     super.initState();
-    print('VerificationCompletePage initState called');
     Timer(const Duration(seconds: 2), () async {
-      Get.to(ProfileSignupPage(isPhoneRequired: widget.mobileNumber.isNotEmpty));
+      _checkUserTypeAndNavigate();
     });
   }
+Future<void> _checkUserTypeAndNavigate() async {
+    try {
+      // 👇 Replace "users" with your actual collection name
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('phone', isEqualTo: widget.mobileNumber)
+          .limit(1)
+          .get();
 
+      if (snapshot.docs.isNotEmpty) {
+        final userData = snapshot.docs.first.data();
+        final userType = userData['userType'];
+
+        if (userType == 'Landlord') {
+          Get.offAll(() => const LandlordMainPage());
+        } else {
+          Get.offAll(() =>
+            TenantMainPage());
+        }
+      } else {
+        Get.offAll(() =>
+            ProfileSignupPage(isPhoneRequired: widget.mobileNumber.isNotEmpty));
+      }
+    } catch (e) {
+      print("Error fetching userType: $e");
+      Get.offAll(() =>
+          ProfileSignupPage(isPhoneRequired: widget.mobileNumber.isNotEmpty));
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
