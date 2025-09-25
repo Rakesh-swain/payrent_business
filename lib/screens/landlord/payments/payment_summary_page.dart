@@ -45,6 +45,11 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
     await _propertyController.fetchProperties();
     await _tenantController.fetchTenants();
     await _paymentController.fetchPayments();
+    
+    // Force UI refresh after data load
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -478,7 +483,8 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
     
     // Get occupancy information
     final propertyTenants = _getTenantsForProperty(id);
-    final int totalUnits = data['units'].length;
+    final units = data['units'] ?? [];
+    final int totalUnits = units is List ? units.length : (data['totalUnits'] ?? 1);
     final int occupiedUnits = propertyTenants.length;
     
     return GestureDetector(
