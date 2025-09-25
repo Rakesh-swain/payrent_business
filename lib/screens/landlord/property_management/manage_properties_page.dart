@@ -129,7 +129,7 @@ class ManagePropertiesPage extends StatelessWidget {
                     duration: const Duration(milliseconds: 600),
                     child: _buildStatCard(
                       title: 'Total Properties',
-                      value: '4',
+                      value: '0',
                       icon: Icons.home_outlined,
                       color: AppTheme.primaryColor,
                     ),
@@ -141,7 +141,7 @@ class ManagePropertiesPage extends StatelessWidget {
                     duration: const Duration(milliseconds: 700),
                     child: _buildStatCard(
                       title: 'Occupied',
-                      value: '2',
+                      value: '0',
                       icon: Icons.people_outline,
                       color: const Color(0xFF2ECC71), // Green
                     ),
@@ -153,7 +153,7 @@ class ManagePropertiesPage extends StatelessWidget {
                     duration: const Duration(milliseconds: 800),
                     child: _buildStatCard(
                       title: 'Vacant',
-                      value: '2',
+                      value: '0',
                       icon: Icons.door_front_door_outlined,
                       color: const Color(0xFFE74C3C), // Red
                     ),

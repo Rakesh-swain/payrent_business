@@ -3,61 +3,55 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/controllers/property_controller.dart';
+import 'package:payrent_business/models/tenant_model.dart';
+import 'package:intl/intl.dart';
 
-class AddTenantPage extends StatefulWidget {
-  final String? propertyId; // Optional property ID if coming from property details
-  
-  const AddTenantPage({super.key, this.propertyId});
+class EditTenantPage extends StatefulWidget {
+  final String tenantId;
+
+  const EditTenantPage({super.key, required this.tenantId});
 
   @override
-  State<AddTenantPage> createState() => _AddTenantPageState();
+  State<EditTenantPage> createState() => _EditTenantPageState();
 }
 
-class _AddTenantPageState extends State<AddTenantPage> {
+class _EditTenantPageState extends State<EditTenantPage> {
   final _formKey = GlobalKey<FormState>();
   final TenantController _tenantController = Get.find<TenantController>();
   final PropertyController _propertyController = Get.find<PropertyController>();
-  
-  // Mandatory fields - Required for Firebase consistency
-  final _firstNameController = TextEditingController(); // firstName
-  final _lastNameController = TextEditingController();  // lastName
-  final _emailController = TextEditingController();     // email
-  final _phoneController = TextEditingController();     // phone
-  
-  // Optional fields - Match bulk upload structure
-  String? _selectedPropertyId;                          // propertyId
-  final _rentAmountController = TextEditingController(); // rentAmount
-  String _selectedPaymentFrequency = 'monthly';         // paymentFrequency
-  DateTime? _leaseStartDate;                            // leaseStartDate
-  DateTime? _leaseEndDate;                              // leaseEndDate
-  final _securityDepositController = TextEditingController(); // securityDeposit
-  final _rentDueDayController = TextEditingController(); // rentDueDay
-  final _notesController = TextEditingController();     // notes
-  final _unitNumberController = TextEditingController(); // unitNumber
-  
-  bool _isLoading = false;
+
+  // Form controllers
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _rentAmountController = TextEditingController();
+  final _securityDepositController = TextEditingController();
+  final _rentDueDayController = TextEditingController();
+  final _notesController = TextEditingController();
+  final _unitNumberController = TextEditingController();
+
+  // Form state
+  String? _selectedPropertyId;
+  String _selectedPaymentFrequency = 'monthly';
+  DateTime? _leaseStartDate;
+  DateTime? _leaseEndDate;
+  String _selectedStatus = 'active';
+
+  bool _isLoading = true;
   bool _isSaving = false;
   List<DocumentSnapshot> _properties = [];
-  
+  DocumentSnapshot? _tenantDoc;
+
   @override
   void initState() {
     super.initState();
-    
-    // Initialize with property ID if provided
-    if (widget.propertyId != null) {
-      _selectedPropertyId = widget.propertyId;
-    }
-    
-    // Set default values
-    _rentDueDayController.text = '1'; // Default to 1st of month
-    
-    _fetchProperties();
+    _fetchData();
   }
-  
+
   @override
   void dispose() {
     _firstNameController.dispose();
@@ -71,72 +65,94 @@ class _AddTenantPageState extends State<AddTenantPage> {
     _unitNumberController.dispose();
     super.dispose();
   }
-  
-  Future<void> _fetchProperties() async {
+
+  Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-    
+
     try {
+      // Fetch tenant data
+      _tenantDoc = await _tenantController.getTenantById(widget.tenantId);
+      
+      if (_tenantDoc == null || !_tenantDoc!.exists) {
+        throw Exception('Tenant not found');
+      }
+
+      // Fetch properties
       await _propertyController.fetchProperties();
       _properties = _propertyController.properties;
-      
-      // If property ID is provided, try to get rent amount from property
-      if (widget.propertyId != null && _properties.isNotEmpty) {
-        final property = _properties.firstWhere(
-          (p) => p.id == widget.propertyId,
-          orElse: () => _properties.first,
-        );
-        
-        if (property.exists) {
-          final data = property.data() as Map<String, dynamic>;
-          // You can set default rent from property if available
-          // _rentAmountController.text = (data['defaultRent'] ?? '').toString();
-        }
-      }
+
+      _populateForm();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load properties: $e');
+      Get.snackbar('Error', 'Failed to load tenant data: $e');
     } finally {
       setState(() => _isLoading = false);
     }
   }
-  
+
+  void _populateForm() {
+    if (_tenantDoc == null) return;
+
+    final data = _tenantDoc!.data() as Map<String, dynamic>;
+
+    _firstNameController.text = data['firstName'] ?? '';
+    _lastNameController.text = data['lastName'] ?? '';
+    _emailController.text = data['email'] ?? '';
+    _phoneController.text = data['phone'] ?? '';
+    _rentAmountController.text = (data['rentAmount'] ?? 0).toString();
+    _securityDepositController.text = (data['securityDeposit'] ?? 0).toString();
+    _rentDueDayController.text = (data['rentDueDay'] ?? 1).toString();
+    _notesController.text = data['notes'] ?? '';
+    _unitNumberController.text = data['unitNumber'] ?? '';
+
+    _selectedPropertyId = data['propertyId'];
+    _selectedPaymentFrequency = data['paymentFrequency'] ?? 'monthly';
+    _selectedStatus = data['status'] ?? 'active';
+
+    if (data['leaseStartDate'] != null) {
+      _leaseStartDate = (data['leaseStartDate'] as Timestamp).toDate();
+    }
+    if (data['leaseEndDate'] != null) {
+      _leaseEndDate = (data['leaseEndDate'] as Timestamp).toDate();
+    }
+  }
+
   Future<void> _saveTenant() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     setState(() => _isSaving = true);
-    
+
     try {
-      final tenantId = await _tenantController.addTenant(
-        // Mandatory fields
+      final success = await _tenantController.updateTenant(
+        tenantId: widget.tenantId,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
-        
-        // Optional fields
-        propertyId: _selectedPropertyId ?? '',
+        propertyId: _selectedPropertyId,
         unitNumber: _unitNumberController.text.trim(),
-        leaseStartDate: _leaseStartDate ?? DateTime.now(),
-        leaseEndDate: _leaseEndDate ?? DateTime.now().add(const Duration(days: 365)),
-        rentAmount: int.tryParse(_rentAmountController.text) ?? 0,
+        leaseStartDate: _leaseStartDate,
+        leaseEndDate: _leaseEndDate,
+        rentAmount: int.tryParse(_rentAmountController.text),
         paymentFrequency: _selectedPaymentFrequency,
-        rentDueDay: int.tryParse(_rentDueDayController.text) ?? 1,
-        securityDeposit: int.tryParse(_securityDepositController.text) ?? 0,
+        rentDueDay: int.tryParse(_rentDueDayController.text),
+        securityDeposit: int.tryParse(_securityDepositController.text),
         notes: _notesController.text.trim(),
+        status: _selectedStatus,
       );
-      
-      if (tenantId != null) {
+
+      if (success) {
         Get.back();
-        Get.snackbar('Success', 'Tenant added successfully');
+        Get.snackbar('Success', 'Tenant updated successfully');
       } else {
         Get.snackbar('Error', _tenantController.errorMessage.value);
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to add tenant: $e');
+      Get.snackbar('Error', 'Failed to update tenant: $e');
     } finally {
       setState(() => _isSaving = false);
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -145,18 +161,18 @@ class _AddTenantPageState extends State<AddTenantPage> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title: Text('Add Tenant', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
+          title: Text('Edit Tenant', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-    
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Add Tenant', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
+        title: Text('Edit Tenant', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _saveTenant,
@@ -184,19 +200,11 @@ class _AddTenantPageState extends State<AddTenantPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Mandatory Information
+              // Personal Information
               _buildSection(
-                'Personal Information *',
+                'Personal Information',
                 Icons.person_outline,
                 [
-                  Text(
-                    'Required fields to create a tenant',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
@@ -229,7 +237,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
                   const SizedBox(height: 16),
                   _buildTextField(
                     controller: _emailController,
-                    label: 'Email Address *',
+                    label: 'Email *',
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
@@ -244,33 +252,27 @@ class _AddTenantPageState extends State<AddTenantPage> {
                   const SizedBox(height: 16),
                   _buildTextField(
                     controller: _phoneController,
-                    label: 'Phone Number *',
+                    label: 'Phone *',
                     keyboardType: TextInputType.phone,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Phone number is required';
+                        return 'Phone is required';
                       }
                       return null;
                     },
                   ),
+                  const SizedBox(height: 16),
+                  _buildStatusDropdown(),
                 ],
               ),
 
               const SizedBox(height: 24),
 
-              // Optional Property Information
+              // Property Information
               _buildSection(
                 'Property Information',
                 Icons.home_outlined,
                 [
-                  Text(
-                    'Optional: Assign to a property (can be set later)',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   _buildPropertyDropdown(),
                   const SizedBox(height: 16),
                   _buildTextField(
@@ -282,19 +284,11 @@ class _AddTenantPageState extends State<AddTenantPage> {
 
               const SizedBox(height: 24),
 
-              // Optional Lease Information
+              // Lease Information
               _buildSection(
                 'Lease Information',
                 Icons.description_outlined,
                 [
-                  Text(
-                    'Optional: Set lease terms (can be updated later)',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(child: _buildDateField('Lease Start Date', _leaseStartDate, (date) => _leaseStartDate = date)),
@@ -353,19 +347,11 @@ class _AddTenantPageState extends State<AddTenantPage> {
 
               const SizedBox(height: 24),
 
-              // Optional Additional Information
+              // Additional Information
               _buildSection(
                 'Additional Information',
                 Icons.note_outlined,
                 [
-                  Text(
-                    'Optional: Add any notes about the tenant',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   _buildTextField(
                     controller: _notesController,
                     label: 'Notes',
@@ -376,7 +362,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
 
               const SizedBox(height: 32),
 
-              // Add Button
+              // Save Button
               FadeInUp(
                 duration: const Duration(milliseconds: 600),
                 child: SizedBox(
@@ -393,44 +379,13 @@ class _AddTenantPageState extends State<AddTenantPage> {
                     child: _isSaving
                         ? const CircularProgressIndicator(color: Colors.white)
                         : Text(
-                            'Add Tenant',
+                            'Update Tenant',
                             style: GoogleFonts.poppins(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                   ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // Info note
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: AppTheme.primaryColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Only name, email, and phone are required. You can add property and lease details later.',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
 
@@ -533,7 +488,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
     return DropdownButtonFormField<String>(
       value: _selectedPropertyId,
       decoration: InputDecoration(
-        labelText: 'Select Property',
+        labelText: 'Property',
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -553,7 +508,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
       items: [
         const DropdownMenuItem<String>(
           value: null,
-          child: Text('Select Property (Optional)'),
+          child: Text('Select Property'),
         ),
         ..._properties.map((property) {
           final data = property.data() as Map<String, dynamic>;
@@ -605,6 +560,43 @@ class _AddTenantPageState extends State<AddTenantPage> {
       }).toList(),
       onChanged: (value) {
         setState(() => _selectedPaymentFrequency = value!);
+      },
+      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
+    );
+  }
+
+  Widget _buildStatusDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _selectedStatus,
+      decoration: InputDecoration(
+        labelText: 'Status',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      items: ['active', 'inactive'].map((status) {
+        return DropdownMenuItem<String>(
+          value: status,
+          child: Text(
+            status[0].toUpperCase() + status.substring(1),
+            style: GoogleFonts.poppins(fontSize: 14),
+          ),
+        );
+      }).toList(),
+      onChanged: (value) {
+        setState(() => _selectedStatus = value!);
       },
       style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
     );

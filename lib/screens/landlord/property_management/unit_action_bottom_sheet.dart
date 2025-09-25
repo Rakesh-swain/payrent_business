@@ -907,7 +907,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                           color: Colors.white,
                         ),
                       )
-                    : Text('Assign Tenant'),
+                    : Text('Assign Tenant',style: TextStyle(color: Colors.white),),
               ),
             ),
           ],

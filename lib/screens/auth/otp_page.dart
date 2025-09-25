@@ -27,6 +27,10 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
   final TextEditingController _otpController = TextEditingController();
   bool isOtpComplete = false;
   
+  // Track if OTP was auto-filled or manually typed
+  bool _isAutoFilled = false;
+  bool _userStartedTyping = false;
+  
   // Resend timer
   Timer? _timer;
   int _resendSeconds = 30;
@@ -42,10 +46,23 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
     // Get the existing controller instance (don't create new one)
     phoneAuthController = Get.find<PhoneAuthController>();
     
-    listenForCode();
+    // Listen for SMS autofill
+    _listenForSMSCode();
     _startResendTimer();
     
     _otpController.addListener(_otpListener);
+  }
+  
+  void _listenForSMSCode() async {
+    try {
+      // Request SMS permissions and listen for code
+      await SmsAutoFill().listenForCode();
+      listenForCode();
+    } catch (e) {
+      print('SMS autofill error: $e');
+      // If SMS autofill fails, still listen for codes
+      listenForCode();
+    }
   }
   
   void _otpListener() {
@@ -76,11 +93,17 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
       setState(() {
         _otpController.text = code!;
         isOtpComplete = _otpController.text.length == 6;
+        _isAutoFilled = true;
+        _userStartedTyping = false;
       });
       
-      // Auto-verify when OTP is auto-filled
-      if (isOtpComplete) {
-        _verifyOtp();
+      // Auto-verify when OTP is auto-filled and user hasn't started typing
+      if (isOtpComplete && !_userStartedTyping) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && _isAutoFilled && !_userStartedTyping) {
+            _verifyOtp();
+          }
+        });
       }
     }
   }
@@ -378,20 +401,53 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
                         defaultPinTheme: defaultPinTheme,
                         focusedPinTheme: focusedPinTheme,
                         submittedPinTheme: submittedPinTheme,
+                        autofocus: true,
+                        readOnly: false,
+                        enableSuggestions: true,
                         onCompleted: (pin) {
                           setState(() {
                             isOtpComplete = true;
                           });
+                          
+                          // If this completion was triggered by user typing (not auto-fill)
+                          // then don't auto-submit
+                          if (_userStartedTyping && !_isAutoFilled) {
+                            // User manually completed OTP - don't auto-submit
+                            HapticFeedback.lightImpact();
+                          }
                         },
                         onChanged: (value) {
+                          // Detect if user started typing manually
+                          if (!_isAutoFilled) {
+                            setState(() {
+                              _userStartedTyping = true;
+                            });
+                          }
+                          
                           setState(() {
                             isOtpComplete = value.length == 6;
+                          });
+                          
+                          // Reset auto-fill status when user starts typing after auto-fill
+                          if (_isAutoFilled && value.length < _otpController.text.length) {
+                            setState(() {
+                              _isAutoFilled = false;
+                              _userStartedTyping = true;
+                            });
+                          }
+                        },
+                        onTap: () {
+                          // User tapped to enter OTP manually
+                          setState(() {
+                            _userStartedTyping = true;
+                            _isAutoFilled = false;
                           });
                         },
                         pinAnimationType: PinAnimationType.scale,
                         hapticFeedbackType: HapticFeedbackType.lightImpact,
                       ),
                       const SizedBox(height: 12),
+                      
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

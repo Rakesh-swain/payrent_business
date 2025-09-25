@@ -81,13 +81,13 @@ class TemplateViewerPage extends StatelessWidget {
                                     ? Icons.person
                                     : Icons.apartment,
                           ),
-                          const SizedBox(width: 8),
-                          _buildInfoChip(
-                            format.toUpperCase(),
-                            format == 'csv'
-                                ? Icons.insert_drive_file_outlined
-                                : Icons.table_chart_outlined,
-                          ),
+                          // const SizedBox(width: 8),
+                          // _buildInfoChip(
+                          //   format.toUpperCase(),
+                          //   format == 'csv'
+                          //       ? Icons.insert_drive_file_outlined
+                          //       : Icons.table_chart_outlined,
+                          // ),
                         ],
                       ),
                     ],

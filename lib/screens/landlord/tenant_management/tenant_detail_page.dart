@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_detail_page.dart';
+import 'package:payrent_business/controllers/tenant_controller.dart';
+import 'package:payrent_business/controllers/property_controller.dart';
+import 'package:payrent_business/controllers/auth_controller.dart';
+import 'package:payrent_business/models/tenant_model.dart';
+import 'package:payrent_business/screens/landlord/tenant_management/edit_tenant_page.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
 
 class TenantDetailPage extends StatefulWidget {
@@ -18,104 +25,20 @@ class TenantDetailPage extends StatefulWidget {
 class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   
-  // Sample tenant data
-  Map<String, dynamic>? _tenantData;
+  final TenantController _tenantController = Get.find<TenantController>();
+  final PropertyController _propertyController = Get.find<PropertyController>();
+  final AuthController _authController = Get.find<AuthController>();
+  
+  DocumentSnapshot? _tenantDoc;
+  DocumentSnapshot? _propertyDoc;
   bool _isLoading = true;
-  
-  // Sample payment history
-  final List<Map<String, dynamic>> _paymentHistory = [
-    {
-      'id': '1',
-      'title': 'Monthly Rent',
-      'amount': 2200,
-      'date': '2023-08-15',
-      'dueDate': '2023-08-15',
-      'status': 'Paid',
-      'method': 'Credit Card',
-    },
-    {
-      'id': '2',
-      'title': 'Monthly Rent',
-      'amount': 2200,
-      'date': '2023-07-14',
-      'dueDate': '2023-07-15',
-      'status': 'Paid',
-      'method': 'Bank Transfer',
-    },
-    {
-      'id': '3',
-      'title': 'Monthly Rent',
-      'amount': 2200,
-      'date': '2023-06-15',
-      'dueDate': '2023-06-15',
-      'status': 'Paid',
-      'method': 'UPI',
-    },
-    {
-      'id': '4',
-      'title': 'Monthly Rent',
-      'amount': 2200,
-      'date': null,
-      'dueDate': '2023-09-15',
-      'status': 'Due',
-      'method': null,
-    },
-  ];
-  
-  // Sample documents
-  final List<Map<String, dynamic>> _documents = [
-    {
-      'id': '1',
-      'title': 'Lease Agreement',
-      'type': 'PDF',
-      'size': '2.4 MB',
-      'uploadDate': '2023-01-15',
-      'url': 'https://example.com/documents/lease.pdf',
-    },
-    {
-      'id': '2',
-      'title': 'ID Proof',
-      'type': 'JPG',
-      'size': '1.2 MB',
-      'uploadDate': '2023-01-15',
-      'url': 'https://example.com/documents/id.jpg',
-    },
-    {
-      'id': '3',
-      'title': 'Background Verification',
-      'type': 'PDF',
-      'size': '3.8 MB',
-      'uploadDate': '2023-01-12',
-      'url': 'https://example.com/documents/verification.pdf',
-    },
-  ];
-  
-  // Sample requests
-  final List<Map<String, dynamic>> _requests = [
-    {
-      'id': '1',
-      'title': 'Leaking Faucet',
-      'description': 'The kitchen sink faucet is leaking and needs repair.',
-      'status': 'In Progress',
-      'date': '2023-08-10',
-      'priority': 'Medium',
-    },
-    {
-      'id': '2',
-      'title': 'Air Conditioner Not Cooling',
-      'description': 'The bedroom AC is not cooling properly.',
-      'status': 'Resolved',
-      'date': '2023-07-25',
-      'priority': 'High',
-    },
-  ];
+  String? _errorMessage;
+  List<Map<String, dynamic>> _generatedPayments = [];
   
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
-    // Fetch tenant data
     _fetchTenantData();
   }
   
@@ -126,36 +49,147 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
   }
   
   Future<void> _fetchTenantData() async {
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    // Sample data
-    _tenantData = {
-      'id': widget.tenantId,
-      'name': 'John Doe',
-      'email': 'john.doe@example.com',
-      'phone': '+1 (123) 456-7890',
-      'image': 'assets/profile.png',
-      'property': 'Modern Apartment in Downtown',
-      'propertyId': '1',
-      'rent': 2200,
-      'status': 'Active',
-      'leaseStart': '2023-01-15',
-      'leaseEnd': '2024-01-15',
-      'paymentStatus': 'Paid',
-      'nextDue': '2023-09-15',
-      'address': '123 Main St, Apt 303, New York, NY 10001',
-      'joinDate': '2023-01-15',
-      'emergencyContact': {
-        'name': 'Jane Doe',
-        'relation': 'Spouse',
-        'phone': '+1 (234) 567-8901',
-      },
-    };
-    
     setState(() {
-      _isLoading = false;
+      _isLoading = true;
+      _errorMessage = null;
     });
+    
+    try {
+      // Fetch tenant data from Firebase
+      _tenantDoc = await _tenantController.getTenantById(widget.tenantId);
+      
+      if (_tenantDoc == null || !_tenantDoc!.exists) {
+        throw Exception('Tenant not found');
+      }
+      
+      final tenantData = _tenantDoc!.data() as Map<String, dynamic>;
+      
+      // Fetch property data if property ID exists
+      if (tenantData['propertyId'] != null && tenantData['propertyId'].isNotEmpty) {
+        _propertyDoc = await _propertyController.getPropertyById(tenantData['propertyId']);
+      }
+      
+      // Generate payment list based on lease dates and frequency
+      _generatePaymentList();
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+  
+  void _generatePaymentList() {
+    if (_tenantDoc == null) return;
+    
+    final tenantData = _tenantDoc!.data() as Map<String, dynamic>;
+    
+    // Get lease details
+    final leaseStartDate = tenantData['leaseStartDate'] != null 
+        ? (tenantData['leaseStartDate'] as Timestamp).toDate()
+        : null;
+    final leaseEndDate = tenantData['leaseEndDate'] != null 
+        ? (tenantData['leaseEndDate'] as Timestamp).toDate()
+        : null;
+    final rentAmount = (tenantData['rentAmount'] is int) 
+        ? (tenantData['rentAmount'] as int).toDouble() 
+        : (tenantData['rentAmount'] ?? 0.0);
+    final paymentFrequency = tenantData['paymentFrequency'] ?? 'monthly';
+    final rentDueDay = tenantData['rentDueDay'] ?? 1;
+    
+    if (leaseStartDate == null || leaseEndDate == null) return;
+    
+    _generatedPayments.clear();
+    
+    // Calculate payment dates based on frequency
+    DateTime currentPaymentDate = DateTime(leaseStartDate.year, leaseStartDate.month, rentDueDay);
+    final today = DateTime.now();
+    int paymentNumber = 1;
+    
+    while (currentPaymentDate.isBefore(leaseEndDate) || currentPaymentDate.isAtSameMomentAs(leaseEndDate)) {
+      // Don't generate payments for future dates beyond 3 months
+      if (currentPaymentDate.isAfter(today.add(const Duration(days: 90)))) {
+        break;
+      }
+      
+      String status;
+      if (currentPaymentDate.isBefore(today)) {
+        // Past due dates - assume paid for demo (you can check actual payment records)
+        status = 'paid';
+      } else if (currentPaymentDate.year == today.year && 
+                 currentPaymentDate.month == today.month) {
+        status = 'due';
+      } else {
+        status = 'upcoming';
+      }
+      
+      _generatedPayments.add({
+        'id': 'payment_${paymentNumber}',
+        'title': _getPaymentTitle(paymentFrequency),
+        'amount': rentAmount,
+        'dueDate': currentPaymentDate,
+        'status': status,
+        'frequency': paymentFrequency,
+        'paymentNumber': paymentNumber,
+        'formattedDueDate': DateFormat('MMM dd, yyyy').format(currentPaymentDate),
+        'isOverdue': currentPaymentDate.isBefore(today) && status != 'paid',
+      });
+      
+      // Calculate next payment date based on frequency
+      switch (paymentFrequency.toLowerCase()) {
+        case 'weekly':
+          currentPaymentDate = currentPaymentDate.add(const Duration(days: 7));
+          break;
+        case 'monthly':
+          currentPaymentDate = DateTime(
+            currentPaymentDate.month == 12 ? currentPaymentDate.year + 1 : currentPaymentDate.year,
+            currentPaymentDate.month == 12 ? 1 : currentPaymentDate.month + 1,
+            rentDueDay,
+          );
+          break;
+        case 'quarterly':
+          currentPaymentDate = DateTime(
+            currentPaymentDate.month + 3 > 12 ? currentPaymentDate.year + 1 : currentPaymentDate.year,
+            (currentPaymentDate.month + 3) > 12 ? (currentPaymentDate.month + 3) - 12 : currentPaymentDate.month + 3,
+            rentDueDay,
+          );
+          break;
+        case 'yearly':
+          currentPaymentDate = DateTime(
+            currentPaymentDate.year + 1,
+            currentPaymentDate.month,
+            rentDueDay,
+          );
+          break;
+        default:
+          currentPaymentDate = DateTime(
+            currentPaymentDate.month == 12 ? currentPaymentDate.year + 1 : currentPaymentDate.year,
+            currentPaymentDate.month == 12 ? 1 : currentPaymentDate.month + 1,
+            rentDueDay,
+          );
+      }
+      
+      paymentNumber++;
+    }
+  }
+  
+  String _getPaymentTitle(String frequency) {
+    switch (frequency.toLowerCase()) {
+      case 'weekly':
+        return 'Weekly Rent';
+      case 'monthly':
+        return 'Monthly Rent';
+      case 'quarterly':
+        return 'Quarterly Rent';
+      case 'yearly':
+        return 'Yearly Rent';
+      default:
+        return 'Rent Payment';
+    }
   }
   
   @override
@@ -166,631 +200,83 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          title:Text('Tenant Details',style: GoogleFonts.poppins(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
-                    ),),
+          title: Text('Tenant Details', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
         ),
-        body: const Center(
-          child: CircularProgressIndicator(),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    
+    if (_errorMessage != null) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text('Tenant Details', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+              const SizedBox(height: 16),
+              Text('Error', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Text(_errorMessage!, style: GoogleFonts.poppins(color: AppTheme.textSecondary), textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _fetchTenantData,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
     
-    // Calculate lease progress
-    final leaseStart = DateTime.parse(_tenantData!['leaseStart']);
-    final leaseEnd = DateTime.parse(_tenantData!['leaseEnd']);
-    final today = DateTime.now();
-    
-    final totalDays = leaseEnd.difference(leaseStart).inDays;
-    final daysElapsed = today.difference(leaseStart).inDays;
-    
-    double progress = daysElapsed / totalDays;
-    progress = progress.clamp(0.0, 1.0); // Ensure progress is between 0 and 1
-    
-    final remainingDays = leaseEnd.difference(today).inDays;
-    
-    // Determine status color
-    Color statusColor;
-    switch (_tenantData!['status']) {
-      case 'Active':
-        statusColor = AppTheme.successColor;
-        break;
-      case 'Inactive':
-        statusColor = AppTheme.errorColor;
-        break;
-      default:
-        statusColor = AppTheme.textLight;
-    }
+    final tenantData = _tenantDoc!.data() as Map<String, dynamic>;
+    final propertyData = _propertyDoc?.data() as Map<String, dynamic>?;
     
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Tenant Details',style: GoogleFonts.poppins(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w500,
-                    ),),
+        title: Text('Tenant Details', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () => _navigateToEditTenant(),
+          ),
+          IconButton(
             icon: const Icon(Icons.more_vert),
-            onPressed: () {
-              _showOptionsBottomSheet();
-            },
+            onPressed: () => _showOptionsBottomSheet(),
           ),
         ],
       ),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tenant Profile Card
-          FadeInDown(
-            duration: const Duration(milliseconds: 500),
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      // Tenant Image
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundImage: AssetImage(_tenantData!['image']),
-                        onBackgroundImageError: (_, __) {},
-                      ),
-                      const SizedBox(width: 16),
-                      // Tenant Info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _tenantData!['name'],
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: statusColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                _tenantData!['status'],
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: statusColor,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.home_outlined,
-                                  size: 14,
-                                  color: AppTheme.textSecondary,
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    _tenantData!['property'],
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.attach_money_outlined,
-                                  size: 14,
-                                  color: AppTheme.textSecondary,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '\$${_tenantData!['rent']}/month',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  const Divider(),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Contact Information
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildContactButton(
-                        icon: Icons.call_outlined,
-                        label: 'Call',
-                        onTap: () {
-                          // Implement call functionality
-                        },
-                      ),
-                      _buildContactButton(
-                        icon: Icons.email_outlined,
-                        label: 'Email',
-                        onTap: () {
-                          // Implement email functionality
-                        },
-                      ),
-                      _buildContactButton(
-                        icon: Icons.message_outlined,
-                        label: 'Message',
-                        onTap: () {
-                          // Implement message functionality
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          // Lease Progress Card
-          FadeInDown(
-            duration: const Duration(milliseconds: 600),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Lease Progress',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  LinearPercentIndicator(
-                    lineHeight: 8.0,
-                    percent: progress,
-                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                    progressColor: AppTheme.primaryColor,
-                    barRadius: const Radius.circular(4),
-                    padding: EdgeInsets.zero,
-                    animation: true,
-                    animationDuration: 1000,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _formatDate(_tenantData!['leaseStart']),
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppTheme.textLight,
-                        ),
-                      ),
-                      Text(
-                        _formatDate(_tenantData!['leaseEnd']),
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: AppTheme.textLight,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.infoColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.info_outline,
-                          size: 16,
-                          color: AppTheme.infoColor,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '$remainingDays days remaining in the current lease',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.infoColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 16),
+          // Tenant Profile Header
+          _buildTenantHeader(tenantData, propertyData),
           
           // Tab Bar
-          FadeInDown(
-            duration: const Duration(milliseconds: 700),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                labelColor: AppTheme.primaryColor,
-                unselectedLabelColor: AppTheme.textSecondary,
-                indicatorColor: AppTheme.primaryColor,
-                indicatorPadding: const EdgeInsets.symmetric(horizontal: 16),
-                tabs: const [
-                  Tab(text: 'Details'),
-                  Tab(text: 'Payments'),
-                  Tab(text: 'Documents'),
-                ],
-              ),
-            ),
-          ),
+          _buildTabBar(),
           
           // Tab Content
           Expanded(
-            child: FadeInUp(
-              duration: const Duration(milliseconds: 800),
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Details Tab
-                  _buildDetailsTab(),
-                  
-                  // Payments Tab
-                  _buildPaymentsTab(),
-                  
-                  // Documents Tab
-                  _buildDocumentsTab(),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Show action sheet with options
-          _showActionsBottomSheet();
-        },
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-  
-  Widget _buildContactButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 20,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildDetailsTab() {
-    return SingleChildScrollView( physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Personal Information
-          _buildDetailSection(
-            title: 'Personal Information',
-            items: [
-              _buildDetailItem(
-                label: 'Email',
-                value: _tenantData!['email'],
-                icon: Icons.email_outlined,
-              ),
-              _buildDetailItem(
-                label: 'Phone',
-                value: _tenantData!['phone'],
-                icon: Icons.phone_outlined,
-              ),
-              _buildDetailItem(
-                label: 'Address',
-                value: _tenantData!['address'],
-                icon: Icons.home_outlined,
-              ),
-              _buildDetailItem(
-                label: 'Since',
-                value: _formatDate(_tenantData!['joinDate']),
-                icon: Icons.calendar_today_outlined,
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Emergency Contact
-          _buildDetailSection(
-            title: 'Emergency Contact',
-            items: [
-              _buildDetailItem(
-                label: 'Name',
-                value: _tenantData!['emergencyContact']['name'],
-                icon: Icons.person_outline,
-              ),
-              _buildDetailItem(
-                label: 'Relation',
-                value: _tenantData!['emergencyContact']['relation'],
-                icon: Icons.family_restroom_outlined,
-              ),
-              _buildDetailItem(
-                label: 'Phone',
-                value: _tenantData!['emergencyContact']['phone'],
-                icon: Icons.phone_outlined,
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          
-          // Maintenance Requests
-          _buildRequestsSection(),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildPaymentsTab() {
-    return SingleChildScrollView( physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Payment Summary
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: TabBarView(
+              controller: _tabController,
               children: [
-                Text(
-                  'Payment Summary',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildPaymentStat(
-                      label: 'Monthly Rent',
-                      value: '\$${_tenantData!['rent']}',
-                      icon: Icons.attach_money_outlined,
-                      iconColor: AppTheme.primaryColor,
-                    ),
-                    _buildPaymentStat(
-                      label: 'Status',
-                      value: _tenantData!['paymentStatus'],
-                      icon: Icons.check_circle_outline,
-                      iconColor: AppTheme.successColor,
-                    ),
-                    _buildPaymentStat(
-                      label: 'Next Due',
-                      value: _formatShortDate(_tenantData!['nextDue']),
-                      icon: Icons.calendar_today_outlined,
-                      iconColor: AppTheme.warningColor,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // Payment History
-          Text(
-            'Payment History',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Payment Items
-          ...List.generate(_paymentHistory.length, (index) {
-            final payment = _paymentHistory[index];
-            return _buildPaymentHistoryItem(payment);
-          }),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildDocumentsTab() {
-    return SingleChildScrollView( physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Documents',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  // Upload document functionality
-                },
-                icon: const Icon(
-                  Icons.upload_file_outlined,
-                  size: 16,
-                ),
-                label: const Text('Upload'),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 12),
-          
-          // Document Items
-          ...List.generate(_documents.length, (index) {
-            final document = _documents[index];
-            return _buildDocumentItem(document);
-          }),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildDetailSection({
-    required String title,
-    required List<Widget> items,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...items,
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildDetailItem({
-    required String label,
-    required String value,
-    required IconData icon,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                _buildDetailsTab(tenantData, propertyData),
+                _buildPaymentsTab(tenantData),
+                _buildDocumentsTab(tenantData),
               ],
             ),
           ),
@@ -799,89 +285,132 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
     );
   }
   
-  Widget _buildRequestsSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Maintenance Requests',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  // View all requests
-                },
-                icon: const Icon(
-                  Icons.arrow_forward,
-                  size: 16,
-                ),
-                label: const Text('View All'),
-              ),
-            ],
+  Widget _buildTenantHeader(Map<String, dynamic> tenantData, Map<String, dynamic>? propertyData) {
+    final firstName = tenantData['firstName'] ?? '';
+    final lastName = tenantData['lastName'] ?? '';
+    final fullName = '$firstName $lastName'.trim();
+    
+    return FadeInDown(
+      duration: const Duration(milliseconds: 500),
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF6366F1), Color(0xFFA78BFA)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          const SizedBox(height: 16),
-          if (_requests.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                child: Text(
-                  'No maintenance requests yet',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6366F1).withOpacity(0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                // Avatar
+                CircleAvatar(
+                  radius: 35,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  child: Text(
+                    '${firstName.isNotEmpty ? firstName[0] : ''}${lastName.isNotEmpty ? lastName[0] : ''}'.toUpperCase(),
+                    style: GoogleFonts.poppins(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-            )
-          else
-            ...List.generate(_requests.length, (index) {
-              final request = _requests[index];
-              return _buildRequestItem(request);
-            }),
-        ],
+                const SizedBox(width: 16),
+                // Tenant Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fullName.isNotEmpty ? fullName : 'Unknown Tenant',
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      if (tenantData['email'] != null)
+                        Text(
+                          tenantData['email'],
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
+                      const SizedBox(height: 4),
+                      if (tenantData['phone'] != null)
+                        Text(
+                          tenantData['phone'],
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            const Divider(color: Colors.white24),
+            const SizedBox(height: 16),
+            
+            // Property and Rent Info
+            Row(
+              children: [
+                Expanded(
+                  child: _buildHeaderStat(
+                    'Property',
+                    propertyData?['name'] ?? 'Not Assigned',
+                    Icons.home_outlined,
+                  ),
+                ),
+                Expanded(
+                  child: _buildHeaderStat(
+                    'Rent Amount',
+                    '\$${(tenantData['rentAmount'] ?? 0).toStringAsFixed(0)}',
+                    Icons.attach_money_outlined,
+                  ),
+                ),
+                Expanded(
+                  child: _buildHeaderStat(
+                    'Frequency',
+                    _capitalizeFirst(tenantData['paymentFrequency'] ?? 'monthly'),
+                    Icons.schedule_outlined,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
   
-  Widget _buildPaymentStat({
-    required String label,
-    required String value,
-    required IconData icon,
-    required Color iconColor,
-  }) {
+  Widget _buildHeaderStat(String label, String value, IconData icon) {
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            size: 16,
-            color: iconColor,
-          ),
-        ),
+        Icon(icon, color: Colors.white.withOpacity(0.8), size: 20),
         const SizedBox(height: 8),
         Text(
           label,
           style: GoogleFonts.poppins(
             fontSize: 12,
-            color: AppTheme.textSecondary,
+            color: Colors.white.withOpacity(0.8),
           ),
         ),
         const SizedBox(height: 4),
@@ -890,33 +419,312 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
           style: GoogleFonts.poppins(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
+            color: Colors.white,
           ),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
   }
   
-  Widget _buildPaymentHistoryItem(Map<String, dynamic> payment) {
+  Widget _buildTabBar() {
+    return FadeInUp(
+      duration: const Duration(milliseconds: 600),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: TabBar(
+          controller: _tabController,
+          labelColor: AppTheme.primaryColor,
+          unselectedLabelColor: AppTheme.textSecondary,
+          indicatorColor: AppTheme.primaryColor,
+          indicatorPadding: const EdgeInsets.symmetric(horizontal: 16),
+          tabs: const [
+            Tab(text: 'Details'),
+            Tab(text: 'Payments'),
+            Tab(text: 'Documents'),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDetailsTab(Map<String, dynamic> tenantData, Map<String, dynamic>? propertyData) {
+    return FadeInUp(
+      duration: const Duration(milliseconds: 700),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Personal Information
+            _buildInfoCard(
+              'Personal Information',
+              Icons.person_outline,
+              [
+                _buildDetailRow('First Name', tenantData['firstName'] ?? 'Not provided'),
+                _buildDetailRow('Last Name', tenantData['lastName'] ?? 'Not provided'),
+                _buildDetailRow('Email', tenantData['email'] ?? 'Not provided'),
+                _buildDetailRow('Phone', tenantData['phone'] ?? 'Not provided'),
+                if (tenantData['status'] != null)
+                  _buildDetailRow('Status', tenantData['status']),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Property Information
+            if (propertyData != null)
+              _buildInfoCard(
+                'Property Information',
+                Icons.home_outlined,
+                [
+                  _buildDetailRow('Property Name', propertyData['name'] ?? 'Unknown'),
+                  _buildDetailRow('Unit Number', tenantData['unitNumber'] ?? 'Not specified'),
+                  if (propertyData['address'] != null)
+                    _buildDetailRow('Address', propertyData['address']),
+                  if (propertyData['city'] != null)
+                    _buildDetailRow('City', propertyData['city']),
+                ],
+              ),
+            
+            const SizedBox(height: 16),
+            
+            // Lease Information
+            _buildInfoCard(
+              'Lease Information',
+              Icons.description_outlined,
+              [
+                if (tenantData['leaseStartDate'] != null)
+                  _buildDetailRow('Lease Start', _formatTimestamp(tenantData['leaseStartDate'])),
+                if (tenantData['leaseEndDate'] != null)
+                  _buildDetailRow('Lease End', _formatTimestamp(tenantData['leaseEndDate'])),
+                _buildDetailRow('Rent Amount', '\$${(tenantData['rentAmount'] ?? 0).toStringAsFixed(2)}'),
+                _buildDetailRow('Payment Frequency', _capitalizeFirst(tenantData['paymentFrequency'] ?? 'monthly')),
+                _buildDetailRow('Rent Due Day', '${tenantData['rentDueDay'] ?? 1}${_getDaySuffix(tenantData['rentDueDay'] ?? 1)} of each ${tenantData['paymentFrequency'] ?? 'month'}'),
+                if (tenantData['securityDeposit'] != null)
+                  _buildDetailRow('Security Deposit', '\$${tenantData['securityDeposit'].toStringAsFixed(2)}'),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Additional Information
+            if (tenantData['notes'] != null && tenantData['notes'].toString().isNotEmpty)
+              _buildInfoCard(
+                'Additional Notes',
+                Icons.note_outlined,
+                [
+                  _buildDetailRow('Notes', tenantData['notes']),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildPaymentsTab(Map<String, dynamic> tenantData) {
+    return FadeInUp(
+      duration: const Duration(milliseconds: 700),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Payment Summary
+            _buildPaymentSummaryCard(tenantData),
+            
+            const SizedBox(height: 20),
+            
+            // Payment List Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Payment Schedule',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '${_generatedPayments.length} payments',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Payment List
+            if (_generatedPayments.isEmpty)
+              _buildEmptyPaymentsState()
+            else
+              ..._generatedPayments.map((payment) => _buildPaymentItem(payment)).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildPaymentSummaryCard(Map<String, dynamic> tenantData) {
+    final paidPayments = _generatedPayments.where((p) => p['status'] == 'paid').length;
+    final duePayments = _generatedPayments.where((p) => p['status'] == 'due').length;
+    final overduePayments = _generatedPayments.where((p) => p['isOverdue'] == true).length;
+    final totalAmount = _generatedPayments.fold<double>(0.0, (sum, p) => sum + (p['amount'] as double));
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Payment Summary',
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildSummaryItem(
+                  'Total Payments',
+                  _generatedPayments.length.toString(),
+                  Colors.blue,
+                  Icons.receipt_long_outlined,
+                ),
+              ),
+              Expanded(
+                child: _buildSummaryItem(
+                  'Paid',
+                  paidPayments.toString(),
+                  Colors.green,
+                  Icons.check_circle_outline,
+                ),
+              ),
+              Expanded(
+                child: _buildSummaryItem(
+                  'Due',
+                  duePayments.toString(),
+                  Colors.orange,
+                  Icons.schedule_outlined,
+                ),
+              ),
+              Expanded(
+                child: _buildSummaryItem(
+                  'Overdue',
+                  overduePayments.toString(),
+                  Colors.red,
+                  Icons.warning_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total Amount',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              Text(
+                '\$${NumberFormat('#,##0.00').format(totalAmount)}',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildSummaryItem(String label, String value, Color color, IconData icon) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: AppTheme.textSecondary,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildPaymentItem(Map<String, dynamic> payment) {
     Color statusColor;
     IconData statusIcon;
     
     switch (payment['status']) {
-      case 'Paid':
-        statusColor = AppTheme.successColor;
+      case 'paid':
+        statusColor = Colors.green;
         statusIcon = Icons.check_circle;
         break;
-      case 'Due':
-        statusColor = AppTheme.warningColor;
-        statusIcon = Icons.access_time;
+      case 'due':
+        statusColor = Colors.orange;
+        statusIcon = Icons.schedule;
         break;
-      case 'Overdue':
-        statusColor = AppTheme.errorColor;
-        statusIcon = Icons.warning_amber_rounded;
+      case 'upcoming':
+        statusColor = Colors.blue;
+        statusIcon = Icons.schedule_outlined;
         break;
       default:
-        statusColor = AppTheme.textLight;
+        statusColor = Colors.grey;
         statusIcon = Icons.help_outline;
+    }
+    
+    if (payment['isOverdue'] == true) {
+      statusColor = Colors.red;
+      statusIcon = Icons.warning;
     }
     
     return Container(
@@ -941,13 +749,9 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
               color: statusColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              statusIcon,
-              size: 16,
-              color: statusColor,
-            ),
+            child: Icon(statusIcon, color: statusColor, size: 16),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -959,99 +763,9 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  payment['status'] == 'Paid'
-                      ? 'Paid on ${_formatDate(payment['date'])}'
-                      : 'Due on ${_formatDate(payment['dueDate'])}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            '\$${NumberFormat('#,##0.00').format(payment['amount'])}',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildDocumentItem(Map<String, dynamic> document) {
-    IconData fileIcon;
-    Color fileColor;
-    
-    switch (document['type']) {
-      case 'PDF':
-        fileIcon = Icons.picture_as_pdf_outlined;
-        fileColor = Colors.red;
-        break;
-      case 'JPG':
-      case 'PNG':
-        fileIcon = Icons.image_outlined;
-        fileColor = Colors.blue;
-        break;
-      case 'DOC':
-      case 'DOCX':
-        fileIcon = Icons.description_outlined;
-        fileColor = Colors.blue;
-        break;
-      default:
-        fileIcon = Icons.insert_drive_file_outlined;
-        fileColor = Colors.grey;
-    }
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: fileColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              fileIcon,
-              size: 24,
-              color: fileColor,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  document['title'],
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
                 const SizedBox(height: 4),
                 Text(
-                  '${document['type']} • ${document['size']} • ${_formatDate(document['uploadDate'])}',
+                  'Due: ${payment['formattedDueDate']}',
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     color: AppTheme.textSecondary,
@@ -1060,82 +774,28 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.download_outlined),
-            color: AppTheme.primaryColor,
-            onPressed: () {
-              // Download document
-            },
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildRequestItem(Map<String, dynamic> request) {
-    Color statusColor;
-    
-    switch (request['status']) {
-      case 'Open':
-        statusColor = AppTheme.warningColor;
-        break;
-      case 'In Progress':
-        statusColor = AppTheme.infoColor;
-        break;
-      case 'Resolved':
-        statusColor = AppTheme.successColor;
-        break;
-      default:
-        statusColor = AppTheme.textLight;
-    }
-    
-    Color priorityColor;
-    
-    switch (request['priority']) {
-      case 'High':
-        priorityColor = AppTheme.errorColor;
-        break;
-      case 'Medium':
-        priorityColor = AppTheme.warningColor;
-        break;
-      case 'Low':
-        priorityColor = AppTheme.successColor;
-        break;
-      default:
-        priorityColor = AppTheme.textLight;
-    }
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.dividerColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                request['title'],
+                '\$${NumberFormat('#,##0.00').format(payment['amount'])}',
                 style: GoogleFonts.poppins(
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
+                  color: AppTheme.primaryColor,
                 ),
               ),
+              const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  request['status'],
+                  payment['isOverdue'] == true ? 'Overdue' : _capitalizeFirst(payment['status']),
                   style: GoogleFonts.poppins(
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: FontWeight.w500,
                     color: statusColor,
                   ),
@@ -1143,58 +803,193 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            request['description'],
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 12,
-                    color: AppTheme.textLight,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatDate(request['date']),
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppTheme.textLight,
-                    ),
-                  ),
-                ],
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildEmptyPaymentsState() {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'No Payment Schedule',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary,
               ),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.flag_outlined,
-                    size: 12,
-                    color: AppTheme.textLight,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please ensure lease dates and payment frequency are set',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDocumentsTab(Map<String, dynamic> tenantData) {
+    return FadeInUp(
+      duration: const Duration(milliseconds: 700),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Documents',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${request['priority']} Priority',
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: priorityColor,
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    // TODO: Implement document upload
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Document upload coming soon')),
+                    );
+                  },
+                  icon: const Icon(Icons.upload_file, size: 16),
+                  label: const Text('Upload'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Placeholder for documents
+            Container(
+              padding: const EdgeInsets.all(32),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.folder_outlined, size: 64, color: Colors.grey.shade400),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No Documents Yet',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textSecondary,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Upload lease agreements, ID proofs, and other documents',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildInfoCard(String title, IconData icon, List<Widget> children) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: AppTheme.primaryColor, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
     );
+  }
+  
+  void _navigateToEditTenant() {
+    if (_tenantDoc != null) {
+      Get.to(() => EditTenantPage(tenantId: widget.tenantId))?.then((_) {
+        // Refresh data when returning from edit
+        _fetchTenantData();
+      });
+    }
   }
   
   void _showOptionsBottomSheet() {
@@ -1223,112 +1018,29 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                 label: 'Edit Tenant Details',
                 onTap: () {
                   Navigator.pop(context);
-                  // Navigate to edit tenant page
+                  _navigateToEditTenant();
                 },
               ),
-              _buildOptionItem(
-                icon: Icons.home_outlined,
-                label: 'View Property',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to property details
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PropertyDetailsPage(
-                        propertyId: _tenantData!['propertyId'],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              _buildOptionItem(
-                icon: Icons.description_outlined,
-                label: 'View Lease Agreement',
-                onTap: () {
-                  Navigator.pop(context);
-                  // View lease agreement
-                },
-              ),
-              if (_tenantData!['status'] == 'Active')
+              if (_tenantDoc != null && _propertyDoc != null)
                 _buildOptionItem(
-                  icon: Icons.logout,
-                  label: 'Mark as Inactive',
+                  icon: Icons.home_outlined,
+                  label: 'View Property',
                   onTap: () {
                     Navigator.pop(context);
-                    // Show confirmation dialog
-                    _showConfirmationDialog(
-                      title: 'Mark as Inactive',
-                      message: 'Are you sure you want to mark this tenant as inactive?',
-                      onConfirm: () {
-                        // Update tenant status
-                        setState(() {
-                          _tenantData!['status'] = 'Inactive';
-                        });
-                      },
-                    );
+                    final tenantData = _tenantDoc!.data() as Map<String, dynamic>;
+                    if (tenantData['propertyId'] != null) {
+                      Get.to(() => PropertyDetailsPage(propertyId: tenantData['propertyId']));
+                    }
                   },
-                  isDestructive: true,
                 ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-  
-  void _showActionsBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Actions',
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
               _buildOptionItem(
-                icon: Icons.attach_money_outlined,
-                label: 'Record Payment',
+                icon: Icons.delete_outline,
+                label: 'Delete Tenant',
                 onTap: () {
                   Navigator.pop(context);
-                  // Navigate to record payment page
+                  _showDeleteConfirmation();
                 },
-              ),
-              _buildOptionItem(
-                icon: Icons.description_outlined,
-                label: 'Upload Document',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to upload document page
-                },
-              ),
-              _buildOptionItem(
-                icon: Icons.home_repair_service_outlined,
-                label: 'Add Maintenance Request',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to add maintenance request page
-                },
-              ),
-              _buildOptionItem(
-                icon: Icons.message_outlined,
-                label: 'Send Message',
-                onTap: () {
-                  Navigator.pop(context);
-                  // Navigate to send message page
-                },
+                isDestructive: true,
               ),
             ],
           ),
@@ -1370,30 +1082,30 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
     );
   }
   
-  void _showConfirmationDialog({
-    required String title,
-    required String message,
-    required VoidCallback onConfirm,
-  }) {
+  void _showDeleteConfirmation() {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(title),
-          content: Text(message),
+          title: const Text('Delete Tenant'),
+          content: const Text('Are you sure you want to delete this tenant? This action cannot be undone.'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                onConfirm();
+                final success = await _tenantController.deleteTenant(widget.tenantId);
+                if (success) {
+                  Get.back(); // Return to previous screen
+                  Get.snackbar('Success', 'Tenant deleted successfully');
+                } else {
+                  Get.snackbar('Error', 'Failed to delete tenant');
+                }
               },
-              child: const Text('Confirm'),
+              child: const Text('Delete', style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -1401,13 +1113,32 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
     );
   }
   
-  String _formatDate(String dateStr) {
-    final date = DateTime.parse(dateStr);
-    return DateFormat('dd MMM, yyyy').format(date);
+  String _formatTimestamp(dynamic timestamp) {
+    if (timestamp == null) return 'Not specified';
+    
+    if (timestamp is Timestamp) {
+      final date = timestamp.toDate();
+      return DateFormat('MMM dd, yyyy').format(date);
+    }
+    
+    return 'Invalid date';
   }
   
-  String _formatShortDate(String dateStr) {
-    final date = DateTime.parse(dateStr);
-    return DateFormat('dd MMM').format(date);
+  String _getDaySuffix(int day) {
+    if (day >= 11 && day <= 13) {
+      return 'th';
+    }
+    
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  }
+  
+  String _capitalizeFirst(String text) {
+    if (text.isEmpty) return text;
+    return text[0].toUpperCase() + text.substring(1).toLowerCase();
   }
 }
