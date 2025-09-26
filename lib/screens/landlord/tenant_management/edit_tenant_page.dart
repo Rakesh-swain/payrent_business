@@ -308,7 +308,7 @@ class _EditTenantPageState extends State<EditTenantPage> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Expanded(child: _buildPaymentFrequencyDropdown()),
+                      // Expanded(child: _buildPaymentFrequencyDropdown()),
                     ],
                   ),
                   const SizedBox(height: 16),

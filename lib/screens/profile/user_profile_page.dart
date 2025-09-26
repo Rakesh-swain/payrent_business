@@ -83,7 +83,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
         _userData['phone'] = _userProfileController.phone.value;
         _userData['businessName'] = _userProfileController.businessName.value;
         _userData['accountType'] = _userProfileController.userType.value.capitalizeFirst;
-        
+        _userData['address'] = _userProfileController.address.value;
         // If profile image URL exists, update it
         if (_userProfileController.profileImageUrl.value.isNotEmpty) {
           _userData['profileImage'] = _userProfileController.profileImageUrl.value;

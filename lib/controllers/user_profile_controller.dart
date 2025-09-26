@@ -18,6 +18,7 @@ class UserProfileController extends GetxController {
   final RxString successMessage = ''.obs;
   final RxString profileImagePath = ''.obs;
   final RxString profileImageUrl = ''.obs;
+  final RxString address = ''.obs;
   final RxString name = ''.obs;
   final RxString businessName = ''.obs;
   final RxString email = ''.obs;
@@ -45,7 +46,7 @@ class UserProfileController extends GetxController {
       );
       
       // Update user profile
-      await _authService.updateUserProfile(uid: uid,
+      await _authService.updateUserProfile(
         profileImage: downloadUrl,
       );
       
@@ -77,9 +78,7 @@ class UserProfileController extends GetxController {
         errorMessage.value = 'User not logged in';
         return;
       }
-      
       await _authService.updateUserProfile(
-        uid: uid,
         name: name,
         businessName: businessName,
         email: email,
@@ -122,6 +121,7 @@ class UserProfileController extends GetxController {
         phone.value = userData['phone'] ?? '';
         userType.value = userData['userType'] ?? 'landlord';
         profileImageUrl.value = userData['profileImage'] ?? '';
+        address.value = userData['address'] ?? '';
       }
     } catch (e) {
       errorMessage.value = 'Failed to get user profile';

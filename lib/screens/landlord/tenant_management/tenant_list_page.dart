@@ -7,6 +7,8 @@ import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/controllers/property_controller.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/add_tenant_page.dart';
+import 'package:payrent_business/screens/landlord/tenant_management/edit_tenant_page.dart';
+import 'package:payrent_business/screens/landlord/tenant_management/tenant_detail_page.dart';
 
 class TenantListPage extends StatefulWidget {
   const TenantListPage({super.key});
@@ -254,13 +256,11 @@ class _TenantListPageState extends State<TenantListPage> {
   }
   
   void _viewTenantDetails(DocumentSnapshot tenant) {
-    // Navigate to tenant details page
-    Get.snackbar('Info', 'Tenant details page coming soon!');
+    Get.to(TenantDetailPage(tenantId: tenant.id,));
   }
   
   void _editTenant(DocumentSnapshot tenant) {
-    // Navigate to edit tenant page
-    Get.snackbar('Info', 'Edit tenant page coming soon!');
+    Get.to(EditTenantPage(tenantId: tenant.id,));
   }
   
   void _viewTenantPayments(DocumentSnapshot tenant) {

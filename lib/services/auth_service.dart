@@ -132,7 +132,6 @@ class AuthService {
   
   // Update user profile
   Future<void> updateUserProfile({
-    required String uid,
     String? email,
     String? phone,
     String? name,
@@ -143,10 +142,11 @@ class AuthService {
     Map<String, dynamic>? additionalInfo,
     String? address,
   }) async {
+    final uid =FirebaseAuth.instance.currentUser!.uid;
     final userDoc = await _firestore.collection('users').doc(uid).get();
-    
     if (userDoc.exists) {
       final currentUser = UserModel.fromFirestore(userDoc);
+      print("dd${address}");
       final updatedUser = currentUser.copyWith(
         email: email,
         phone: phone,

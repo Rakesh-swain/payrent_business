@@ -7,7 +7,9 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:payrent_business/controllers/phone_auth_controller.dart';
+import 'package:payrent_business/controllers/tenant_data_controller.dart';
 import 'package:payrent_business/screens/auth/otp_page.dart';
+import 'package:payrent_business/services/tenant_auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -33,6 +35,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   // Focus nodes for form fields
   final FocusNode _loginPhoneFocusNode = FocusNode();
   final FocusNode _mobileFocusNode = FocusNode();
+  
+  // Services
+  final TenantAuthService _tenantAuthService = TenantAuthService();
   
   // State variables
   String selectedCountry = 'India';
@@ -588,7 +593,7 @@ Future<void> _simulateOtpSend() async {
   }
 }
 
-// Updated login function
+// Updated login function with tenant authentication
 Future<void> _simulateLogin() async {
   final phoneNumber = _loginPhoneController.text.trim();
   
@@ -604,99 +609,182 @@ Future<void> _simulateLogin() async {
   });
   
   try {
-    // ✅ Check if number exists in Firestore
+    // 🔍 FIRST: Check if number exists as a tenant
+    final tenantInfo = await _tenantAuthService.checkTenantByPhoneNumber(phoneNumber);
+    
+    if (tenantInfo != null) {
+      // ✅ Phone number found in tenant records - proceed with tenant flow
+      print('Tenant found: ${tenantInfo['tenantId']}');
+      
+      // Send OTP for tenant authentication
+      final bool success = await phoneAuthController.sendVerificationCode("+$selectedCountryCode$phoneNumber");
+      
+      setState(() => isLoading = false);
+      
+      if (success && phoneAuthController.isCodeSent.value) {
+        phoneAuthController.countryCode.value = selectedCountryCode;
+        phoneAuthController.mobileNumber.value = phoneNumber;
+        
+        // Navigate to OTP page with tenant info
+        Get.to(OtpVerificationPage(
+          islogin: true,
+          mobileNumber: phoneNumber,
+          tenantInfo: tenantInfo, // Pass tenant info for after OTP verification
+        ));
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 10),
+                Text(
+                  'OTP sent successfully!',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF34D399),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(10),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Text(
+                  phoneAuthController.errorMessage.value.isNotEmpty 
+                      ? phoneAuthController.errorMessage.value 
+                      : 'Failed to send OTP. Please try again.',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(10),
+          ),
+        );
+      }
+      return;
+    }
+    
+    // 🔍 SECOND: Check if number exists as a landlord
     final snapshot = await FirebaseFirestore.instance
         .collection('users')
         .where('phone', isEqualTo: phoneNumber)
         .get();
     
-    if (snapshot.docs.isEmpty) {
+    if (snapshot.docs.isNotEmpty) {
+      // ✅ Phone number found in landlord records - proceed with landlord flow
+      final bool success = await phoneAuthController.sendVerificationCode("+$selectedCountryCode$phoneNumber");
+      
       setState(() => isLoading = false);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'This number is not registered. Please sign up instead.',
+      if (success && phoneAuthController.isCodeSent.value) {
+        phoneAuthController.countryCode.value = selectedCountryCode;
+        phoneAuthController.mobileNumber.value = phoneNumber;
+        
+        Get.to(OtpVerificationPage(
+          islogin: true,
+          mobileNumber: phoneNumber,
+        ));
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 10),
+                Text(
+                  'OTP sent successfully!',
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
                 ),
-              ),
-            ],
+              ],
+            ),
+            backgroundColor: const Color(0xFF34D399),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(10),
+            duration: const Duration(seconds: 2),
           ),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(10),
-        ),
-      );
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Text(
+                  phoneAuthController.errorMessage.value.isNotEmpty 
+                      ? phoneAuthController.errorMessage.value 
+                      : 'Failed to send OTP. Please try again.',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            margin: const EdgeInsets.all(10),
+          ),
+        );
+      }
       return;
     }
     
-    // ✅ Send OTP using Firebase and WAIT for the result
-    final bool success = await phoneAuthController.sendVerificationCode("+$selectedCountryCode$phoneNumber");
-    
+    // ❌ Phone number not found anywhere
     setState(() => isLoading = false);
     
-    if (success && phoneAuthController.isCodeSent.value) {
-      phoneAuthController.countryCode.value = selectedCountryCode;
-      phoneAuthController.mobileNumber.value = phoneNumber;
-      // Only navigate if code was successfully sent
-      Get.to(OtpVerificationPage(
-        islogin: true,
-        mobileNumber: phoneNumber,
-      ));
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 10),
-              Text(
-                'OTP sent successfully!',
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'You don\'t have access. Please ask your landlord to add your details or sign up as a landlord.',
                 style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
               ),
-            ],
-          ),
-          backgroundColor: const Color(0xFF34D399),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(10),
-          duration: const Duration(seconds: 2),
+            ),
+          ],
         ),
-      );
-    } else {
-      // Show error message if OTP sending failed
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 10),
-              Text(
-                phoneAuthController.errorMessage.value.isNotEmpty 
-                    ? phoneAuthController.errorMessage.value 
-                    : 'Failed to send OTP. Please try again.',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(10),
-        ),
-      );
-    }
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(10),
+        duration: const Duration(seconds: 4),
+      ),
+    );
     
   } catch (e) {
     setState(() => isLoading = false);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error sending OTP: $e')),
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white),
+            const SizedBox(width: 10),
+            Text(
+              'Error checking access: $e',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(10),
+      ),
     );
   }
 }
