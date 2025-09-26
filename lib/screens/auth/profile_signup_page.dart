@@ -25,9 +25,8 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
   final _emailController = TextEditingController();
   final _businessNameController = TextEditingController();
  
-  PhoneAuthController phoneAuthController = Get.put(
-    PhoneAuthController(),
-  );
+  final PhoneAuthController phoneAuthController = Get.find<PhoneAuthController>();
+
 
   final Set<String> _invalidFields = {};
   bool _formSubmitted = false; // Track if form has been submitted
@@ -137,7 +136,11 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
       suffixIconColor: hasError ? Colors.red : const Color(0xFF6B737A),
     );
   }
-
+@override
+  void initState() {
+    print(phoneAuthController.mobileNumber.value);
+    super.initState();
+  }
   @override
   void dispose() {
     _nameController.dispose();

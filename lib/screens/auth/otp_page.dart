@@ -41,14 +41,14 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
   bool _canResendOTP = false;
   
   // Get the existing PhoneAuthController instance
-  late final PhoneAuthController phoneAuthController;
+  final PhoneAuthController phoneAuthController = Get.find<PhoneAuthController>();
   
   @override
   void initState() {
     super.initState();
     
-    // Get the existing controller instance (don't create new one)
-    phoneAuthController = Get.find<PhoneAuthController>();
+    
+    
     
     // Listen for SMS autofill
     _listenForSMSCode();
