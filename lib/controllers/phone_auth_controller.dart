@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:payrent_business/controllers/auth_controller.dart';
 import 'package:payrent_business/screens/auth/signup_successful_page.dart';
+import 'package:payrent_business/screens/auth/account_information_page.dart';
 import 'package:payrent_business/services/auth_service.dart';
 
 // Updated PhoneAuthController with better callback handling
@@ -145,7 +146,12 @@ class PhoneAuthController extends GetxController {
         countryCode: countryCode
       );
       
-       Get.to(SignupSuccessfulPage(accountType: userType == "Landlord"));
+      // If landlord, navigate to account information page first
+      if (userType.toLowerCase() == "landlord") {
+        Get.to(() => const AccountInformationPage());
+      } else {
+        Get.to(SignupSuccessfulPage(accountType: userType == "Landlord"));
+      }
     } catch (e) {
       errorMessage.value = 'Failed to complete profile setup';
       print('Error completing profile setup: $e');
