@@ -2,13 +2,13 @@
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../controllers/auth_controller.dart';
-import '../services/firestore_service.dart';
+import '../repositories/tenant_repository.dart';
 import '../models/tenant_model.dart';
 
 class TenantController extends GetxController {
   static TenantController get to => Get.find();
   
-  final FirestoreService _firestoreService = FirestoreService();
+  final TenantRepository _tenantRepository = TenantRepository();
   final AuthController _authController = Get.find<AuthController>();
   
   // Observables
@@ -25,27 +25,25 @@ class TenantController extends GetxController {
   }
   
   // Fetch tenants for current landlord from users/{userId}/tenants subcollection
-  Future<void> fetchTenants() async {
+  Future<void> fetchTenants({bool forceRefresh = false}) async {
     isLoading.value = true;
     errorMessage.value = '';
-    
+
     try {
       if (_authController.firebaseUser.value == null) {
         errorMessage.value = 'User not logged in';
         return;
       }
-      
+
       final uid = _authController.firebaseUser.value!.uid;
-      
-      // Query tenants from users/{userId}/tenants subcollection
-      final querySnapshot = await _firestoreService.querySubcollectionDocuments(
-        parentCollection: 'users',
-        parentDocumentId: uid,
-        subcollection: 'tenants',
+
+      final docs = await _tenantRepository.fetchTenants(
+        landlordId: uid,
+        forceRefresh: forceRefresh,
       );
-      
-      tenants.value = querySnapshot.docs;
-      filteredTenants.value = querySnapshot.docs;
+
+      tenants.value = docs;
+      filteredTenants.value = docs;
     } catch (e) {
       errorMessage.value = 'Failed to fetch tenants';
       print('Error fetching tenants: $e');
@@ -64,13 +62,12 @@ class TenantController extends GetxController {
       
       final uid = _authController.firebaseUser.value!.uid;
       
-      final doc = await _firestoreService.getSubcollectionDocument(
-        parentCollection: 'users',
-        parentDocumentId: uid,
-        subcollection: 'tenants',
-        documentId: tenantId,
+      final doc = await _tenantRepository.getTenant(
+        landlordId: uid,
+        tenantId: tenantId,
+        forceRefresh: false,
       );
-      
+
       return doc;
     } catch (e) {
       errorMessage.value = 'Failed to get tenant';
@@ -303,18 +300,16 @@ class TenantController extends GetxController {
         notes: notes ?? '', // Default to empty string
       );
       
-      // Create tenant document in users/{userId}/tenants subcollection
-      final tenantRef = await _firestoreService.createSubcollectionDocument(
-        parentCollection: 'users',
-        parentDocumentId: uid,
-        subcollection: 'tenants',
-        data: tenant.toFirestore(),
+      // Create tenant document via repository
+      final tenantIdCreated = await _tenantRepository.createTenant(
+        landlordId: uid,
+        tenant: tenant,
       );
-      
+
       successMessage.value = 'Tenant added successfully';
-      fetchTenants(); // Refresh tenants list
-      
-      return tenantRef.id;
+      await fetchTenants(forceRefresh: true); // Refresh tenants list
+
+      return tenantIdCreated;
     } catch (e) {
       errorMessage.value = 'Failed to add tenant';
       print('Error adding tenant: $e');
@@ -389,17 +384,15 @@ class TenantController extends GetxController {
       
       final uid = _authController.firebaseUser.value!.uid;
       
-      await _firestoreService.updateSubcollectionDocument(
-        parentCollection: 'users',
-        parentDocumentId: uid,
-        subcollection: 'tenants',
-        documentId: tenantId,
+      await _tenantRepository.updateTenant(
+        landlordId: uid,
+        tenantId: tenantId,
         data: updatedTenant.toFirestore(),
       );
-      
+
       successMessage.value = 'Tenant updated successfully';
-      fetchTenants(); // Refresh tenants list
-      
+      await fetchTenants(forceRefresh: true); // Refresh tenants list
+
       return true;
     } catch (e) {
       errorMessage.value = 'Failed to update tenant';
@@ -423,17 +416,15 @@ class TenantController extends GetxController {
       
       final uid = _authController.firebaseUser.value!.uid;
       
-      // Delete the tenant document from subcollection
-      await _firestoreService.deleteSubcollectionDocument(
-        parentCollection: 'users',
-        parentDocumentId: uid,
-        subcollection: 'tenants',
-        documentId: tenantId,
+      // Delete the tenant document via repository
+      await _tenantRepository.deleteTenant(
+        landlordId: uid,
+        tenantId: tenantId,
       );
-      
+
       successMessage.value = 'Tenant deleted successfully';
-      fetchTenants(); // Refresh tenants list
-      
+      await fetchTenants(forceRefresh: true); // Refresh tenants list
+
       return true;
     } catch (e) {
       errorMessage.value = 'Failed to delete tenant';
