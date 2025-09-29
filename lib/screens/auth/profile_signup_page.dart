@@ -6,9 +6,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:payrent_business/controllers/phone_auth_controller.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
+import 'package:payrent_business/controllers/auth_controller.dart';
 import 'package:payrent_business/screens/auth/signup_successful_page.dart';
 import 'package:payrent_business/widgets/appbar.dart';
+import 'package:payrent_business/models/account_information_model.dart';
+import 'package:payrent_business/services/branch_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileSignupPage extends StatefulWidget {
   final bool isPhoneRequired;
@@ -24,14 +28,25 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
   final _mobileController = TextEditingController();
   final _emailController = TextEditingController();
   final _businessNameController = TextEditingController();
+  
+  // Account Information Controllers
+  final _accountHolderNameController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  final _idNumberController = TextEditingController();
  
   final PhoneAuthController phoneAuthController = Get.find<PhoneAuthController>();
-
 
   final Set<String> _invalidFields = {};
   bool _formSubmitted = false; // Track if form has been submitted
   String? formError;
   String _selectedAccountType = 'Landlord'; // Default selection
+  
+  // Account Information Variables
+  IdType _selectedIdType = IdType.civilId;
+  String _selectedBankBic = '';
+  String _selectedBranchCode = '';
+  List<String> _availableBankBics = [];
+  List<BranchInfo> _availableBranches = [];
 
   final RegExp emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
   final RegExp phoneRegex = RegExp(r'^[0-9]{10}$');
@@ -80,10 +95,86 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
       }
     }
 
+    // Validate account information for landlords
+    if (_selectedAccountType == 'Landlord') {
+      if (_accountHolderNameController.text.trim().isEmpty) {
+        _invalidFields.add('accountHolderName');
+      }
+      if (_accountNumberController.text.trim().isEmpty) {
+        _invalidFields.add('accountNumber');
+      }
+      if (_idNumberController.text.trim().isEmpty) {
+        _invalidFields.add('idNumber');
+      }
+      if (_selectedBankBic.isEmpty) {
+        _invalidFields.add('bankBic');
+      }
+      if (_selectedBranchCode.isEmpty) {
+        _invalidFields.add('branchCode');
+      }
+    }
+
     if (_invalidFields.isNotEmpty) {
       formError = "Please fill all required fields correctly.";
     } else {
       formError = null;
+    }
+  }
+
+  // Save profile and account information
+  Future<void> _saveProfileAndAccountInfo() async {
+    try {
+      final authController = Get.find<AuthController>();
+      final user = authController.firebaseUser.value;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Create user profile data
+      Map<String, dynamic> profileData = {
+        'email': _emailController.text.trim(),
+        'phone': _mobileController.text.isEmpty 
+            ? phoneAuthController.mobileNumber.value 
+            : _mobileController.text.trim(),
+        'name': _nameController.text.trim(),
+        'businessName': _businessNameController.text.trim(),
+        'userType': _selectedAccountType,
+        'createdAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
+        'isVerified': false,
+      };
+
+      // Add account information if landlord
+      if (_selectedAccountType == 'Landlord') {
+        final accountInfo = AccountInformation(
+          accountHolderName: _accountHolderNameController.text.trim(),
+          accountNumber: _accountNumberController.text.trim(),
+          idType: _selectedIdType,
+          idNumber: _idNumberController.text.trim(),
+          bankBic: _selectedBankBic,
+          branchCode: _selectedBranchCode,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        
+        // Merge account information with profile data
+        profileData.addAll(accountInfo.toFirestore());
+      }
+
+      // Save to Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .set(profileData);
+
+      // Navigate to success page
+      Get.off(() => SignupSuccessfulPage(accountType: _selectedAccountType == "Landlord"));
+      
+    } catch (e) {
+      setState(() {
+        formError = 'Failed to save information: $e';
+      });
+      print('Error saving profile and account info: $e');
     }
   }
 
@@ -139,6 +230,7 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
 @override
   void initState() {
     print(phoneAuthController.mobileNumber.value);
+    _availableBankBics = BranchService.getAllBankBics();
     super.initState();
   }
   @override
@@ -147,6 +239,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
     _mobileController.dispose();
     _emailController.dispose();
     _businessNameController.dispose();
+    _accountHolderNameController.dispose();
+    _accountNumberController.dispose();
+    _idNumberController.dispose();
     super.dispose();
   }
 
@@ -458,6 +553,479 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                     ),
                   ),
 
+                  // Account Information for Landlords
+                  if (_selectedAccountType == 'Landlord') ...[
+                    const SizedBox(height: 32),
+                    
+                    // Account Information Header
+                    FadeInUp(
+                      duration: const Duration(milliseconds: 1200),
+                      child: Center(
+                        child: Text(
+                          'Account Information',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF333333),
+                            fontSize: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 8),
+                    
+                    FadeInUp(
+                      duration: const Duration(milliseconds: 1250),
+                      child: Center(
+                        child: Text(
+                          'Please provide your banking details for payment processing',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xFF6B737A),
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Account Holder Name Field
+                    FadeInLeft(
+                      duration: const Duration(milliseconds: 1300),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _accountHolderNameController,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF333333),
+                            ),
+                            decoration: buildInputDecoration(
+                              "Account Holder Name",
+                              hintText: "Enter the full name as on bank account",
+                              required: true,
+                              hasError: _hasError('accountHolderName'),
+                            ).copyWith(
+                              prefixIcon: Icon(
+                                Icons.person_outline_rounded,
+                                color: _hasError('accountHolderName')
+                                    ? Colors.red
+                                    : const Color(0xFF6B737A),
+                              ),
+                            ),
+                            textCapitalization: TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                          ),
+                          if (_hasError('accountHolderName'))
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16, top: 6),
+                              child: Text(
+                                "Account holder name is required",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Account Number Field
+                    FadeInRight(
+                      duration: const Duration(milliseconds: 1350),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _accountNumberController,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF333333),
+                            ),
+                            decoration: buildInputDecoration(
+                              "Account Number",
+                              hintText: "Enter your bank account number",
+                              required: true,
+                              hasError: _hasError('accountNumber'),
+                            ).copyWith(
+                              prefixIcon: Icon(
+                                Icons.account_balance_outlined,
+                                color: _hasError('accountNumber')
+                                    ? Colors.red
+                                    : const Color(0xFF6B737A),
+                              ),
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            textInputAction: TextInputAction.next,
+                          ),
+                          if (_hasError('accountNumber'))
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16, top: 6),
+                              child: Text(
+                                "Account number is required",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ID Type Dropdown
+                    FadeInLeft(
+                      duration: const Duration(milliseconds: 1400),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ID Type *',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFE0E0E0),
+                              ),
+                            ),
+                            child: DropdownButtonFormField<IdType>(
+                              value: _selectedIdType,
+                              onChanged: (IdType? newValue) {
+                                if (newValue != null) {
+                                  setState(() {
+                                    _selectedIdType = newValue;
+                                  });
+                                }
+                              },
+                              decoration: buildInputDecoration(
+                                '',
+                                hasError: false,
+                              ).copyWith(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                prefixIcon: const Icon(
+                                  Icons.credit_card_outlined,
+                                  color: Color(0xFF6B737A),
+                                ),
+                              ),
+                              items: IdType.values.map((IdType type) {
+                                return DropdownMenuItem<IdType>(
+                                  value: type,
+                                  child: Text(
+                                    type.displayName,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFF333333),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ID Number Field
+                    FadeInRight(
+                      duration: const Duration(milliseconds: 1450),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _idNumberController,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF333333),
+                            ),
+                            decoration: buildInputDecoration(
+                              "ID Number",
+                              hintText: "Enter your identification number",
+                              required: true,
+                              hasError: _hasError('idNumber'),
+                            ).copyWith(
+                              prefixIcon: Icon(
+                                Icons.badge_outlined,
+                                color: _hasError('idNumber')
+                                    ? Colors.red
+                                    : const Color(0xFF6B737A),
+                              ),
+                            ),
+                            textInputAction: TextInputAction.next,
+                          ),
+                          if (_hasError('idNumber'))
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16, top: 6),
+                              child: Text(
+                                "ID number is required",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Bank BIC Dropdown
+                    FadeInLeft(
+                      duration: const Duration(milliseconds: 1500),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Bank *',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _hasError('bankBic') ? Colors.red : const Color(0xFFE0E0E0),
+                              ),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedBankBic.isEmpty ? null : _selectedBankBic,
+                              onChanged: (String? newValue) {
+                                if (newValue != null) {
+                                  setState(() {
+                                    _selectedBankBic = newValue;
+                                    _selectedBranchCode = '';
+                                    _availableBranches = BranchService.getBranchesForBank(newValue);
+                                  });
+                                }
+                              },
+                              decoration: buildInputDecoration(
+                                '',
+                                hasError: _hasError('bankBic'),
+                              ).copyWith(
+                                hintText: 'Select your bank',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                prefixIcon: Icon(
+                                  Icons.account_balance_outlined,
+                                  color: _hasError('bankBic') ? Colors.red : const Color(0xFF6B737A),
+                                ),
+                              ),
+                              items: _availableBankBics.map((String bankBic) {
+                                return DropdownMenuItem<String>(
+                                  value: bankBic,
+                                  child: Text(
+                                    '${BranchService.getBankName(bankBic)} ($bankBic)',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFF333333),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          if (_hasError('bankBic'))
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16, top: 6),
+                              child: Text(
+                                "Please select a bank",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Branch Code Dropdown
+                    FadeInRight(
+                      duration: const Duration(milliseconds: 1550),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Branch *',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _hasError('branchCode') ? Colors.red : const Color(0xFFE0E0E0),
+                              ),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedBranchCode.isEmpty ? null : _selectedBranchCode,
+                              onChanged: _selectedBankBic.isEmpty 
+                                  ? null 
+                                  : (String? newValue) {
+                                      if (newValue != null) {
+                                        setState(() {
+                                          _selectedBranchCode = newValue;
+                                        });
+                                      }
+                                    },
+                              decoration: buildInputDecoration(
+                                '',
+                                hasError: _hasError('branchCode'),
+                              ).copyWith(
+                                hintText: _selectedBankBic.isEmpty 
+                                    ? 'Please select a bank first' 
+                                    : 'Select branch',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                prefixIcon: Icon(
+                                  Icons.location_on_outlined,
+                                  color: _hasError('branchCode') ? Colors.red : const Color(0xFF6B737A),
+                                ),
+                              ),
+                              items: _availableBranches.map((BranchInfo branch) {
+                                return DropdownMenuItem<String>(
+                                  value: branch.branchCode,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        branch.branchName,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: const Color(0xFF333333),
+                                        ),
+                                      ),
+                                      Text(
+                                        'Code: ${branch.branchCode}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w400,
+                                          color: const Color(0xFF6B737A),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          if (_hasError('branchCode'))
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16, top: 6),
+                              child: Text(
+                                "Please select a branch",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    // Selected Branch Information Display
+                    if (_selectedBranchCode.isNotEmpty && _selectedBankBic.isNotEmpty)
+                      FadeInUp(
+                        duration: const Duration(milliseconds: 1600),
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 20),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8F9FA),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFF4F287D).withOpacity(0.3),
+                            ),
+                          ),
+                          child: () {
+                            final branchInfo = BranchService.getBranchInfo(_selectedBankBic, _selectedBranchCode);
+                            if (branchInfo != null) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Selected Branch',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF4F287D),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    branchInfo.branchName,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: const Color(0xFF333333),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    branchInfo.branchDescription,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w400,
+                                      color: const Color(0xFF6B737A),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          }(),
+                        ),
+                      ),
+                  ],
+
                   const SizedBox(height: 32),
 
                   // Error message
@@ -520,13 +1088,8 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                               _selectedAccountType,
                             );
 
-                            phoneAuthController.completeProfileSetup(
-                              name: _nameController.text.trim(),
-                              businessName: _businessNameController.text.trim(),
-                              userType: _selectedAccountType,
-                              email: _emailController.text.trim(),
-                              phone: _mobileController.text.isEmpty ? phoneAuthController.mobileNumber.value : _mobileController.text.trim(),
-                            );
+                            // Save both profile and account information
+                            await _saveProfileAndAccountInfo();
                           } else {
                             setState(
                               () => formError =
