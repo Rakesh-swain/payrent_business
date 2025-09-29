@@ -24,6 +24,14 @@ class TenantModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   
+  // Account Information fields
+  final String? accountHolderName;
+  final String? accountNumber;
+  final String? idType;
+  final String? idNumber;
+  final String? bankBic;
+  final String? branchCode;
+  
   TenantModel({
     this.id,
     required this.firstName,
@@ -47,6 +55,12 @@ class TenantModel {
     this.isArchived = false,
     this.createdAt,
     this.updatedAt,
+    this.accountHolderName,
+    this.accountNumber,
+    this.idType,
+    this.idNumber,
+    this.bankBic,
+    this.branchCode,
   });
 
   // Factory constructor to create TenantModel from Firestore document
@@ -82,6 +96,12 @@ class TenantModel {
       isArchived: data['isArchived'] ?? false,
       createdAt: data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : null,
       updatedAt: data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : null,
+      accountHolderName: data['db_account_holder_name'],
+      accountNumber: data['db_account_number'],
+      idType: data['db_id_type'],
+      idNumber: data['db_id_number'],
+      bankBic: data['db_bank_bic'],
+      branchCode: data['db_branch_code'],
     );
   }
 
@@ -109,6 +129,12 @@ class TenantModel {
       'isArchived': isArchived,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
+      'db_account_holder_name': accountHolderName,
+      'db_account_number': accountNumber,
+      'db_id_type': idType,
+      'db_id_number': idNumber,
+      'db_bank_bic': bankBic,
+      'db_branch_code': branchCode,
     };
   }
   
@@ -133,6 +159,12 @@ class TenantModel {
     String? notes,
     String? status,
     bool? isArchived,
+    String? accountHolderName,
+    String? accountNumber,
+    String? idType,
+    String? idNumber,
+    String? bankBic,
+    String? branchCode,
   }) {
     return TenantModel(
       id: this.id,
@@ -157,6 +189,12 @@ class TenantModel {
       isArchived: isArchived ?? this.isArchived,
       createdAt: this.createdAt,
       updatedAt: DateTime.now(),
+      accountHolderName: accountHolderName ?? this.accountHolderName,
+      accountNumber: accountNumber ?? this.accountNumber,
+      idType: idType ?? this.idType,
+      idNumber: idNumber ?? this.idNumber,
+      bankBic: bankBic ?? this.bankBic,
+      branchCode: branchCode ?? this.branchCode,
     );
   }
   

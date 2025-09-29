@@ -1,26 +1,98 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/models/property_model.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/bulk_upload_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_list_page.dart';
 
-class ManagePropertiesPage extends StatelessWidget {
+class ManagePropertiesPage extends StatefulWidget {
   const ManagePropertiesPage({super.key});
+
+  @override
+  State<ManagePropertiesPage> createState() => _ManagePropertiesPageState();
+}
+
+class _ManagePropertiesPageState extends State<ManagePropertiesPage> {
+  bool _isLoading = true;
+  int _totalProperties = 0;
+  int _totalUnits = 0;
+  int _occupiedUnits = 0;
+  int _vacantUnits = 0;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPropertyStatistics();
+  }
+
+  Future<void> _fetchPropertyStatistics() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not logged in');
+      }
+
+      // Fetch all properties for the current user
+      final propertiesSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('properties')
+          .get();
+
+      int totalProperties = propertiesSnapshot.docs.length;
+      int totalUnits = 0;
+      int occupiedUnits = 0;
+
+      // Calculate unit statistics
+      for (var propertyDoc in propertiesSnapshot.docs) {
+        try {
+          final property = PropertyModel.fromFirestore(propertyDoc);
+          
+          // Count total units
+          totalUnits += property.units.length;
+          
+          // Count occupied units (units with tenantId)
+          occupiedUnits += property.units
+              .where((unit) => unit.tenantId != null && unit.tenantId!.isNotEmpty)
+              .length;
+        } catch (e) {
+          print('Error processing property ${propertyDoc.id}: $e');
+          // Continue processing other properties even if one fails
+        }
+      }
+
+      int vacantUnits = totalUnits - occupiedUnits;
+
+      setState(() {
+        _totalProperties = totalProperties;
+        _totalUnits = totalUnits;
+        _occupiedUnits = occupiedUnits;
+        _vacantUnits = vacantUnits;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+      print('Error fetching property statistics: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      // appBar: AppBar(
-      //   backgroundColor: Colors.transparent,
-      //   elevation: 0,
-      //   title:  Text('Manage Properties',style: GoogleFonts.poppins(
-      //                 fontSize: 22,
-      //                 fontWeight: FontWeight.w500,
-      //               ),),
-      // ),
       body: SingleChildScrollView(
         physics: BouncingScrollPhysics(),
         padding: const EdgeInsets.all(16),
@@ -60,7 +132,10 @@ class ManagePropertiesPage extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (context) => const AddPropertyPage(),
                     ),
-                  );
+                  ).then((_) {
+                    // Refresh statistics when returning from add property page
+                    _fetchPropertyStatistics();
+                  });
                 },
               ),
             ),
@@ -82,7 +157,10 @@ class ManagePropertiesPage extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (context) => const BulkUploadPage(),
                     ),
-                  );
+                  ).then((_) {
+                    // Refresh statistics when returning from bulk upload page
+                    _fetchPropertyStatistics();
+                  });
                 },
               ),
             ),
@@ -104,22 +182,63 @@ class ManagePropertiesPage extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (context) => const PropertyListPage(),
                     ),
-                  );
+                  ).then((_) {
+                    // Refresh statistics when returning from property list page
+                    _fetchPropertyStatistics();
+                  });
                 },
               ),
             ),
             
             const SizedBox(height: 24),
             
-            // Stats Section
-            Text(
-              'Property Statistics',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+            // Stats Section Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Property Statistics',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (!_isLoading)
+                  IconButton(
+                    onPressed: _fetchPropertyStatistics,
+                    icon: Icon(Icons.refresh, color: AppTheme.primaryColor),
+                    tooltip: 'Refresh Statistics',
+                  ),
+              ],
             ),
             const SizedBox(height: 16),
+            
+            // Error Message
+            if (_errorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Error loading statistics: $_errorMessage',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             
             // Stats Cards
             Row(
@@ -129,9 +248,10 @@ class ManagePropertiesPage extends StatelessWidget {
                     duration: const Duration(milliseconds: 600),
                     child: _buildStatCard(
                       title: 'Total Properties',
-                      value: '0',
+                      value: _isLoading ? '...' : '$_totalProperties',
                       icon: Icons.home_outlined,
                       color: AppTheme.primaryColor,
+                      isLoading: _isLoading,
                     ),
                   ),
                 ),
@@ -140,10 +260,11 @@ class ManagePropertiesPage extends StatelessWidget {
                   child: FadeInUp(
                     duration: const Duration(milliseconds: 700),
                     child: _buildStatCard(
-                      title: 'Occupied',
-                      value: '0',
+                      title: 'Occupied Units',
+                      value: _isLoading ? '...' : '$_occupiedUnits',
                       icon: Icons.people_outline,
                       color: const Color(0xFF2ECC71), // Green
+                      isLoading: _isLoading,
                     ),
                   ),
                 ),
@@ -152,13 +273,53 @@ class ManagePropertiesPage extends StatelessWidget {
                   child: FadeInUp(
                     duration: const Duration(milliseconds: 800),
                     child: _buildStatCard(
-                      title: 'Vacant',
-                      value: '0',
+                      title: 'Vacant Units',
+                      value: _isLoading ? '...' : '$_vacantUnits',
                       icon: Icons.door_front_door_outlined,
                       color: const Color(0xFFE74C3C), // Red
+                      isLoading: _isLoading,
                     ),
                   ),
                 ),
+              ],
+            ),
+            
+            // Additional Stats Row
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: FadeInUp(
+                    duration: const Duration(milliseconds: 900),
+                    child: _buildStatCard(
+                      title: 'Total Units',
+                      value: _isLoading ? '...' : '$_totalUnits',
+                      icon: Icons.apartment,
+                      color: const Color(0xFF3498DB), // Blue
+                      isLoading: _isLoading,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: FadeInUp(
+                    duration: const Duration(milliseconds: 1000),
+                    child: _buildStatCard(
+                      title: 'Occupancy Rate',
+                      value: _isLoading 
+                          ? '...' 
+                          : _totalUnits > 0 
+                              ? '${((_occupiedUnits / _totalUnits) * 100).toStringAsFixed(0)}%'
+                              : '0%',
+                      icon: Icons.trending_up,
+                      color: const Color(0xFF9B59B6), // Purple
+                      isLoading: _isLoading,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Empty space to maintain alignment
+                Expanded(child: SizedBox()),
               ],
             ),
             
@@ -166,7 +327,7 @@ class ManagePropertiesPage extends StatelessWidget {
             
             // Quick Tips
             FadeInUp(
-              duration: const Duration(milliseconds: 900),
+              duration: const Duration(milliseconds: 1100),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -202,10 +363,7 @@ class ManagePropertiesPage extends StatelessWidget {
                       'Use bulk upload to save time when adding multiple properties',
                     ),
                     _buildTipItem(
-                      'Add detailed information to attract quality tenants',
-                    ),
-                    _buildTipItem(
-                      'Keep your property photos up to date',
+                      'Statistics refresh automatically when you make changes',
                     ),
                   ],
                 ),
@@ -285,6 +443,7 @@ class ManagePropertiesPage extends StatelessWidget {
     required String value,
     required IconData icon,
     required Color color,
+    bool isLoading = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -307,11 +466,20 @@ class ManagePropertiesPage extends StatelessWidget {
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 16,
-            ),
+            child: isLoading
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                  )
+                : Icon(
+                    icon,
+                    color: color,
+                    size: 16,
+                  ),
           ),
           const SizedBox(height: 12),
           Text(

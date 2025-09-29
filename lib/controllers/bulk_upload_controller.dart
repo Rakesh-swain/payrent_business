@@ -173,6 +173,13 @@ class BulkUploadController extends GetxController {
                 'isArchived': false,
                 'createdAt': FieldValue.serverTimestamp(),
                 'updatedAt': FieldValue.serverTimestamp(),
+                // Account Information fields
+                'db_account_holder_name': (row['Account Holder Name'] ?? '').toString().isEmpty ? null : (row['Account Holder Name'] ?? '').toString(),
+                'db_account_number': (row['Account Number'] ?? '').toString().isEmpty ? null : (row['Account Number'] ?? '').toString(),
+                'db_id_type': (row['ID Type'] ?? '').toString().isEmpty ? null : (row['ID Type'] ?? '').toString(),
+                'db_id_number': (row['ID Number'] ?? '').toString().isEmpty ? null : (row['ID Number'] ?? '').toString(),
+                'db_bank_bic': (row['Bank BIC'] ?? '').toString().isEmpty ? null : (row['Bank BIC'] ?? '').toString(),
+                'db_branch_code': (row['Branch Code'] ?? '').toString().isEmpty ? null : (row['Branch Code'] ?? '').toString(),
               };
               batch.set(tenantRef, tenantData);
               unitToTenantIds[unit.unitId] = tenantRef.id;
@@ -303,6 +310,13 @@ class BulkUploadController extends GetxController {
             'isArchived': false,
             'createdAt': FieldValue.serverTimestamp(),
             'updatedAt': FieldValue.serverTimestamp(),
+            // Account Information fields
+            'db_account_holder_name': (tenantRow['Account Holder Name'] ?? '').toString().isEmpty ? null : (tenantRow['Account Holder Name'] ?? '').toString(),
+            'db_account_number': (tenantRow['Account Number'] ?? '').toString().isEmpty ? null : (tenantRow['Account Number'] ?? '').toString(),
+            'db_id_type': (tenantRow['ID Type'] ?? '').toString().isEmpty ? null : (tenantRow['ID Type'] ?? '').toString(),
+            'db_id_number': (tenantRow['ID Number'] ?? '').toString().isEmpty ? null : (tenantRow['ID Number'] ?? '').toString(),
+            'db_bank_bic': (tenantRow['Bank BIC'] ?? '').toString().isEmpty ? null : (tenantRow['Bank BIC'] ?? '').toString(),
+            'db_branch_code': (tenantRow['Branch Code'] ?? '').toString().isEmpty ? null : (tenantRow['Branch Code'] ?? '').toString(),
           };
 
           final tenantRef = firestore.collection('users').doc(userId).collection('tenants').doc();

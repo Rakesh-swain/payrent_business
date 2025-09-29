@@ -266,6 +266,12 @@ class TenantController extends GetxController {
     int? rentDueDay,
     int? securityDeposit, // Changed to double for consistency
     String? notes,
+    String? accountHolderName,
+    String? accountNumber,
+    String? idType,
+    String? idNumber,
+    String? bankBic,
+    String? branchCode,
   }) async {
     isLoading.value = true;
     errorMessage.value = '';
@@ -298,6 +304,12 @@ class TenantController extends GetxController {
         rentDueDay: rentDueDay ?? 1, // Default to 1st of month
         securityDeposit: securityDeposit ?? 0, // Default to 0
         notes: notes ?? '', // Default to empty string
+        accountHolderName: accountHolderName,
+        accountNumber: accountNumber,
+        idType: idType,
+        idNumber: idNumber,
+        bankBic: bankBic,
+        branchCode: branchCode,
       );
       
       // Create tenant document via repository
@@ -338,6 +350,12 @@ class TenantController extends GetxController {
     String? notes,
     String? status,
     bool? isArchived,
+    String? accountHolderName,
+    String? accountNumber,
+    String? idType,
+    String? idNumber,
+    String? bankBic,
+    String? branchCode,
   }) async {
     isLoading.value = true;
     errorMessage.value = '';
@@ -374,6 +392,12 @@ class TenantController extends GetxController {
         notes: notes,
         status: status,
         isArchived: isArchived,
+        accountHolderName: accountHolderName,
+        accountNumber: accountNumber,
+        idType: idType,
+        idNumber: idNumber,
+        bankBic: bankBic,
+        branchCode: branchCode,
       );
       
       // Update the document in users/{userId}/tenants subcollection

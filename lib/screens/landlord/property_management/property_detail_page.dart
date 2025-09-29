@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
@@ -13,8 +14,12 @@ import 'package:path/path.dart' as path;
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
 import 'package:payrent_business/models/tenant_model.dart';
+import 'package:payrent_business/models/mandate_model.dart';
+import 'package:payrent_business/models/account_information_model.dart';
+import 'package:payrent_business/screens/landlord/mandate/create_mandate_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/edit_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
+import 'package:payrent_business/screens/landlord/tenant_management/tenant_detail_page.dart';
 
 class PropertyDetailsPage extends StatefulWidget {
   final String propertyId;
@@ -34,6 +39,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
   PropertyModel? _property;
   List<DocumentSnapshot> _propertyDocuments = [];
   List<DocumentSnapshot> _tenants = [];
+  List<DocumentSnapshot> _mandates = [];
+  AccountInformation? _landlordAccountInfo;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
   String? _errorMessage;
@@ -101,10 +108,34 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
           .where('propertyId', isEqualTo: widget.propertyId)
           .get();
 
+      // Fetch mandates for this property
+      final mandateSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('mandates')
+          .where('propertyId', isEqualTo: widget.propertyId)
+          .get();
+
+      // Fetch landlord account information
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      AccountInformation? landlordAccountInfo;
+      if (userDoc.exists) {
+        final userData = userDoc.data() as Map<String, dynamic>;
+        if (userData['cr_account_holder_name'] != null) {
+          landlordAccountInfo = AccountInformation.fromMap(userData);
+        }
+      }
+
       setState(() {
         _property = property;
         _propertyDocuments = documentsSnapshot.docs;
         _tenants = tenantSnapshot.docs;
+        _mandates = mandateSnapshot.docs;
+        _landlordAccountInfo = landlordAccountInfo;
         _paymentFrequency = paymentFreq ?? 'Monthly';
         _isLoading = false;
       });
@@ -492,7 +523,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                       ? _tenants.where((t) => t.id == unit.tenantId).firstOrNull
                       : null;
                       
-                  return _buildUnitTenantCard(unit, tenantDoc);
+                  return _buildUnitTenantCard(unit, tenantDoc,tenantDoc!.id);
                 },
               )
             : Center(
@@ -525,7 +556,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
     );
   }
   
-  Widget _buildUnitTenantCard(PropertyUnitModel unit, DocumentSnapshot? tenantDoc) {
+  Widget _buildUnitTenantCard(PropertyUnitModel unit, DocumentSnapshot? tenantDoc,String tenantId) {
     final hasTenant = tenantDoc != null;
     Map<String, dynamic>? tenantData;
     
@@ -657,19 +688,25 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                         ],
                       ),
                     ),
-                    OutlinedButton(
-                      onPressed: () {
-                        // Navigate to tenant details
-                      },
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
+                    Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: () {
+                            Get.to(TenantDetailPage(tenantId: tenantId));
+                          },
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          child: Text('Details'),
                         ),
-                      ),
-                      child: Text('Details'),
+                        const SizedBox(width: 8),
+                      ],
                     ),
                   ],
                 ),
+                        _buildMandateButton(unit, tenantDoc!),
                 SizedBox(height: 12),
                 _buildLeaseInfo(tenantData),
               ] else ...[
@@ -1267,6 +1304,296 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
 
   String _getPaymentFrequency() {
     return _paymentFrequency;
+  }
+  
+  Widget _buildMandateButton(PropertyUnitModel unit, DocumentSnapshot tenantDoc) {
+  final tenantData = tenantDoc.data() as Map<String, dynamic>;
+  final tenantId = tenantDoc.id;
+  
+  // Check if mandate exists for this unit and tenant
+  final mandateExists = _mandates.any((mandate) {
+    final mandateData = mandate.data() as Map<String, dynamic>;
+    return mandateData['tenantId'] == tenantId && 
+           mandateData['unitId'] == unit.unitId;
+  });
+  
+  // Check if both landlord and tenant have account information
+  final landlordHasAccountInfo = _landlordAccountInfo != null;
+  final tenantHasAccountInfo = tenantData['db_account_holder_name'] != null &&
+                               tenantData['db_account_number'] != null &&
+                               tenantData['db_bank_bic'] != null &&
+                               tenantData['db_branch_code'] != null;
+ 
+  final canCreateMandate = landlordHasAccountInfo && tenantHasAccountInfo;
+  
+  if (mandateExists) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.green.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.green.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const SizedBox(width: 4),
+          Text(
+            'Mandate Created',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.green,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  return ElevatedButton.icon(
+    onPressed: canCreateMandate 
+        ? () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CreateMandatePage(
+                  unit: unit,
+                  tenantDoc: tenantDoc,
+                  landlordAccountInfo: _landlordAccountInfo!,
+                  propertyId: widget.propertyId,
+                ),
+              ),
+            ).then((result) {
+              // Refresh data when returning from mandate creation
+              if (result == true) {
+                _fetchPropertyData();
+              }
+            });
+          }
+        : () {
+            String missingInfo = '';
+            if (!landlordHasAccountInfo) {
+              missingInfo = 'Please complete your account information in settings.';
+            } else if (!tenantHasAccountInfo) {
+              missingInfo = 'Tenant account information is incomplete.';
+            }
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(missingInfo),
+                backgroundColor: Colors.orange,
+                action: SnackBarAction(
+                  label: 'OK',
+                  textColor: Colors.white,
+                  onPressed: () {},
+                ),
+              ),
+            );
+          },
+    icon: Icon(Icons.account_balance, size: 16),
+    label: Text('Create Mandate'),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: canCreateMandate ? AppTheme.primaryColor : Colors.grey,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      textStyle: GoogleFonts.poppins(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+  );
+}
+  
+  void _showCreateMandateDialog(PropertyUnitModel unit, DocumentSnapshot tenantDoc) {
+    final tenantData = tenantDoc.data() as Map<String, dynamic>;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Create Mandate',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This will create a payment mandate between:',
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              
+              // Landlord Account Info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Landlord Account (Receiver)',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Name: ${_landlordAccountInfo!.accountHolderName}'),
+                    Text('Account: ${_landlordAccountInfo!.accountNumber}'),
+                    Text('Bank: ${_landlordAccountInfo!.bankBic}'),
+                    Text('Branch: ${_landlordAccountInfo!.branchCode}'),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Tenant Account Info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tenant Account (Payer)',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Name: ${tenantData['db_account_holder_name']}'),
+                    Text('Account: ${tenantData['db_account_number']}'),
+                    Text('Bank: ${tenantData['db_bank_bic']}'),
+                    Text('Branch: ${tenantData['db_branch_code']}'),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Payment Details
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Payment Details',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.orange,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Amount: \$${unit.rent}'),
+                    Text('Frequency: ${tenantData['paymentFrequency'] ?? 'Monthly'}'),
+                    Text('Unit: ${unit.unitNumber}'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _createMandate(unit, tenantDoc);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Create Mandate'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _createMandate(PropertyUnitModel unit, DocumentSnapshot tenantDoc) async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) throw Exception('User not logged in');
+      
+      final tenantData = tenantDoc.data() as Map<String, dynamic>;
+      
+      final mandate = MandateModel(
+        landlordId: userId,
+        tenantId: tenantDoc.id,
+        propertyId: widget.propertyId,
+        unitId: unit.unitId,
+        landlordAccountHolderName: _landlordAccountInfo!.accountHolderName,
+        landlordAccountNumber: _landlordAccountInfo!.accountNumber,
+        landlordIdType: _landlordAccountInfo!.idType.value,
+        landlordIdNumber: _landlordAccountInfo!.idNumber,
+        landlordBankBic: _landlordAccountInfo!.bankBic,
+        landlordBranchCode: _landlordAccountInfo!.branchCode,
+        tenantAccountHolderName: tenantData['db_account_holder_name'],
+        tenantAccountNumber: tenantData['db_account_number'],
+        tenantIdType: tenantData['db_id_type'],
+        tenantIdNumber: tenantData['db_id_number'],
+        tenantBankBic: tenantData['db_bank_bic'],
+        tenantBranchCode: tenantData['db_branch_code'],
+        rentAmount: unit.rent,
+        paymentFrequency: tenantData['paymentFrequency'] ?? 'monthly',
+        startDate: DateTime.now(),
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('mandates')
+          .add(mandate.toFirestore());
+      
+      // Refresh data to show updated mandate status
+      await _fetchPropertyData();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Mandate created successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error creating mandate: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
   
   void _showAssignTenantBottomSheet(PropertyUnitModel unit) {

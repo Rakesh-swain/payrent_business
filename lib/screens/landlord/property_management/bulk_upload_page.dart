@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:csv/csv.dart';
 import 'package:path/path.dart' as path;
+import 'package:payrent_business/controllers/bulk_upload_controller.dart';
 import 'package:payrent_business/screens/landlord/property_management/template_viewer_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -37,7 +39,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
   // Data for preview with editing support
   List<Map<String, dynamic>> _previewData = [];
   List<Map<String, dynamic>> _originalData = []; // For tracking changes
-  
+  BulkUploadController bulkUploadController = Get.put(BulkUploadController());
 
   
   // Upload results
@@ -308,11 +310,11 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
       }
       
       if (_uploadType == 'properties') {
-        await _uploadProperties(userId);
+        await bulkUploadController.uploadProperties(_previewData);
       } else if (_uploadType == 'tenants') {
-        await _uploadTenants(userId);
+        await bulkUploadController.uploadTenants(_previewData);
       } else { // Both
-        await _uploadBoth(userId);
+        await bulkUploadController.uploadBoth(_previewData);
       }
       
       setState(() {
@@ -334,356 +336,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
   
   // Upload properties to Firebase
 // Upload properties to Firebase
-Future<void> _uploadProperties(String userId) async {
-  final firestore = FirebaseFirestore.instance;
-  final batch = firestore.batch();
-  
-  // Group by property name to handle multi-unit properties
-  Map<String, List<Map<String, dynamic>>> propertyGroups = {};
-  
-  // Group the properties by name for multi-unit handling
-  for (final propertyData in _previewData) {
-    final propertyName = propertyData['Property Name'] ?? '';
-    if (!propertyGroups.containsKey(propertyName)) {
-      propertyGroups[propertyName] = [];
-    }
-    propertyGroups[propertyName]!.add(propertyData);
-  }
-  
-  // Process each property group
-  for (final propertyName in propertyGroups.keys) {
-    try {
-      final propertyRows = propertyGroups[propertyName]!;
-      
-      // Use the first row for common property data
-      final firstRow = propertyRows[0];
-      
-      // Determine if property is multi-unit based on row count or explicit flag
-      final isMultiUnitStr = firstRow['Is Multi Unit']?.toString().toLowerCase() ?? 'false';
-      final isMultiUnit = (isMultiUnitStr == 'true' || isMultiUnitStr == 'yes' || isMultiUnitStr == '1') 
-                          || propertyRows.length > 1;
-      
-      // Create units
-      List<PropertyUnitModel> units = [];
-      
-      for (final unitRow in propertyRows) {
-        units.add(PropertyUnitModel(
-          unitNumber: unitRow['Unit Number'] ?? (units.isEmpty ? 'Main' : 'Unit ${units.length + 1}'),
-          unitType: unitRow['Unit Type'] ?? 'Standard',
-          bedrooms: int.tryParse(unitRow['Bedrooms']?.toString() ?? '1') ?? 1,
-          bathrooms: int.tryParse(unitRow['Bathrooms']?.toString() ?? '1') ?? 1,
-          rent: int.tryParse(unitRow['Rent']?.toString() ?? '0') ?? 0,
-          paymentFrequency: unitRow['Payment Frequency'] ?? 'Monthly',
-          squareFeet: int.tryParse(unitRow['Square Feet']?.toString() ?? '0'),
-          notes: unitRow['Notes'],
-        ));
-      }
-      
-      // Create property model
-      final property = PropertyModel(
-        name: propertyName,
-        address: firstRow['Address'] ?? '',
-        city: firstRow['City'] ?? '',
-        state: firstRow['State'] ?? '',
-        zipCode: firstRow['Zip'] ?? '',
-        type: firstRow['Property Type'] ?? 'Single Family',
-        isMultiUnit: isMultiUnit,
-        units: units,
-        landlordId: userId,
-        description: firstRow['Description'],
-      );
-      
-      // Create a new document reference
-      final propertyRef = firestore.collection('users').doc(userId).collection('properties').doc();
-      
-      // Add property to batch
-      batch.set(propertyRef, property.toFirestore());
-      
-      setState(() {
-        _successCount++;
-      });
-    } catch (e) {
-      setState(() {
-        _errorCount++;
-        _errorMessages.add('Error adding property: ${e.toString()}');
-      });
-    }
-  }
-  
-  // Commit the batch
-  await batch.commit();
-}
 
-// Upload both properties and tenants
-Future<void> _uploadBoth(String userId) async {
-  final firestore = FirebaseFirestore.instance;
-  final batch = firestore.batch();
-  
-  // Group by property name to handle multi-unit properties
-  Map<String, List<Map<String, dynamic>>> propertyGroups = {};
-  
-  // Group the properties by name for multi-unit handling
-  for (final rowData in _previewData) {
-    final propertyName = rowData['Property Name'] ?? '';
-    if (!propertyGroups.containsKey(propertyName)) {
-      propertyGroups[propertyName] = [];
-    }
-    propertyGroups[propertyName]!.add(rowData);
-  }
-  
-  // Process each property group
-  for (final propertyName in propertyGroups.keys) {
-    try {
-      final propertyRows = propertyGroups[propertyName]!;
-      
-      // Use the first row for common property data
-      final firstRow = propertyRows[0];
-      
-      // Determine if property is multi-unit based on row count or explicit flag
-      final isMultiUnitStr = firstRow['Is Multi Unit']?.toString().toLowerCase() ?? 'false';
-      final isMultiUnit = (isMultiUnitStr == 'true' || isMultiUnitStr == 'yes' || isMultiUnitStr == '1') 
-                          || propertyRows.length > 1;
-      
-      // 1. Create and save the property first
-      List<PropertyUnitModel> units = [];
-      List<Map<String, dynamic>> tenants = [];
-      Map<String, String> unitToTenantIds = {};
-      
-      // Create property reference
-      final propertyRef = firestore.collection('users').doc(userId).collection('properties').doc();
-      
-      // Process each unit and its tenant
-      for (int i = 0; i < propertyRows.length; i++) {
-        final rowData = propertyRows[i];
-        
-        // Create unit
-        final unit = PropertyUnitModel(
-          unitNumber: rowData['Unit Number'] ?? (i == 0 && !isMultiUnit ? 'Main' : 'Unit ${i + 1}'),
-          unitType: rowData['Unit Type'] ?? 'Standard',
-          bedrooms: int.tryParse(rowData['Bedrooms']?.toString() ?? '1') ?? 1,
-          bathrooms: int.tryParse(rowData['Bathrooms']?.toString() ?? '1') ?? 1,
-          rent: int.tryParse(rowData['Rent']?.toString() ?? '0') ?? 0,
-          paymentFrequency: rowData['Payment Frequency'] ?? 'Monthly',
-          squareFeet: int.tryParse(rowData['Square Feet']?.toString() ?? '0'),
-        );
-        
-        units.add(unit);
-        
-        // Parse dates
-        DateTime leaseStart = DateTime.now();
-        DateTime leaseEnd = DateTime.now().add(const Duration(days: 365));
-        
-        try {
-          if (rowData['Lease Start'] != null) {
-            leaseStart = DateTime.parse(rowData['Lease Start'].toString());
-          }
-          if (rowData['Lease End'] != null) {
-            leaseEnd = DateTime.parse(rowData['Lease End'].toString());
-          }
-        } catch (e) {
-          _errorMessages.add('Error parsing dates: ${e.toString()}');
-        }
-        
-        // Check if we have tenant data
-        if (rowData['Tenant First Name'] != null && rowData['Tenant First Name'].toString().isNotEmpty) {
-          // Create tenant document reference
-          final tenantRef = firestore.collection('users').doc(userId).collection('tenants').doc();
-          
-          // Create tenant data
-          final tenant = {
-            'firstName': rowData['Tenant First Name'] ?? '',
-            'lastName': rowData['Tenant Last Name'] ?? '',
-            'email': rowData['Email'] ?? '',
-            'phone': rowData['Phone'] ?? '',
-            'landlordId': userId,
-            'propertyId': propertyRef.id,
-            'propertyName': propertyName,
-            'propertyAddress': rowData['Address'] ?? '',
-            'unitNumber': unit.unitNumber,
-            'unitId': unit.unitId,
-            'leaseStartDate': Timestamp.fromDate(leaseStart),
-            'leaseEndDate': Timestamp.fromDate(leaseEnd),
-            'rentAmount': unit.rent,
-            'paymentFrequency': unit.paymentFrequency,
-            'rentDueDay': 1, // Default
-            'securityDeposit': int.tryParse(rowData['Security Deposit']?.toString() ?? '0') ?? 0,
-            'status': 'active',
-            'isArchived': false,
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          };
-          
-          // Add tenant to batch
-          batch.set(tenantRef, tenant);
-          
-          // Store tenant ID to link with unit
-          unitToTenantIds[unit.unitId] = tenantRef.id;
-          
-          // Store tenant data for unit subcollection
-          tenants.add({
-            'tenantId': tenantRef.id,
-            'unitId': unit.unitId,
-            'unitNumber': unit.unitNumber,
-            'startDate': Timestamp.fromDate(leaseStart),
-            'endDate': Timestamp.fromDate(leaseEnd),
-            'rentAmount': unit.rent,
-            'paymentFrequency': unit.paymentFrequency,
-          });
-        }
-      }
-      
-      // Update units with tenant IDs if applicable
-      for (int i = 0; i < units.length; i++) {
-        if (unitToTenantIds.containsKey(units[i].unitId)) {
-          units[i] = units[i].copyWith(tenantId: unitToTenantIds[units[i].unitId]);
-        }
-      }
-      
-      // Create property model
-      final property = PropertyModel(
-        name: propertyName,
-        address: firstRow['Address'] ?? '',
-        city: firstRow['City'] ?? '',
-        state: firstRow['State'] ?? '',
-        zipCode: firstRow['Zip'] ?? '',
-        type: firstRow['Property Type'] ?? 'Single Family',
-        isMultiUnit: isMultiUnit,
-        units: units,
-        landlordId: userId,
-        description: firstRow['Description'],
-      );
-      
-      // Add property to batch
-      batch.set(propertyRef, property.toFirestore());
-      
-      // Add tenant assignments to unit subcollections
-      for (final tenantData in tenants) {
-        final String tenantId = tenantData['tenantId'];
-        final String unitId = tenantData['unitId'];
-        
-        batch.set(
-          firestore
-              .collection('users')
-              .doc(userId)
-              .collection('properties')
-              .doc(propertyRef.id)
-              .collection('units')
-              .doc(unitId)
-              .collection('tenants')
-              .doc(tenantId),
-          {
-            'tenantId': tenantId,
-            'startDate': tenantData['startDate'],
-            'endDate': tenantData['endDate'],
-            'rentAmount': tenantData['rentAmount'],
-            'status': 'active',
-            'createdAt': FieldValue.serverTimestamp(),
-          }
-        );
-      }
-      
-      setState(() {
-        _successCount++;
-      });
-    } catch (e) {
-      setState(() {
-        _errorCount++;
-        _errorMessages.add('Error adding property with tenants: ${e.toString()}');
-      });
-    }
-  }
-  
-  // Commit the batch
-  await batch.commit();
-}
-  
-  // Upload tenants to Firebase
-  Future<void> _uploadTenants(String userId) async {
-    final firestore = FirebaseFirestore.instance;
-    final batch = firestore.batch();
-    
-    for (final tenantData in _previewData) {
-      try {
-        // Parse dates
-        DateTime leaseStart = DateTime.now();
-        DateTime leaseEnd = DateTime.now().add(const Duration(days: 365));
-        
-        try {
-          if (tenantData['Lease Start'] != null) {
-            leaseStart = DateTime.parse(tenantData['Lease Start'].toString());
-          }
-          if (tenantData['Lease End'] != null) {
-            leaseEnd = DateTime.parse(tenantData['Lease End'].toString());
-          }
-        } catch (e) {
-          _errorMessages.add('Error parsing dates: ${e.toString()}');
-        }
-        
-        // Find property ID by name (if it exists)
-        String propertyId = '';
-        String propertyName = tenantData['Property'] ?? '';
-        String propertyAddress = '';
-        
-        if (propertyName.isNotEmpty) {
-          final propertyQuery = await firestore
-            .collection('users')
-            .doc(userId)
-            .collection('properties')
-            .where('name', isEqualTo: propertyName)
-            .limit(1)
-            .get();
-            
-          if (propertyQuery.docs.isNotEmpty) {
-            propertyId = propertyQuery.docs.first.id;
-            final propertyData = propertyQuery.docs.first.data();
-            propertyAddress = propertyData['address'] ?? '';
-          }
-        }
-        
-        // Create tenant model
-        final tenant = {
-          'firstName': tenantData['First Name'] ?? '',
-          'lastName': tenantData['Last Name'] ?? '',
-          'email': tenantData['Email'] ?? '',
-          'phone': tenantData['Phone'] ?? '',
-          'landlordId': userId,
-          'propertyId': propertyId,
-          'propertyName': propertyName,
-          'propertyAddress': propertyAddress,
-          'unitNumber': tenantData['Unit'] ?? '',
-          'leaseStartDate': Timestamp.fromDate(leaseStart),
-          'leaseEndDate': Timestamp.fromDate(leaseEnd),
-          'rentAmount': int.tryParse(tenantData['Rent']?.toString() ?? '0') ?? 0,
-          'paymentFrequency': tenantData['Payment Frequency'] ?? 'Monthly',
-          'rentDueDay': int.tryParse(tenantData['Rent Due Day']?.toString() ?? '1') ?? 1,
-          'securityDeposit': int.tryParse(tenantData['Security Deposit']?.toString() ?? '0') ?? 0,
-          'status': 'active',
-          'isArchived': false,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        };
-        
-        // Create a new document reference
-        final tenantRef = firestore.collection('users').doc(userId).collection('tenants').doc();
-        
-        // Add tenant to batch
-        batch.set(tenantRef, tenant);
-        
-        setState(() {
-          _successCount++;
-        });
-      } catch (e) {
-        setState(() {
-          _errorCount++;
-          _errorMessages.add('Error adding tenant: ${e.toString()}');
-        });
-      }
-    }
-    
-    // Commit the batch
-    await batch.commit();
-  }
-  
   
   
   void _changeUploadType(String type) {

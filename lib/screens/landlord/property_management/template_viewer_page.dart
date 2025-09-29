@@ -213,17 +213,21 @@ Map<String, dynamic> _getTemplateData() {
   } else if (uploadType == 'tenants') {
     return {
       'headers': [
-        'First Name', 'Last Name', 'Email', 'Phone'
+        'First Name', 'Last Name', 'Email', 'Phone', 'Account Holder Name', 
+        'Account Number', 'ID Type', 'ID Number', 'Bank BIC', 'Branch Code'
       ],
       'rows': [
         [
-          'John', 'Doe', 'john.doe@example.com', '(312) 555-7890'
+          'John', 'Doe', 'john.doe@example.com', '(312) 555-7890',
+          'John Doe', '1234567890', 'CIVILID', 'CID123456789', 'NBLKKWKW', '001'
         ],
         [
-          'Sarah', 'Johnson', 'sarah.j@example.com', '(415) 555-1234'
+          'Sarah', 'Johnson', 'sarah.j@example.com', '(415) 555-1234',
+          'Sarah Johnson', '0987654321', 'PASSPORT', 'P987654321', 'KFHKWKWT', '002'
         ],
         [
-          'Michael', 'Smith', 'msmith@example.com', '(512) 555-3456'
+          'Michael', 'Smith', 'msmith@example.com', '(512) 555-3456',
+          'Michael Smith', '5555666677', 'RESIDENCEID', 'RID555666777', 'CBKKWKW1', '001'
         ],
       ],
     };
@@ -233,6 +237,7 @@ Map<String, dynamic> _getTemplateData() {
         'Property Name', 'Address', 'City', 'State', 'Zip', 'Property Type',
         'Payment Frequency', 'Is Multi Unit', 'Unit Number', 'Unit Type', 'Bedrooms', 'Bathrooms', 'Rent',
         'Tenant First Name', 'Tenant Last Name', 'Email', 'Phone',
+        'Account Holder Name', 'Account Number', 'ID Type', 'ID Number', 'Bank BIC', 'Branch Code',
         'Lease Start', 'Lease End', 'Security Deposit'
       ],
       'rows': [
@@ -241,6 +246,7 @@ Map<String, dynamic> _getTemplateData() {
           'Highland Villa', '789 Highland Ave', 'Austin', 'TX', '78703',
           'Single Family', 'Monthly', 'FALSE', 'Main', 'Standard', '4', '3', '2750',
           'Michael', 'Smith', 'msmith@example.com', '(512) 555-3456',
+          'Michael Smith', '5555666677', 'RESIDENCEID', 'RID555666777', 'CBKKWKW1', '001',
           '2023-08-01', '2024-07-31', '4125'
         ],
         // Multi-unit property with tenants (same property, multiple units)
@@ -248,12 +254,14 @@ Map<String, dynamic> _getTemplateData() {
           'Lakeside Apartment', '123 Lake View Dr', 'Chicago', 'IL', '60601',
           'Apartment', 'Monthly', 'TRUE', 'A101', 'Studio', '0', '1', '950',
           'John', 'Doe', 'john.doe@example.com', '(312) 555-7890',
+          'John Doe', '1234567890', 'CIVILID', 'CID123456789', 'NBLKKWKW', '001',
           '2023-06-01', '2024-05-31', '1425'
         ],
         [
           'Lakeside Apartment', '123 Lake View Dr', 'Chicago', 'IL', '60601',
           'Apartment', 'Monthly', 'TRUE', 'A102', '1BR', '1', '1', '1250',
           'Sarah', 'Johnson', 'sarah.j@example.com', '(415) 555-1234',
+          'Sarah Johnson', '0987654321', 'PASSPORT', 'P987654321', 'KFHKWKWT', '002',
           '2023-04-15', '2024-04-14', '1875'
         ],
       ],

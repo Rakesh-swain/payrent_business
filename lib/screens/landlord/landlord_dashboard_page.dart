@@ -168,134 +168,149 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                 const SizedBox(height: 24),
 
                 // Properties at a Glance
-                FadeInUp(
-                  duration: const Duration(milliseconds: 600),
-                  child: CustomCard(
-                    title: 'Properties at a Glance',
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Obx(() {
-                        final int totalProperties = _propertyController.propertyCount;
-                        final occupiedProperties = _tenantController.tenantCount;
-                        final occupancyRate = totalProperties > 0 
-                          ? (occupiedProperties / totalProperties * 100).round()
-                          : 0;
-                          
-                        return Column(
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: RichText(
-                                    text: TextSpan(
-                                      children: [
-                                        TextSpan(
-                                          text: 'You have ',
-                                          style: context.bodyMedium.copyWith(
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: '$occupiedProperties Occupied',
-                                          style: context.titleMedium.copyWith(
-                                            color: AppTheme.primaryColor,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: ' properties out of ',
-                                          style: context.bodyMedium.copyWith(
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: '$totalProperties Total',
-                                          style: context.titleMedium.copyWith(
-                                            color: AppTheme.primaryColor,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: ' properties',
-                                          style: context.bodyMedium.copyWith(
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Occupancy Progress Bar
-                            Container(
-                              height: 20,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                color: Colors.grey.shade200,
-                              ),
-                              child: Row(
-                                children: [
-                                  Flexible(
-                                    flex: occupancyRate, 
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(10),
-                                        gradient: const LinearGradient(
-                                          colors: [
-                                            Color(0xFF7869E6),
-                                            Color(0xFF4F287D),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Flexible(
-                                    flex: 100 - occupancyRate,
-                                    child: const SizedBox(),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '$occupancyRate% occupied',
-                                        style: context.bodySmall.copyWith(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Icon(
-                                        Icons.home_filled,
-                                        color: Color(0xFFFCD34D),
-                                        size: 16,
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    '${100 - occupancyRate}% vacant',
-                                    style: context.bodySmall.copyWith(
-                                      color: AppTheme.textLight,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      }),
+                // Properties at a Glance
+FadeInUp(
+  duration: const Duration(milliseconds: 600),
+  child: CustomCard(
+    title: 'Properties at a Glance',
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Obx(() {
+        final int totalProperties = _propertyController.propertyCount;
+        
+        // Calculate fully occupied properties
+        int fullyOccupiedProperties = 0;
+        for (var property in _propertyController.properties) {
+          final totalUnits = property['units'].length;
+          if (totalUnits > 0) {
+            final occupiedUnits = property['units']
+                .where((unit) => unit['tenantId'] != null)
+                .length;
+            final isFullyOccupied = occupiedUnits == totalUnits;
+            if (isFullyOccupied) {
+              fullyOccupiedProperties++;
+            }
+          }
+        }
+        
+        final occupancyRate = totalProperties > 0 
+          ? (fullyOccupiedProperties / totalProperties * 100).round()
+          : 0;
+          
+        return Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'You have ',
+                          style: context.bodyMedium.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '$fullyOccupiedProperties Fully Occupied',
+                          style: context.titleMedium.copyWith(
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        TextSpan(
+                          text: ' properties out of ',
+                          style: context.bodyMedium.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '$totalProperties Total',
+                          style: context.titleMedium.copyWith(
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        TextSpan(
+                          text: ' properties',
+                          style: context.bodyMedium.copyWith(
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
+              ],
+            ),
 
+            const SizedBox(height: 16),
+
+            // Occupancy Progress Bar
+            Container(
+              height: 20,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: Colors.grey.shade200,
+              ),
+              child: Row(
+                children: [
+                  Flexible(
+                    flex: occupancyRate, 
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF7869E6),
+                            Color(0xFF4F287D),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    flex: 100 - occupancyRate,
+                    child: const SizedBox(),
+                  ),
+                ],
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '$occupancyRate% fully occupied',
+                        style: context.bodySmall.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.home_filled,
+                        color: Color(0xFFFCD34D),
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '${100 - occupancyRate}% not fully occupied',
+                    style: context.bodySmall.copyWith(
+                      color: AppTheme.textLight,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      }),
+    ),
+  ),
+),
                 const SizedBox(height: 16),
 
                 // Key Stats Cards

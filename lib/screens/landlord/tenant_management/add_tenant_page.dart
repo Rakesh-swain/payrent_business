@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/controllers/property_controller.dart';
+import 'package:payrent_business/models/account_information_model.dart';
+import 'package:payrent_business/services/branch_service.dart';
 
 class AddTenantPage extends StatefulWidget {
   final String? propertyId; // Optional property ID if coming from property details
@@ -32,12 +34,24 @@ class _AddTenantPageState extends State<AddTenantPage> {
   final _rentDueDayController = TextEditingController();
   final _notesController = TextEditingController();
   
+  // Account Information Controllers
+  final _accountHolderNameController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  final _idNumberController = TextEditingController();
+  
   // Form Data
   String? _selectedPropertyId;
   String? _selectedUnitId;
   String _selectedPaymentFrequency = 'monthly';
   DateTime? _leaseStartDate;
   DateTime? _leaseEndDate;
+  
+  // Account Information Variables
+  IdType _selectedIdType = IdType.civilId;
+  String _selectedBankBic = '';
+  String _selectedBranchCode = '';
+  List<String> _availableBankBics = [];
+  List<BranchInfo> _availableBranches = [];
   
   // State Management
   bool _isLoading = false;
@@ -49,6 +63,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
   void initState() {
     super.initState();
     _rentDueDayController.text = '1'; // Default to 1st of month
+    _availableBankBics = BranchService.getAllBankBics();
     _fetchProperties();
   }
   
@@ -62,6 +77,9 @@ class _AddTenantPageState extends State<AddTenantPage> {
     _securityDepositController.dispose();
     _rentDueDayController.dispose();
     _notesController.dispose();
+    _accountHolderNameController.dispose();
+    _accountNumberController.dispose();
+    _idNumberController.dispose();
     super.dispose();
   }
   
@@ -233,6 +251,12 @@ class _AddTenantPageState extends State<AddTenantPage> {
         rentDueDay: int.tryParse(_rentDueDayController.text),
         securityDeposit: int.tryParse(_securityDepositController.text),
         notes: _notesController.text.trim(),
+        accountHolderName: _accountHolderNameController.text.trim().isEmpty ? null : _accountHolderNameController.text.trim(),
+        accountNumber: _accountNumberController.text.trim().isEmpty ? null : _accountNumberController.text.trim(),
+        idType: _selectedIdType.value,
+        idNumber: _idNumberController.text.trim().isEmpty ? null : _idNumberController.text.trim(),
+        bankBic: _selectedBankBic.isEmpty ? null : _selectedBankBic,
+        branchCode: _selectedBranchCode.isEmpty ? null : _selectedBranchCode,
       );
       
       if (tenantId != null) {
@@ -598,6 +622,225 @@ class _AddTenantPageState extends State<AddTenantPage> {
                       ),
                     ],
                   ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Account Information Section
+              _buildSection(
+                'Account Information',
+                [
+                  Text(
+                    'Optional: Banking details for payment processing',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Account Holder Name Field
+                  TextFormField(
+                    controller: _accountHolderNameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Account Holder Name',
+                      prefixIcon: Icon(Icons.person_outline),
+                      hintText: 'Enter the full name as on bank account',
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Account Number Field
+                  TextFormField(
+                    controller: _accountNumberController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Account Number',
+                      prefixIcon: Icon(Icons.account_balance_outlined),
+                      hintText: 'Enter bank account number',
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // ID Type Dropdown
+                  DropdownButtonFormField<IdType>(
+                    value: _selectedIdType,
+                    decoration: const InputDecoration(
+                      labelText: 'ID Type',
+                      prefixIcon: Icon(Icons.credit_card_outlined),
+                    ),
+                    items: IdType.values.map((IdType type) {
+                      return DropdownMenuItem<IdType>(
+                        value: type,
+                        child: Text(type.displayName),
+                      );
+                    }).toList(),
+                    onChanged: (IdType? newValue) {
+                      if (newValue != null) {
+                        setState(() {
+                          _selectedIdType = newValue;
+                        });
+                      }
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // ID Number Field
+                  TextFormField(
+                    controller: _idNumberController,
+                    decoration: const InputDecoration(
+                      labelText: 'ID Number',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                      hintText: 'Enter identification number',
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Bank BIC Dropdown
+                  DropdownButtonFormField<String>(
+                    value: _selectedBankBic.isEmpty ? null : _selectedBankBic,
+                    decoration: const InputDecoration(
+                      labelText: 'Bank',
+                      prefixIcon: Icon(Icons.account_balance_outlined),
+                      hintText: 'Select bank',
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('No Bank Selected'),
+                      ),
+                      ..._availableBankBics.map((String bankBic) {
+                        return DropdownMenuItem<String>(
+                          value: bankBic,
+                          child: Text(bankBic),
+                        );
+                      }).toList(),
+                    ],
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedBankBic = newValue ?? '';
+                        _selectedBranchCode = '';
+                        if (newValue != null) {
+                          _availableBranches = BranchService.getBranchesForBank(newValue);
+                        } else {
+                          _availableBranches.clear();
+                        }
+                      });
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Branch Code Dropdown
+                  DropdownButtonFormField<String>(
+                    value: _selectedBranchCode.isEmpty ? null : _selectedBranchCode,
+                    decoration: InputDecoration(
+                      labelText: 'Branch',
+                      prefixIcon: Icon(Icons.location_on_outlined),
+                      hintText: _selectedBankBic.isEmpty ? 'Please select a bank first' : 'Select branch',
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('No Branch Selected'),
+                      ),
+                      ..._availableBranches.map((BranchInfo branch) {
+                        return DropdownMenuItem<String>(
+                          value: branch.branchCode,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                branch.branchName,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              SizedBox(width: 10),
+                              Text(
+                                'Code: ${branch.branchCode}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                    onChanged: _selectedBankBic.isEmpty 
+                        ? null 
+                        : (String? newValue) {
+                            setState(() {
+                              _selectedBranchCode = newValue ?? '';
+                            });
+                          },
+                  ),
+                  
+                  // Selected Branch Information Display
+                  if (_selectedBranchCode.isNotEmpty && _selectedBankBic.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                        ),
+                      ),
+                      child: () {
+                        final branchInfo = BranchService.getBranchInfo(_selectedBankBic, _selectedBranchCode);
+                        if (branchInfo != null) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Selected Branch',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                branchInfo.branchName,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                branchInfo.branchCode,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                branchInfo.branchDescription,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      }(),
+                    ),
+                  ],
                 ],
               ),
 
