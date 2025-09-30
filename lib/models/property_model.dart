@@ -152,7 +152,7 @@ class PropertyUnitModel {
   // Factory constructor to create PropertyUnitModel from a Map
   factory PropertyUnitModel.fromMap(Map<String, dynamic> map) {
     return PropertyUnitModel(
-      unitId: map['unitId'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      unitId: map['unitId'] ?? FirebaseFirestore.instance.collection('users').doc().id,
       unitNumber: map['unitNumber'] ?? '',
       unitType: map['unitType'] ?? '',
       bedrooms: map['bedrooms'] ?? 0,

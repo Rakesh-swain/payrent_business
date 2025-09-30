@@ -5,9 +5,8 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/tenant_controller.dart';
-import 'package:payrent_business/controllers/property_controller.dart';
-import 'package:payrent_business/models/tenant_model.dart';
-import 'package:intl/intl.dart';
+import 'package:payrent_business/models/account_information_model.dart';
+import 'package:payrent_business/services/branch_service.dart';
 
 class EditTenantPage extends StatefulWidget {
   final String tenantId;
@@ -21,34 +20,34 @@ class EditTenantPage extends StatefulWidget {
 class _EditTenantPageState extends State<EditTenantPage> {
   final _formKey = GlobalKey<FormState>();
   final TenantController _tenantController = Get.find<TenantController>();
-  final PropertyController _propertyController = Get.find<PropertyController>();
 
-  // Form controllers
+  // Personal info controllers
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _rentAmountController = TextEditingController();
-  final _securityDepositController = TextEditingController();
-  final _rentDueDayController = TextEditingController();
-  final _notesController = TextEditingController();
-  final _unitNumberController = TextEditingController();
 
-  // Form state
-  String? _selectedPropertyId;
-  String _selectedPaymentFrequency = 'monthly';
-  DateTime? _leaseStartDate;
-  DateTime? _leaseEndDate;
-  String _selectedStatus = 'active';
+  // Account info controllers
+  final _accountHolderNameController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  final _idNumberController = TextEditingController();
 
+  // Account info state
+  IdType _selectedIdType = IdType.civilId;
+  String _selectedBankBic = '';
+  String _selectedBranchCode = '';
+  List<String> _availableBankBics = [];
+  List<BranchInfo> _availableBranches = [];
+
+  // State
   bool _isLoading = true;
   bool _isSaving = false;
-  List<DocumentSnapshot> _properties = [];
   DocumentSnapshot? _tenantDoc;
 
   @override
   void initState() {
     super.initState();
+    _availableBankBics = BranchService.getAllBankBics();
     _fetchData();
   }
 
@@ -58,11 +57,9 @@ class _EditTenantPageState extends State<EditTenantPage> {
     _lastNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _rentAmountController.dispose();
-    _securityDepositController.dispose();
-    _rentDueDayController.dispose();
-    _notesController.dispose();
-    _unitNumberController.dispose();
+    _accountHolderNameController.dispose();
+    _accountNumberController.dispose();
+    _idNumberController.dispose();
     super.dispose();
   }
 
@@ -70,17 +67,10 @@ class _EditTenantPageState extends State<EditTenantPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Fetch tenant data
       _tenantDoc = await _tenantController.getTenantById(widget.tenantId);
-      
       if (_tenantDoc == null || !_tenantDoc!.exists) {
         throw Exception('Tenant not found');
       }
-
-      // Fetch properties
-      await _propertyController.fetchProperties();
-      _properties = _propertyController.properties;
-
       _populateForm();
     } catch (e) {
       Get.snackbar('Error', 'Failed to load tenant data: $e');
@@ -94,25 +84,34 @@ class _EditTenantPageState extends State<EditTenantPage> {
 
     final data = _tenantDoc!.data() as Map<String, dynamic>;
 
+    // Personal
     _firstNameController.text = data['firstName'] ?? '';
     _lastNameController.text = data['lastName'] ?? '';
     _emailController.text = data['email'] ?? '';
     _phoneController.text = data['phone'] ?? '';
-    _rentAmountController.text = (data['rentAmount'] ?? 0).toString();
-    _securityDepositController.text = (data['securityDeposit'] ?? 0).toString();
-    _rentDueDayController.text = (data['rentDueDay'] ?? 1).toString();
-    _notesController.text = data['notes'] ?? '';
-    _unitNumberController.text = data['unitNumber'] ?? '';
 
-    _selectedPropertyId = data['propertyId'];
-    _selectedPaymentFrequency = data['paymentFrequency'] ?? 'monthly';
-    _selectedStatus = data['status'] ?? 'active';
+    // Account
+    _accountHolderNameController.text = data['db_account_holder_name'] ?? '';
+    _accountNumberController.text = data['db_account_number'] ?? '';
+    _idNumberController.text = data['db_id_number'] ?? '';
 
-    if (data['leaseStartDate'] != null) {
-      _leaseStartDate = (data['leaseStartDate'] as Timestamp).toDate();
+    final idTypeStr = data['db_id_type'] as String?;
+    if (idTypeStr != null && idTypeStr.isNotEmpty) {
+      try {
+        _selectedIdType = IdType.fromString(idTypeStr);
+      } catch (_) {
+        _selectedIdType = IdType.civilId;
+      }
     }
-    if (data['leaseEndDate'] != null) {
-      _leaseEndDate = (data['leaseEndDate'] as Timestamp).toDate();
+
+    _selectedBankBic = data['db_bank_bic'] ?? '';
+    _selectedBranchCode = data['db_branch_code'] ?? '';
+
+    if (_selectedBankBic.isNotEmpty) {
+      _availableBranches = BranchService.getBranchesForBank(_selectedBankBic);
+      // Ensure selected branch exists in available list
+      final exists = _availableBranches.any((b) => b.branchCode == _selectedBranchCode);
+      if (!exists) _selectedBranchCode = '';
     }
   }
 
@@ -128,16 +127,12 @@ class _EditTenantPageState extends State<EditTenantPage> {
         lastName: _lastNameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
-        propertyId: _selectedPropertyId,
-        unitNumber: _unitNumberController.text.trim(),
-        leaseStartDate: _leaseStartDate,
-        leaseEndDate: _leaseEndDate,
-        rentAmount: int.tryParse(_rentAmountController.text),
-        paymentFrequency: _selectedPaymentFrequency,
-        rentDueDay: int.tryParse(_rentDueDayController.text),
-        securityDeposit: int.tryParse(_securityDepositController.text),
-        notes: _notesController.text.trim(),
-        status: _selectedStatus,
+        accountHolderName: _accountHolderNameController.text.trim(),
+        accountNumber: _accountNumberController.text.trim(),
+        idType: _selectedIdType.value,
+        idNumber: _idNumberController.text.trim(),
+        bankBic: _selectedBankBic,
+        branchCode: _selectedBranchCode,
       );
 
       if (success) {
@@ -258,105 +253,72 @@ class _EditTenantPageState extends State<EditTenantPage> {
                       if (value == null || value.trim().isEmpty) {
                         return 'Phone is required';
                       }
+                      if (value.trim().length < 7) {
+                        return 'Please enter a valid phone number';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Account Information
+              _buildSection(
+                'Account Information',
+                Icons.account_balance_outlined,
+                [
+                  _buildTextField(
+                    controller: _accountHolderNameController,
+                    label: 'Account Holder Name *',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Account holder name is required';
+                      }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
-                  _buildStatusDropdown(),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // Property Information
-              _buildSection(
-                'Property Information',
-                Icons.home_outlined,
-                [
-                  _buildPropertyDropdown(),
+                  _buildTextField(
+                    controller: _accountNumberController,
+                    label: 'Account Number *',
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Account number is required';
+                      }
+                      if (!RegExp(r'^\\d{6,}\$').hasMatch(value.trim())) {
+                        return 'Enter a valid account number';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildIdTypeDropdown(),
                   const SizedBox(height: 16),
                   _buildTextField(
-                    controller: _unitNumberController,
-                    label: 'Unit Number',
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 24),
-
-              // Lease Information
-              _buildSection(
-                'Lease Information',
-                Icons.description_outlined,
-                [
-                  Row(
-                    children: [
-                      Expanded(child: _buildDateField('Lease Start Date', _leaseStartDate, (date) => _leaseStartDate = date)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildDateField('Lease End Date', _leaseEndDate, (date) => _leaseEndDate = date)),
-                    ],
+                    controller: _idNumberController,
+                    label: 'ID Number *',
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'ID number is required';
+                      }
+                      if (value.trim().length < 4) {
+                        return 'Enter a valid ID number';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          controller: _rentAmountController,
-                          label: 'Rent Amount',
-                          keyboardType: TextInputType.number,
-                          prefixText: '\$',
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Expanded(child: _buildPaymentFrequencyDropdown()),
-                    ],
-                  ),
+                  _buildBankDropdown(),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          controller: _rentDueDayController,
-                          label: 'Rent Due Day',
-                          keyboardType: TextInputType.number,
-                          suffixText: 'of month',
-                          validator: (value) {
-                            if (value != null && value.isNotEmpty) {
-                              final day = int.tryParse(value);
-                              if (day == null || day < 1 || day > 31) {
-                                return 'Enter a valid day (1-31)';
-                              }
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildTextField(
-                          controller: _securityDepositController,
-                          label: 'Security Deposit',
-                          keyboardType: TextInputType.number,
-                          prefixText: '\$',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                  _buildBranchDropdown(),
 
-              const SizedBox(height: 24),
-
-              // Additional Information
-              _buildSection(
-                'Additional Information',
-                Icons.note_outlined,
-                [
-                  _buildTextField(
-                    controller: _notesController,
-                    label: 'Notes',
-                    maxLines: 3,
-                  ),
+                  if (_selectedBranchCode.isNotEmpty && _selectedBankBic.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildSelectedBranchInfo(),
+                  ],
                 ],
               ),
 
@@ -484,11 +446,48 @@ class _EditTenantPageState extends State<EditTenantPage> {
     );
   }
 
-  Widget _buildPropertyDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedPropertyId,
+  Widget _buildIdTypeDropdown() {
+    return DropdownButtonFormField<IdType>(
+      value: _selectedIdType,
       decoration: InputDecoration(
-        labelText: 'Property',
+        labelText: 'ID Type *',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      items: IdType.values.map((IdType type) {
+        return DropdownMenuItem<IdType>(
+          value: type,
+          child: Text(type.displayName, style: GoogleFonts.poppins(fontSize: 14)),
+        );
+      }).toList(),
+      onChanged: (IdType? newValue) {
+        if (newValue != null) {
+          setState(() => _selectedIdType = newValue);
+        }
+      },
+      validator: (value) => value == null ? 'Select ID Type' : null,
+      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
+    );
+  }
+
+  Widget _buildBankDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _selectedBankBic.isEmpty ? null : _selectedBankBic,
+      decoration: InputDecoration(
+        labelText: 'Bank *',
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -508,168 +507,113 @@ class _EditTenantPageState extends State<EditTenantPage> {
       items: [
         const DropdownMenuItem<String>(
           value: null,
-          child: Text('Select Property'),
+          child: Text('Select a bank'),
         ),
-        ..._properties.map((property) {
-          final data = property.data() as Map<String, dynamic>;
+        ..._availableBankBics.map((String bankBic) {
           return DropdownMenuItem<String>(
-            value: property.id,
-            child: Text(
-              data['name'] ?? 'Unknown Property',
-              style: GoogleFonts.poppins(fontSize: 14),
+            value: bankBic,
+            child: Text(bankBic, style: GoogleFonts.poppins(fontSize: 14)),
+          );
+        }).toList(),
+      ],
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please select a bank';
+        }
+        return null;
+      },
+      onChanged: (String? newValue) {
+        setState(() {
+          _selectedBankBic = newValue ?? '';
+          _selectedBranchCode = '';
+          if (newValue != null && newValue.isNotEmpty) {
+            _availableBranches = BranchService.getBranchesForBank(newValue);
+          } else {
+            _availableBranches.clear();
+          }
+        });
+      },
+      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
+    );
+  }
+
+  Widget _buildBranchDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _selectedBranchCode.isEmpty ? null : _selectedBranchCode,
+      decoration: InputDecoration(
+        labelText: 'Branch *',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      items: [
+        const DropdownMenuItem<String>(
+          value: null,
+          child: Text('Select a branch'),
+        ),
+        ..._availableBranches.map((BranchInfo branch) {
+          return DropdownMenuItem<String>(
+            value: branch.branchCode,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(branch.branchName, style: GoogleFonts.poppins(fontSize: 14)),
+                const SizedBox(width: 8),
+                Text('(${branch.branchCode})', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+              ],
             ),
           );
         }).toList(),
       ],
-      onChanged: (value) {
-        setState(() => _selectedPropertyId = value);
-      },
-      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
-    );
-  }
-
-  Widget _buildPaymentFrequencyDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedPaymentFrequency,
-      decoration: InputDecoration(
-        labelText: 'Payment Frequency',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      items: ['weekly', 'monthly', 'quarterly', 'yearly'].map((frequency) {
-        return DropdownMenuItem<String>(
-          value: frequency,
-          child: Text(
-            frequency[0].toUpperCase() + frequency.substring(1),
-            style: GoogleFonts.poppins(fontSize: 14),
-          ),
-        );
-      }).toList(),
-      onChanged: (value) {
-        setState(() => _selectedPaymentFrequency = value!);
-      },
-      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
-    );
-  }
-
-  Widget _buildStatusDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedStatus,
-      decoration: InputDecoration(
-        labelText: 'Status',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      items: ['active', 'inactive'].map((status) {
-        return DropdownMenuItem<String>(
-          value: status,
-          child: Text(
-            status[0].toUpperCase() + status.substring(1),
-            style: GoogleFonts.poppins(fontSize: 14),
-          ),
-        );
-      }).toList(),
-      onChanged: (value) {
-        setState(() => _selectedStatus = value!);
-      },
-      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
-    );
-  }
-
-  Widget _buildDateField(String label, DateTime? date, Function(DateTime) onChanged) {
-    return InkWell(
-      onTap: () async {
-        final selectedDate = await showDatePicker(
-          context: context,
-          initialDate: date ?? DateTime.now(),
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2030),
-          builder: (context, child) {
-            return Theme(
-              data: Theme.of(context).copyWith(
-                colorScheme: const ColorScheme.light(
-                  primary: AppTheme.primaryColor,
-                  onPrimary: Colors.white,
-                  surface: Colors.white,
-                  onSurface: Colors.black,
-                ),
-              ),
-              child: child!,
-            );
-          },
-        );
-
-        if (selectedDate != null) {
-          onChanged(selectedDate);
-          setState(() {});
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please select a branch';
         }
+        return null;
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.grey.shade50,
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    date != null
-                        ? DateFormat('MMM dd, yyyy').format(date)
-                        : 'Select date',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: date != null ? Colors.black87 : Colors.grey.shade500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.calendar_today_outlined,
-              size: 20,
-              color: Colors.grey.shade600,
-            ),
-          ],
-        ),
+      onChanged: _selectedBankBic.isEmpty
+          ? null
+          : (String? newValue) {
+              setState(() {
+                _selectedBranchCode = newValue ?? '';
+              });
+            },
+      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
+    );
+  }
+
+  Widget _buildSelectedBranchInfo() {
+    final branchInfo = BranchService.getBranchInfo(_selectedBankBic, _selectedBranchCode);
+    if (branchInfo == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Selected Branch', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor)),
+          const SizedBox(height: 6),
+          Text(branchInfo.branchName, style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
+          Text(branchInfo.branchCode, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(branchInfo.branchDescription, style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+        ],
       ),
     );
   }

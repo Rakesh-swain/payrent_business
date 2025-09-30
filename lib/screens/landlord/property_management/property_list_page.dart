@@ -828,7 +828,7 @@ Future<void> deleteProperty({
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-              // Navigate to add property page
+               Get.to(AddPropertyPage());
             },
             icon: const Icon(Icons.add),
             label: const Text('Add Property'),
@@ -1239,7 +1239,6 @@ Future<void> deleteProperty({
 
   Widget _buildUnitCard(String propertyId, PropertyUnitModel unit) {
     final isOccupied = unit.tenantId != null;
-
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(

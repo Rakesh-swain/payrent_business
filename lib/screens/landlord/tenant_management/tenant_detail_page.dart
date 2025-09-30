@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
@@ -30,10 +31,10 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
   final AuthController _authController = Get.find<AuthController>();
   
   DocumentSnapshot? _tenantDoc;
-  DocumentSnapshot? _propertyDoc;
+  List<Map<String, dynamic>> _tenantProperties = [];
   bool _isLoading = true;
   String? _errorMessage;
-  List<Map<String, dynamic>> _generatedPayments = [];
+  Map<String, List<Map<String, dynamic>>> _propertyPayments = {};
   
   @override
   void initState() {
@@ -55,22 +56,57 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
     });
     
     try {
-      // Fetch tenant data from Firebase
-      _tenantDoc = await _tenantController.getTenantById(widget.tenantId);
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) throw Exception('User not authenticated');
       
-      if (_tenantDoc == null || !_tenantDoc!.exists) {
+      // Fetch tenant basic data
+      final tenantRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('tenants')
+          .doc(widget.tenantId);
+      
+      _tenantDoc = await tenantRef.get();
+      
+      if (!_tenantDoc!.exists) {
         throw Exception('Tenant not found');
       }
       
-      final tenantData = _tenantDoc!.data() as Map<String, dynamic>;
+      // Fetch all properties associated with this tenant from subcollection
+      final propertiesSnapshot = await tenantRef.collection('properties').get();
       
-      // Fetch property data if property ID exists
-      if (tenantData['propertyId'] != null && tenantData['propertyId'].isNotEmpty) {
-        _propertyDoc = await _propertyController.getPropertyById(tenantData['propertyId']);
+      _tenantProperties.clear();
+      _propertyPayments.clear();
+      
+      for (var propDoc in propertiesSnapshot.docs) {
+        final propData = propDoc.data();
+        propData['docId'] = propDoc.id; // Store document ID for reference
+        
+        // Fetch actual property details if propertyId exists
+        if (propData['propertyId'] != null) {
+          try {
+            final propertyDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .collection('properties')
+                .doc(propData['propertyId'])
+                .get();
+            
+            if (propertyDoc.exists) {
+              final propertyData = propertyDoc.data() as Map<String, dynamic>;
+              // Merge property data with lease data
+              propData['propertyDetails'] = propertyData;
+            }
+          } catch (e) {
+            print('Error fetching property details: $e');
+          }
+        }
+        
+        _tenantProperties.add(propData);
+        
+        // Generate payments for this property
+        _generatePaymentsForProperty(propData);
       }
-      
-      // Generate payment list based on lease dates and frequency
-      _generatePaymentList();
       
       setState(() {
         _isLoading = false;
@@ -83,42 +119,37 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
     }
   }
   
-  void _generatePaymentList() {
-    if (_tenantDoc == null) return;
-    
-    final tenantData = _tenantDoc!.data() as Map<String, dynamic>;
-    
-    // Get lease details
-    final leaseStartDate = tenantData['leaseStartDate'] != null 
-        ? (tenantData['leaseStartDate'] as Timestamp).toDate()
+  void _generatePaymentsForProperty(Map<String, dynamic> propertyData) {
+    final propertyId = propertyData['propertyId'] ?? propertyData['docId'];
+    final leaseStartDate = propertyData['leaseStartDate'] != null 
+        ? (propertyData['leaseStartDate'] as Timestamp).toDate()
         : null;
-    final leaseEndDate = tenantData['leaseEndDate'] != null 
-        ? (tenantData['leaseEndDate'] as Timestamp).toDate()
+    final leaseEndDate = propertyData['leaseEndDate'] != null 
+        ? (propertyData['leaseEndDate'] as Timestamp).toDate()
         : null;
-    final rentAmount = (tenantData['rentAmount'] is int) 
-        ? (tenantData['rentAmount'] as int).toDouble() 
-        : (tenantData['rentAmount'] ?? 0.0);
-    final paymentFrequency = tenantData['paymentFrequency'] ?? 'monthly';
-    final rentDueDay = tenantData['rentDueDay'] ?? 1;
+    final rentAmount = (propertyData['rentAmount'] is int) 
+        ? (propertyData['rentAmount'] as int).toDouble() 
+        : (propertyData['rentAmount'] ?? 0.0);
+    final paymentFrequency = propertyData['paymentFrequency'] ?? 'Monthly';
+    final rentDueDay = propertyData['rentDueDay'] ?? 1;
+    final propertyName = propertyData['propertyName'] ?? 'Unknown Property';
+    final unitNumber = propertyData['unitNumber'] ?? '';
     
     if (leaseStartDate == null || leaseEndDate == null) return;
     
-    _generatedPayments.clear();
+    List<Map<String, dynamic>> payments = [];
     
-    // Calculate payment dates based on frequency
     DateTime currentPaymentDate = DateTime(leaseStartDate.year, leaseStartDate.month, rentDueDay);
     final today = DateTime.now();
     int paymentNumber = 1;
     
     while (currentPaymentDate.isBefore(leaseEndDate) || currentPaymentDate.isAtSameMomentAs(leaseEndDate)) {
-      // Don't generate payments for future dates beyond 3 months
       if (currentPaymentDate.isAfter(today.add(const Duration(days: 90)))) {
         break;
       }
       
       String status;
       if (currentPaymentDate.isBefore(today)) {
-        // Past due dates - assume paid for demo (you can check actual payment records)
         status = 'paid';
       } else if (currentPaymentDate.year == today.year && 
                  currentPaymentDate.month == today.month) {
@@ -127,9 +158,9 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
         status = 'upcoming';
       }
       
-      _generatedPayments.add({
-        'id': 'payment_${paymentNumber}',
-        'title': _getPaymentTitle(paymentFrequency),
+      payments.add({
+        'id': 'payment_${propertyId}_${paymentNumber}',
+        'title': '${_getPaymentTitle(paymentFrequency)} - $propertyName${unitNumber.isNotEmpty ? " ($unitNumber)" : ""}',
         'amount': rentAmount,
         'dueDate': currentPaymentDate,
         'status': status,
@@ -137,9 +168,12 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
         'paymentNumber': paymentNumber,
         'formattedDueDate': DateFormat('MMM dd, yyyy').format(currentPaymentDate),
         'isOverdue': currentPaymentDate.isBefore(today) && status != 'paid',
+        'propertyName': propertyName,
+        'unitNumber': unitNumber,
+        'propertyId': propertyId,
       });
       
-      // Calculate next payment date based on frequency
+      // Calculate next payment date
       switch (paymentFrequency.toLowerCase()) {
         case 'weekly':
           currentPaymentDate = currentPaymentDate.add(const Duration(days: 7));
@@ -174,8 +208,9 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
       }
       
       paymentNumber++;
-      _generatedPayments = _generatedPayments.reversed.toList();
     }
+    
+    _propertyPayments[propertyId] = payments.reversed.toList();
   }
   
   String _getPaymentTitle(String frequency) {
@@ -243,7 +278,6 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
     }
     
     final tenantData = _tenantDoc!.data() as Map<String, dynamic>;
-    final propertyData = _propertyDoc?.data() as Map<String, dynamic>?;
     
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -265,7 +299,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
       body: Column(
         children: [
           // Tenant Profile Header
-          _buildTenantHeader(tenantData, propertyData),
+          _buildTenantHeader(tenantData),
           
           // Tab Bar
           _buildTabBar(),
@@ -275,8 +309,8 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildDetailsTab(tenantData, propertyData),
-                _buildPaymentsTab(tenantData),
+                _buildDetailsTab(tenantData),
+                _buildPaymentsTab(),
                 _buildDocumentsTab(tenantData),
               ],
             ),
@@ -286,10 +320,16 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
     );
   }
   
-  Widget _buildTenantHeader(Map<String, dynamic> tenantData, Map<String, dynamic>? propertyData) {
+  Widget _buildTenantHeader(Map<String, dynamic> tenantData) {
     final firstName = tenantData['firstName'] ?? '';
     final lastName = tenantData['lastName'] ?? '';
     final fullName = '$firstName $lastName'.trim();
+    
+    // Calculate total rent from all properties
+    double totalRent = 0;
+    for (var prop in _tenantProperties) {
+      totalRent += (prop['rentAmount'] ?? 0).toDouble();
+    }
     
     return FadeInDown(
       duration: const Duration(milliseconds: 500),
@@ -315,7 +355,6 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
           children: [
             Row(
               children: [
-                // Avatar
                 CircleAvatar(
                   radius: 35,
                   backgroundColor: Colors.white.withOpacity(0.2),
@@ -329,7 +368,6 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Tenant Info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,28 +408,28 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
             const Divider(color: Colors.white24),
             const SizedBox(height: 16),
             
-            // Property and Rent Info
+            // Summary Info
             Row(
               children: [
                 Expanded(
                   child: _buildHeaderStat(
-                    'Property',
-                    propertyData?['name'] ?? 'Not Assigned',
+                    'Properties',
+                    _tenantProperties.length.toString(),
                     Icons.home_outlined,
                   ),
                 ),
                 Expanded(
                   child: _buildHeaderStat(
-                    'Rent Amount',
-                    '\$${(tenantData['rentAmount'] ?? 0).toStringAsFixed(0)}',
+                    'Total Rent',
+                    '\$${totalRent.toStringAsFixed(0)}',
                     Icons.attach_money_outlined,
                   ),
                 ),
                 Expanded(
                   child: _buildHeaderStat(
-                    'Frequency',
-                    _capitalizeFirst(tenantData['paymentFrequency'] ?? 'monthly'),
-                    Icons.schedule_outlined,
+                    'Status',
+                    _capitalizeFirst(tenantData['status'] ?? 'active'),
+                    Icons.check_circle_outline,
                   ),
                 ),
               ],
@@ -456,7 +494,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
     );
   }
   
-  Widget _buildDetailsTab(Map<String, dynamic> tenantData, Map<String, dynamic>? propertyData) {
+  Widget _buildDetailsTab(Map<String, dynamic> tenantData) {
     return FadeInUp(
       duration: const Duration(milliseconds: 700),
       child: SingleChildScrollView(
@@ -481,58 +519,201 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
             
             const SizedBox(height: 16),
             
-            // Property Information
-            if (propertyData != null)
-              _buildInfoCard(
-                'Property Information',
-                Icons.home_outlined,
-                [
-                  _buildDetailRow('Property Name', propertyData['name'] ?? 'Unknown'),
-                  _buildDetailRow('Unit Number', tenantData['unitNumber'] ?? 'Not specified'),
-                  if (propertyData['address'] != null)
-                    _buildDetailRow('Address', propertyData['address']),
-                  if (propertyData['city'] != null)
-                    _buildDetailRow('City', propertyData['city']),
-                ],
+            // Properties & Leases
+            if (_tenantProperties.isNotEmpty) ...[
+              Text(
+                'Properties & Lease Information',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+              const SizedBox(height: 12),
+              ..._tenantProperties.map((prop) => _buildPropertyLeaseCard(prop)),
+            ],
             
             const SizedBox(height: 16),
             
-            // Lease Information
+            // Account Information
             _buildInfoCard(
-              'Lease Information',
-              Icons.description_outlined,
+              'Account Information',
+              Icons.account_balance_outlined,
               [
-                if (tenantData['leaseStartDate'] != null)
-                  _buildDetailRow('Lease Start', _formatTimestamp(tenantData['leaseStartDate'])),
-                if (tenantData['leaseEndDate'] != null)
-                  _buildDetailRow('Lease End', _formatTimestamp(tenantData['leaseEndDate'])),
-                _buildDetailRow('Rent Amount', '\$${(tenantData['rentAmount'] ?? 0).toStringAsFixed(2)}'),
-                _buildDetailRow('Payment Frequency', _capitalizeFirst(tenantData['paymentFrequency'] ?? 'monthly')),
-                _buildDetailRow('Rent Due Day', '${tenantData['rentDueDay'] ?? 1}${_getDaySuffix(tenantData['rentDueDay'] ?? 1)} of each ${tenantData['paymentFrequency'] ?? 'month'}'),
-                if (tenantData['securityDeposit'] != null)
-                  _buildDetailRow('Security Deposit', '\$${tenantData['securityDeposit'].toStringAsFixed(2)}'),
+                _buildDetailRow('Account Holder', tenantData['db_account_holder_name'] ?? 'Not provided'),
+                _buildDetailRow('Account Number', tenantData['db_account_number'] ?? 'Not provided'),
+                if (tenantData['db_id_type'] != null)
+                  _buildDetailRow('ID Type', tenantData['db_id_type']),
+                _buildDetailRow('ID Number', tenantData['db_id_number'] ?? 'Not provided'),
+                _buildDetailRow('Bank', tenantData['db_bank_bic'] ?? 'Not provided'),
+                _buildDetailRow('Branch Code', tenantData['db_branch_code'] ?? 'Not provided'),
               ],
             ),
-            
-            const SizedBox(height: 16),
-            
-            // Additional Information
-            if (tenantData['notes'] != null && tenantData['notes'].toString().isNotEmpty)
-              _buildInfoCard(
-                'Additional Notes',
-                Icons.note_outlined,
-                [
-                  _buildDetailRow('Notes', tenantData['notes']),
-                ],
-              ),
           ],
         ),
       ),
     );
   }
   
-  Widget _buildPaymentsTab(Map<String, dynamic> tenantData) {
+  Widget _buildPropertyLeaseCard(Map<String, dynamic> propertyData) {
+    final propertyDetails = propertyData['propertyDetails'] as Map<String, dynamic>?;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.home_work_outlined, color: AppTheme.primaryColor, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      propertyData['propertyName'] ?? 'Unknown Property',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (propertyData['unitNumber'] != null && propertyData['unitNumber'].toString().isNotEmpty)
+                      Text(
+                        'Unit: ${propertyData['unitNumber']}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (propertyData['propertyId'] != null)
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onPressed: () {
+                    Get.to(() => PropertyDetailsPage(propertyId: propertyData['propertyId']));
+                  },
+                ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          const Divider(),
+          const SizedBox(height: 12),
+          
+          // Property Details
+          if (propertyData['propertyAddress'] != null)
+            _buildDetailRow('Address', propertyData['propertyAddress']),
+          
+          // Lease Details
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Lease Start', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatTimestamp(propertyData['leaseStartDate']),
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Lease End', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatTimestamp(propertyData['leaseEndDate']),
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 12),
+          
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Rent Amount', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '\$${(propertyData['rentAmount'] ?? 0).toStringAsFixed(0)}',
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Frequency', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 4),
+                    Text(
+                      _capitalizeFirst(propertyData['paymentFrequency'] ?? 'Monthly'),
+                      style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              if (propertyData['securityDeposit'] != null)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Security Deposit', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$${propertyData['securityDeposit'].toStringAsFixed(0)}',
+                        style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildPaymentsTab() {
+    // Combine all payments from all properties
+    List<Map<String, dynamic>> allPayments = [];
+    _propertyPayments.forEach((propertyId, payments) {
+      allPayments.addAll(payments);
+    });
+    
+    // Sort by due date
+    allPayments.sort((a, b) => (b['dueDate'] as DateTime).compareTo(a['dueDate'] as DateTime));
+    
     return FadeInUp(
       duration: const Duration(milliseconds: 700),
       child: SingleChildScrollView(
@@ -542,49 +723,75 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Payment Summary
-            _buildPaymentSummaryCard(tenantData),
+            _buildPaymentSummaryCard(allPayments),
             
             const SizedBox(height: 20),
             
-            // Payment List Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Payment Schedule',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+            // Group payments by property
+            if (_tenantProperties.isNotEmpty) ...[
+              for (var property in _tenantProperties) ...[
+                if (_propertyPayments[property['propertyId'] ?? property['docId']] != null &&
+                    _propertyPayments[property['propertyId'] ?? property['docId']]!.isNotEmpty) ...[
+                  _buildPropertyPaymentSection(
+                    property,
+                    _propertyPayments[property['propertyId'] ?? property['docId']]!,
                   ),
-                ),
-                Text(
-                  '${_generatedPayments.length} payments',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
+                  const SizedBox(height: 16),
+                ],
               ],
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Payment List
-            if (_generatedPayments.isEmpty)
-              _buildEmptyPaymentsState()
-            else
-              ..._generatedPayments.map((payment) => _buildPaymentItem(payment)).toList(),
+            ] else
+              _buildEmptyPaymentsState(),
           ],
         ),
       ),
     );
   }
   
-  Widget _buildPaymentSummaryCard(Map<String, dynamic> tenantData) {
-    final paidPayments = _generatedPayments.where((p) => p['status'] == 'paid').length;
-    final duePayments = _generatedPayments.where((p) => p['status'] == 'due').length;
-    final overduePayments = _generatedPayments.where((p) => p['isOverdue'] == true).length;
-    final totalAmount = _generatedPayments.fold<double>(0.0, (sum, p) => sum + (p['amount'] as double));
+  Widget _buildPropertyPaymentSection(Map<String, dynamic> property, List<Map<String, dynamic>> payments) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.home_outlined, size: 18, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${property['propertyName']}${property['unitNumber'] != null && property['unitNumber'].toString().isNotEmpty ? " (${property['unitNumber']})" : ""}',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+              Text(
+                '${payments.length} payments',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...payments.map((payment) => _buildPaymentItem(payment)).toList(),
+      ],
+    );
+  }
+  
+  Widget _buildPaymentSummaryCard(List<Map<String, dynamic>> allPayments) {
+    final paidPayments = allPayments.where((p) => p['status'] == 'paid').length;
+    final duePayments = allPayments.where((p) => p['status'] == 'due').length;
+    final overduePayments = allPayments.where((p) => p['isOverdue'] == true).length;
+    final totalAmount = allPayments.fold<double>(0.0, (sum, p) => sum + (p['amount'] as double));
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -597,7 +804,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Payment Summary',
+            'Payment Summary (All Properties)',
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -608,8 +815,8 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
             children: [
               Expanded(
                 child: _buildSummaryItem(
-                  'Total Payments',
-                  _generatedPayments.length.toString(),
+                  'Total',
+                  allPayments.length.toString(),
                   Colors.blue,
                   Icons.receipt_long_outlined,
                 ),
@@ -1022,7 +1229,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                   _navigateToEditTenant();
                 },
               ),
-              if (_tenantDoc != null && _propertyDoc != null)
+              if (_tenantDoc != null)
                 _buildOptionItem(
                   icon: Icons.home_outlined,
                   label: 'View Property',

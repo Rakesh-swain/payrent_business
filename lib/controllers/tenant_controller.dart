@@ -256,15 +256,15 @@ class TenantController extends GetxController {
     required String lastName,
     required String email,
     required String phone,
-    String? propertyId, // Made optional to support minimal tenant creation
-    String? unitNumber,
-    String? unitId,
-    DateTime? leaseStartDate,
-    DateTime? leaseEndDate,
-    int? rentAmount, // Changed to double for consistency
-    String? paymentFrequency,
-    int? rentDueDay,
-    int? securityDeposit, // Changed to double for consistency
+    // String? propertyId, // Made optional to support minimal tenant creation
+    // String? unitNumber,
+    // String? unitId,
+    // DateTime? leaseStartDate,
+    // DateTime? leaseEndDate,
+    // int? rentAmount, // Changed to double for consistency
+    // String? paymentFrequency,
+    // int? rentDueDay,
+    // int? securityDeposit, // Changed to double for consistency
     String? notes,
     String? accountHolderName,
     String? accountNumber,
@@ -292,17 +292,17 @@ class TenantController extends GetxController {
         email: email,
         phone: phone,
         landlordId: uid,
-        propertyId: propertyId ?? '', // Default to empty string if null
-        propertyName: '', // This will be updated when we get property details
-        propertyAddress: '', // This will be updated when we get property details
-        unitNumber: unitNumber ?? '', // Default to empty string if null
-        unitId: unitId ?? '',
-        leaseStartDate: leaseStartDate ?? DateTime.now(), // Default to current date
-        leaseEndDate: leaseEndDate ?? DateTime.now().add(const Duration(days: 365)), // Default to 1 year
-        rentAmount: rentAmount ?? 0, // Default to 0
-        paymentFrequency: paymentFrequency ?? 'monthly', // Default to monthly
-        rentDueDay: rentDueDay ?? 1, // Default to 1st of month
-        securityDeposit: securityDeposit ?? 0, // Default to 0
+        // propertyId: propertyId ?? '', // Default to empty string if null
+        // propertyName: '', // This will be updated when we get property details
+        // propertyAddress: '', // This will be updated when we get property details
+        // unitNumber: unitNumber ?? '', // Default to empty string if null
+        // unitId: unitId ?? '',
+        // leaseStartDate: leaseStartDate ?? DateTime.now(), // Default to current date
+        // leaseEndDate: leaseEndDate ?? DateTime.now().add(const Duration(days: 365)), // Default to 1 year
+        // rentAmount: rentAmount ?? 0, // Default to 0
+        // paymentFrequency: paymentFrequency ?? 'monthly', // Default to monthly
+        // rentDueDay: rentDueDay ?? 1, // Default to 1st of month
+        // securityDeposit: securityDeposit ?? 0, // Default to 0
         notes: notes ?? '', // Default to empty string
         accountHolderName: accountHolderName,
         accountNumber: accountNumber,
@@ -323,6 +323,7 @@ class TenantController extends GetxController {
 
       return tenantIdCreated;
     } catch (e) {
+      print(e);
       errorMessage.value = 'Failed to add tenant';
       print('Error adding tenant: $e');
       return null;

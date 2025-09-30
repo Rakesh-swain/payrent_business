@@ -23,22 +23,21 @@ import 'package:payrent_business/screens/landlord/tenant_management/tenant_detai
 
 class PropertyDetailsPage extends StatefulWidget {
   final String propertyId;
-  
-  const PropertyDetailsPage({
-    Key? key,
-    required this.propertyId,
-  }) : super(key: key);
+
+  const PropertyDetailsPage({Key? key, required this.propertyId})
+    : super(key: key);
 
   @override
   _PropertyDetailsPageState createState() => _PropertyDetailsPageState();
 }
 
-class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerProviderStateMixin {
+class _PropertyDetailsPageState extends State<PropertyDetailsPage>
+    with TickerProviderStateMixin {
   late TabController _tabController;
   bool _isLoading = true;
   PropertyModel? _property;
   List<DocumentSnapshot> _propertyDocuments = [];
-  List<DocumentSnapshot> _tenants = [];
+  List<DocumentSnapshot>  _tenants = [];
   List<DocumentSnapshot> _mandates = [];
   AccountInformation? _landlordAccountInfo;
   bool _isUploading = false;
@@ -85,7 +84,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
 
       // Convert to property model
       final property = PropertyModel.fromFirestore(propertyDoc);
-      
+
       // Extract payment frequency from document data
       final propertyData = propertyDoc.data() as Map<String, dynamic>?;
       final paymentFreq = propertyData?['paymentFrequency'] as String?;
@@ -101,13 +100,29 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
           .get();
 
       // Fetch tenants for this property
-      final tenantSnapshot = await FirebaseFirestore.instance
+      final tenantsRef = FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
-          .collection('tenants')
-          .where('propertyId', isEqualTo: widget.propertyId)
-          .get();
+          .collection('tenants');
 
+      final tenantDocs = await tenantsRef.get();
+
+      final matchedTenants = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+
+      await Future.wait(
+        tenantDocs.docs.map((tenantDoc) async {
+          final tenantPropsSnapshot = await tenantsRef
+              .doc(tenantDoc.id)
+              .collection('properties')
+              .where('propertyId', isEqualTo: widget.propertyId)
+              .get();
+
+          if (tenantPropsSnapshot.docs.isNotEmpty) {
+            matchedTenants.add(tenantDoc);
+          }
+        }),
+      );
+      final tenantSnapshot = matchedTenants; 
       // Fetch mandates for this property
       final mandateSnapshot = await FirebaseFirestore.instance
           .collection('users')
@@ -121,7 +136,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
           .collection('users')
           .doc(userId)
           .get();
-      
+
       AccountInformation? landlordAccountInfo;
       if (userDoc.exists) {
         final userData = userDoc.data() as Map<String, dynamic>;
@@ -133,7 +148,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
       setState(() {
         _property = property;
         _propertyDocuments = documentsSnapshot.docs;
-        _tenants = tenantSnapshot.docs;
+        _tenants = tenantSnapshot;
         _mandates = mandateSnapshot.docs;
         _landlordAccountInfo = landlordAccountInfo;
         _paymentFrequency = paymentFreq ?? 'Monthly';
@@ -175,7 +190,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
           .child('properties')
           .child(widget.propertyId)
           .child('documents')
-          .child(DateTime.now().millisecondsSinceEpoch.toString() + '_' + fileName);
+          .child(
+            DateTime.now().millisecondsSinceEpoch.toString() + '_' + fileName,
+          );
 
       // Upload file with progress tracking
       final uploadTask = storageRef.putFile(file);
@@ -222,16 +239,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
         _isUploading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Document uploaded successfully')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Document uploaded successfully')));
     } catch (e) {
       setState(() {
         _isUploading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading document: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error uploading document: $e')));
     }
   }
 
@@ -242,8 +259,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
-              ? _buildErrorView()
-              : _buildContent(),
+          ? _buildErrorView()
+          : _buildContent(),
     );
   }
 
@@ -276,7 +293,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
               foregroundColor: Colors.white,
               backgroundColor: AppTheme.primaryColor,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
             ),
           ),
         ],
@@ -286,7 +305,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
 
   Widget _buildContent() {
     if (_property == null) return SizedBox.shrink();
-    
+
     return NestedScrollView(
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return [
@@ -317,7 +336,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [Color.fromARGB(255, 11, 12, 61), Color(0xFFA78BFA)],
+                        colors: [
+                          Color.fromARGB(255, 11, 12, 61),
+                          Color(0xFFA78BFA),
+                        ],
                       ),
                     ),
                   ),
@@ -347,7 +369,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.edit,color: Colors.white,),
+                icon: const Icon(Icons.edit, color: Colors.white),
                 tooltip: 'Edit Property',
                 onPressed: () {
                   Navigator.push(
@@ -412,17 +434,23 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
             content: Column(
               children: [
                 _buildInfoRow('Property Type', _property?.type ?? 'No data'),
-                _buildInfoRow('Units', _property?.isMultiUnit == true 
-                  ? 'Multi-Unit (${_property?.units.length ?? 0} units)' 
-                  : 'Single Unit'),
-                _buildInfoRow('Description', _property?.description ?? 'No description'),
+                _buildInfoRow(
+                  'Units',
+                  _property?.isMultiUnit == true
+                      ? 'Multi-Unit (${_property?.units.length ?? 0} units)'
+                      : 'Single Unit',
+                ),
+                _buildInfoRow(
+                  'Description',
+                  _property?.description ?? 'No description',
+                ),
               ],
             ),
           ),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Address Card
         FadeInUp(
           duration: Duration(milliseconds: 400),
@@ -439,9 +467,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
             ),
           ),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Financial Details Card
         FadeInUp(
           duration: Duration(milliseconds: 500),
@@ -451,16 +479,25 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
             content: Column(
               children: [
                 _buildInfoRow('Payment Frequency', _getPaymentFrequency()),
-                _buildInfoRow('Total Rent Amount', '\$${_calculateTotalRent().toStringAsFixed(2)}'),
-                _buildInfoRow('Average Unit Rent', '\$${_calculateAverageRent().toStringAsFixed(2)}'),
-                _buildInfoRow('Occupancy Rate', '${_calculateOccupancyRate().toStringAsFixed(0)}%'),
+                _buildInfoRow(
+                  'Total Rent Amount',
+                  '\$${_calculateTotalRent().toStringAsFixed(2)}',
+                ),
+                _buildInfoRow(
+                  'Average Unit Rent',
+                  '\$${_calculateAverageRent().toStringAsFixed(2)}',
+                ),
+                _buildInfoRow(
+                  'Occupancy Rate',
+                  '${_calculateOccupancyRate().toStringAsFixed(0)}%',
+                ),
               ],
             ),
           ),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Documents Section
         FadeInUp(
           duration: Duration(milliseconds: 600),
@@ -473,7 +510,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
   Widget _buildTenantsTab() {
     final propertyUnits = _property?.units ?? [];
     final hasUnits = propertyUnits.isNotEmpty;
-    
+
     return ListView(
       padding: EdgeInsets.all(16),
       children: [
@@ -487,31 +524,28 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
               children: [
                 _buildInfoRow('Total Units', '${propertyUnits.length}'),
                 _buildInfoRow(
-                  'Occupied Units', 
+                  'Occupied Units',
                   '${propertyUnits.where((unit) => unit.tenantId != null).length}',
                 ),
                 _buildInfoRow(
-                  'Vacant Units', 
+                  'Vacant Units',
                   '${propertyUnits.where((unit) => unit.tenantId == null).length}',
                 ),
               ],
             ),
           ),
         ),
-        
+
         SizedBox(height: 24),
-        
+
         // Title
         Text(
           'Units & Tenants',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w600),
         ),
-        
+
         SizedBox(height: 16),
-        
+
         hasUnits
             ? ListView.builder(
                 shrinkWrap: true,
@@ -522,8 +556,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   final tenantDoc = unit.tenantId != null
                       ? _tenants.where((t) => t.id == unit.tenantId).firstOrNull
                       : null;
-                      
-                  return _buildUnitTenantCard(unit, tenantDoc,tenantDoc!.id);
+                  return _buildUnitTenantCard(
+                    unit,
+                    tenantDoc,
+                    tenantDoc?.id,
+                  );
                 },
               )
             : Center(
@@ -531,7 +568,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   padding: const EdgeInsets.all(32.0),
                   child: Column(
                     children: [
-                      Icon(Icons.home_work_outlined, size: 64, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.home_work_outlined,
+                        size: 64,
+                        color: Colors.grey.shade400,
+                      ),
                       SizedBox(height: 16),
                       Text(
                         'No units available',
@@ -544,9 +585,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                       Text(
                         'Add units to this property to assign tenants',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey.shade600,
-                        ),
+                        style: GoogleFonts.poppins(color: Colors.grey.shade600),
                       ),
                     ],
                   ),
@@ -555,15 +594,19 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
       ],
     );
   }
-  
-  Widget _buildUnitTenantCard(PropertyUnitModel unit, DocumentSnapshot? tenantDoc,String tenantId) {
+
+  Widget _buildUnitTenantCard(
+    PropertyUnitModel unit,
+    DocumentSnapshot? tenantDoc,
+    String? tenantId,
+  ) {
     final hasTenant = tenantDoc != null;
     Map<String, dynamic>? tenantData;
-    
+
     if (hasTenant) {
       tenantData = tenantDoc!.data() as Map<String, dynamic>;
     }
-    
+
     return FadeInUp(
       duration: Duration(milliseconds: 300),
       child: Card(
@@ -621,9 +664,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   ),
                 ],
               ),
-              
+
               SizedBox(height: 16),
-              
+
               // Unit details
               Row(
                 children: [
@@ -639,10 +682,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   ),
                 ],
               ),
-              
+
               // Divider if tenant exists
               if (hasTenant) Divider(height: 32),
-              
+
               // Tenant section if exists
               if (hasTenant) ...[
                 Text(
@@ -658,7 +701,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                     CircleAvatar(
                       backgroundColor: AppTheme.primaryColor.withOpacity(0.2),
                       child: Text(
-                        '${tenantData?['firstName']?[0] ?? ''}${tenantData?['lastName']?[0] ?? ''}'.toUpperCase(),
+                        '${tenantData?['firstName']?[0] ?? ''}${tenantData?['lastName']?[0] ?? ''}'
+                            .toUpperCase(),
                         style: GoogleFonts.poppins(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.w500,
@@ -692,7 +736,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                       children: [
                         OutlinedButton(
                           onPressed: () {
-                            Get.to(TenantDetailPage(tenantId: tenantId));
+                            Get.to(TenantDetailPage(tenantId: tenantId!));
                           },
                           style: OutlinedButton.styleFrom(
                             shape: RoundedRectangleBorder(
@@ -706,7 +750,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                     ),
                   ],
                 ),
-                        _buildMandateButton(unit, tenantDoc!),
+                _buildMandateButton(unit, tenantDoc!),
                 SizedBox(height: 12),
                 _buildLeaseInfo(tenantData),
               ] else ...[
@@ -717,7 +761,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                     icon: Icon(Icons.person_add_outlined),
                     label: Text('Assign Tenant'),
                     style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
@@ -731,18 +778,19 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
       ),
     );
   }
-  
-  Widget _buildUnitDetailItem(String label, String value, {bool isHighlighted = false}) {
+
+  Widget _buildUnitDetailItem(
+    String label,
+    String value, {
+    bool isHighlighted = false,
+  }) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: Colors.grey[600],
-            ),
+            style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
           ),
           Text(
             value,
@@ -756,33 +804,37 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
       ),
     );
   }
-  
+
   Widget _buildLeaseInfo(Map<String, dynamic>? tenantData) {
     if (tenantData == null) return SizedBox.shrink();
-    
+
     final leaseStartTimestamp = tenantData['leaseStartDate'] as Timestamp?;
     final leaseEndTimestamp = tenantData['leaseEndDate'] as Timestamp?;
-    
+
     final leaseStart = leaseStartTimestamp?.toDate();
     final leaseEnd = leaseEndTimestamp?.toDate();
-    
+
     final dateFormat = DateFormat('MMM d, yyyy');
-    final startDateStr = leaseStart != null ? dateFormat.format(leaseStart) : 'Not set';
-    final endDateStr = leaseEnd != null ? dateFormat.format(leaseEnd) : 'Not set';
-    
+    final startDateStr = leaseStart != null
+        ? dateFormat.format(leaseStart)
+        : 'Not set';
+    final endDateStr = leaseEnd != null
+        ? dateFormat.format(leaseEnd)
+        : 'Not set';
+
     // Calculate days remaining in lease
     String daysRemaining = 'N/A';
     if (leaseEnd != null) {
       final today = DateTime.now();
       final difference = leaseEnd.difference(today).inDays;
-      
+
       if (difference < 0) {
         daysRemaining = 'Expired';
       } else {
         daysRemaining = '$difference days';
       }
     }
-    
+
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -815,9 +867,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                     ),
                     Text(
                       startDateStr,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                      ),
+                      style: GoogleFonts.poppins(fontSize: 13),
                     ),
                   ],
                 ),
@@ -833,12 +883,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                         color: Colors.grey[600],
                       ),
                     ),
-                    Text(
-                      endDateStr,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                      ),
-                    ),
+                    Text(endDateStr, style: GoogleFonts.poppins(fontSize: 13)),
                   ],
                 ),
               ),
@@ -858,11 +903,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: daysRemaining == 'Expired' 
-                            ? Colors.red 
-                            : daysRemaining != 'N/A' && int.tryParse(daysRemaining.split(' ')[0]) != null && int.parse(daysRemaining.split(' ')[0]) < 30
-                                ? Colors.orange
-                                : null,
+                        color: daysRemaining == 'Expired'
+                            ? Colors.red
+                            : daysRemaining != 'N/A' &&
+                                  int.tryParse(daysRemaining.split(' ')[0]) !=
+                                      null &&
+                                  int.parse(daysRemaining.split(' ')[0]) < 30
+                            ? Colors.orange
+                            : null,
                       ),
                     ),
                   ],
@@ -899,9 +947,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
             child: Text(
               'Maintenance tracking and service request features will be available in a future update.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                color: Colors.grey.shade600,
-              ),
+              style: GoogleFonts.poppins(color: Colors.grey.shade600),
             ),
           ),
         ],
@@ -931,11 +977,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                     color: AppTheme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    icon,
-                    color: AppTheme.primaryColor,
-                    size: 18,
-                  ),
+                  child: Icon(icon, color: AppTheme.primaryColor, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -973,12 +1015,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
           ),
           Expanded(
             flex: 3,
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-              ),
-            ),
+            child: Text(value, style: GoogleFonts.poppins(fontSize: 14)),
           ),
         ],
       ),
@@ -1031,7 +1068,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
               LinearProgressIndicator(
                 value: _uploadProgress,
                 backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppTheme.primaryColor,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -1049,7 +1088,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
-                      Icon(Icons.folder_open, size: 48, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.folder_open,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         'No documents yet',
@@ -1077,8 +1120,12 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                 physics: NeverScrollableScrollPhysics(),
                 itemCount: _propertyDocuments.length,
                 itemBuilder: (context, index) {
-                  final document = _propertyDocuments[index].data() as Map<String, dynamic>;
-                  return _buildDocumentItem(document, _propertyDocuments[index].id);
+                  final document =
+                      _propertyDocuments[index].data() as Map<String, dynamic>;
+                  return _buildDocumentItem(
+                    document,
+                    _propertyDocuments[index].id,
+                  );
                 },
               ),
           ],
@@ -1093,10 +1140,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
     final uploadDate = document['uploadDate'] as Timestamp?;
     final fileUrl = document['url'] as String?;
     final fileSize = document['size'] as int?;
-    
+
     IconData fileIcon;
     Color fileColor;
-    
+
     // Determine file icon and color based on extension
     if (fileType.contains('pdf')) {
       fileIcon = Icons.picture_as_pdf;
@@ -1104,21 +1151,23 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
     } else if (fileType.contains('doc')) {
       fileIcon = Icons.article_outlined;
       fileColor = Colors.blue;
-    } else if (fileType.contains('jpg') || fileType.contains('jpeg') || fileType.contains('png')) {
+    } else if (fileType.contains('jpg') ||
+        fileType.contains('jpeg') ||
+        fileType.contains('png')) {
       fileIcon = Icons.image;
       fileColor = Colors.green;
     } else {
       fileIcon = Icons.insert_drive_file;
       fileColor = Colors.amber;
     }
-    
+
     // Format date
     String dateStr = 'Unknown date';
     if (uploadDate != null) {
       final date = uploadDate.toDate();
       dateStr = DateFormat('MMM d, yyyy').format(date);
     }
-    
+
     // Format file size
     String sizeStr = 'Unknown size';
     if (fileSize != null) {
@@ -1130,7 +1179,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
         sizeStr = '${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB';
       }
     }
-    
+
     return Card(
       margin: EdgeInsets.only(bottom: 8),
       elevation: 0,
@@ -1154,11 +1203,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   color: fileColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  fileIcon,
-                  color: fileColor,
-                  size: 24,
-                ),
+                child: Icon(fileIcon, color: fileColor, size: 24),
               ),
               SizedBox(width: 12),
               Expanded(
@@ -1167,9 +1212,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   children: [
                     Text(
                       fileName,
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1195,11 +1238,13 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
       ),
     );
   }
-  
+
   void _showDocumentOptions(String documentId, Map<String, dynamic> document) {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => Container(
         padding: EdgeInsets.symmetric(vertical: 20),
         child: Column(
@@ -1234,13 +1279,15 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
       ),
     );
   }
-  
+
   void _confirmDeleteDocument(String documentId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete Document'),
-        content: Text('Are you sure you want to delete this document? This action cannot be undone.'),
+        content: Text(
+          'Are you sure you want to delete this document? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -1249,7 +1296,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              
+
               try {
                 final userId = FirebaseAuth.instance.currentUser!.uid;
                 await FirebaseFirestore.instance
@@ -1260,10 +1307,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                     .collection('documents')
                     .doc(documentId)
                     .delete();
-                    
+
                 // Refresh documents list
                 _fetchPropertyData();
-                
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Document deleted successfully')),
                 );
@@ -1297,7 +1344,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
   double _calculateOccupancyRate() {
     final units = _property?.units ?? [];
     if (units.isEmpty) return 0;
-    
+
     final occupiedUnits = units.where((unit) => unit.tenantId != null).length;
     return (occupiedUnits / units.length) * 100;
   }
@@ -1305,113 +1352,119 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
   String _getPaymentFrequency() {
     return _paymentFrequency;
   }
-  
-  Widget _buildMandateButton(PropertyUnitModel unit, DocumentSnapshot tenantDoc) {
-  final tenantData = tenantDoc.data() as Map<String, dynamic>;
-  final tenantId = tenantDoc.id;
-  
-  // Check if mandate exists for this unit and tenant
-  final mandateExists = _mandates.any((mandate) {
-    final mandateData = mandate.data() as Map<String, dynamic>;
-    return mandateData['tenantId'] == tenantId && 
-           mandateData['unitId'] == unit.unitId;
-  });
-  
-  // Check if both landlord and tenant have account information
-  final landlordHasAccountInfo = _landlordAccountInfo != null;
-  final tenantHasAccountInfo = tenantData['db_account_holder_name'] != null &&
-                               tenantData['db_account_number'] != null &&
-                               tenantData['db_bank_bic'] != null &&
-                               tenantData['db_branch_code'] != null;
- 
-  final canCreateMandate = landlordHasAccountInfo && tenantHasAccountInfo;
-  
-  if (mandateExists) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.green.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.green.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.check_circle, size: 16, color: Colors.green),
-          const SizedBox(width: 4),
-          Text(
-            'Mandate Created',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.green,
+
+  Widget _buildMandateButton(
+    PropertyUnitModel unit,
+    DocumentSnapshot tenantDoc,
+  ) {
+    final tenantData = tenantDoc.data() as Map<String, dynamic>;
+    final tenantId = tenantDoc.id;
+
+    // Check if mandate exists for this unit and tenant
+    final mandateExists = _mandates.any((mandate) {
+      final mandateData = mandate.data() as Map<String, dynamic>;
+      return mandateData['tenantId'] == tenantId &&
+          mandateData['unitId'] == unit.unitId;
+    });
+
+    // Check if both landlord and tenant have account information
+    final landlordHasAccountInfo = _landlordAccountInfo != null;
+    final tenantHasAccountInfo =
+        tenantData['db_account_holder_name'] != null &&
+        tenantData['db_account_number'] != null &&
+        tenantData['db_bank_bic'] != null &&
+        tenantData['db_branch_code'] != null;
+
+    final canCreateMandate = landlordHasAccountInfo && tenantHasAccountInfo;
+
+    if (mandateExists) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, size: 16, color: Colors.green),
+            const SizedBox(width: 4),
+            Text(
+              'Mandate Created',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.green,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+      );
+    }
+
+    return ElevatedButton.icon(
+      onPressed: canCreateMandate
+          ? () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CreateMandatePage(
+                    unit: unit,
+                    tenantDoc: tenantDoc,
+                    landlordAccountInfo: _landlordAccountInfo!,
+                    propertyId: widget.propertyId,
+                  ),
+                ),
+              ).then((result) {
+                // Refresh data when returning from mandate creation
+                if (result == true) {
+                  _fetchPropertyData();
+                }
+              });
+            }
+          : () {
+              String missingInfo = '';
+              if (!landlordHasAccountInfo) {
+                missingInfo =
+                    'Please complete your account information in settings.';
+              } else if (!tenantHasAccountInfo) {
+                missingInfo = 'Tenant account information is incomplete.';
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(missingInfo),
+                  backgroundColor: Colors.orange,
+                  action: SnackBarAction(
+                    label: 'OK',
+                    textColor: Colors.white,
+                    onPressed: () {},
+                  ),
+                ),
+              );
+            },
+      icon: Icon(Icons.account_balance, size: 16),
+      label: Text('Create Mandate'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: canCreateMandate ? AppTheme.primaryColor : Colors.grey,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        textStyle: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
-  
-  return ElevatedButton.icon(
-    onPressed: canCreateMandate 
-        ? () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => CreateMandatePage(
-                  unit: unit,
-                  tenantDoc: tenantDoc,
-                  landlordAccountInfo: _landlordAccountInfo!,
-                  propertyId: widget.propertyId,
-                ),
-              ),
-            ).then((result) {
-              // Refresh data when returning from mandate creation
-              if (result == true) {
-                _fetchPropertyData();
-              }
-            });
-          }
-        : () {
-            String missingInfo = '';
-            if (!landlordHasAccountInfo) {
-              missingInfo = 'Please complete your account information in settings.';
-            } else if (!tenantHasAccountInfo) {
-              missingInfo = 'Tenant account information is incomplete.';
-            }
-            
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(missingInfo),
-                backgroundColor: Colors.orange,
-                action: SnackBarAction(
-                  label: 'OK',
-                  textColor: Colors.white,
-                  onPressed: () {},
-                ),
-              ),
-            );
-          },
-    icon: Icon(Icons.account_balance, size: 16),
-    label: Text('Create Mandate'),
-    style: ElevatedButton.styleFrom(
-      backgroundColor: canCreateMandate ? AppTheme.primaryColor : Colors.grey,
-      foregroundColor: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
-      textStyle: GoogleFonts.poppins(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-      ),
-    ),
-  );
-}
-  
-  void _showCreateMandateDialog(PropertyUnitModel unit, DocumentSnapshot tenantDoc) {
+
+  void _showCreateMandateDialog(
+    PropertyUnitModel unit,
+    DocumentSnapshot tenantDoc,
+  ) {
     final tenantData = tenantDoc.data() as Map<String, dynamic>;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1429,7 +1482,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                 style: GoogleFonts.poppins(fontSize: 14),
               ),
               const SizedBox(height: 16),
-              
+
               // Landlord Account Info
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1457,9 +1510,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               // Tenant Account Info
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1487,9 +1540,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Payment Details
               Container(
                 padding: const EdgeInsets.all(12),
@@ -1511,7 +1564,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
                     ),
                     const SizedBox(height: 8),
                     Text('Amount: \$${unit.rent}'),
-                    Text('Frequency: ${tenantData['paymentFrequency'] ?? 'Monthly'}'),
+                    Text(
+                      'Frequency: ${tenantData['paymentFrequency'] ?? 'Monthly'}',
+                    ),
                     Text('Unit: ${unit.unitNumber}'),
                   ],
                 ),
@@ -1539,14 +1594,17 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
       ),
     );
   }
-  
-  Future<void> _createMandate(PropertyUnitModel unit, DocumentSnapshot tenantDoc) async {
+
+  Future<void> _createMandate(
+    PropertyUnitModel unit,
+    DocumentSnapshot tenantDoc,
+  ) async {
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) throw Exception('User not logged in');
-      
+
       final tenantData = tenantDoc.data() as Map<String, dynamic>;
-      
+
       final mandate = MandateModel(
         landlordId: userId,
         tenantId: tenantDoc.id,
@@ -1570,16 +1628,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
-      
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('mandates')
           .add(mandate.toFirestore());
-      
+
       // Refresh data to show updated mandate status
       await _fetchPropertyData();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Mandate created successfully'),
@@ -1595,7 +1653,37 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
       );
     }
   }
-  
+
+  Future<void> _fetchProperties() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not logged in');
+      }
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('properties')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching properties: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
+  }
+
   void _showAssignTenantBottomSheet(PropertyUnitModel unit) {
     // Will be implemented with tenant selection functionality
     // Showing a placeholder for now
@@ -1610,7 +1698,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> with TickerPr
           propertyId: widget.propertyId,
           unit: unit,
           onComplete: () {
-            _fetchPropertyData();
+            _fetchProperties();
           },
         );
       },
@@ -1629,11 +1717,12 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Color(0xFFF8F9FB),
-      child: _tabBar,
-    );
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(color: Color(0xFFF8F9FB), child: _tabBar);
   }
 
   @override

@@ -1,6 +1,7 @@
 // lib/screens/landlord/property_management/unit_details_page.dart
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +9,8 @@ import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
+import 'package:payrent_business/screens/landlord/property_management/property_list_page.dart';
+import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
 
 class UnitDetailsPage extends StatefulWidget {
   final String propertyId;
@@ -30,6 +33,7 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
   PropertyModel? _property;
   Map<String, dynamic>? _leaseInfo;
   String? _errorMessage;
+  List<DocumentSnapshot> _allProperties = [];
 
   @override
   void initState() {
@@ -73,6 +77,8 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
 
       // Fetch tenant if assigned
       DocumentSnapshot? tenant;
+            print(widget.unit.tenantId);
+
       if (widget.unit.tenantId != null) {
         tenant = await FirebaseFirestore.instance
             .collection('users')
@@ -80,7 +86,6 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
             .collection('tenants')
             .doc(widget.unit.tenantId)
             .get();
-            
         // Fetch lease information
         final leaseSnapshot = await FirebaseFirestore.instance
             .collection('users')
@@ -109,6 +114,58 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
         _isLoading = false;
       });
     }
+  }
+ Future<void> _fetchProperties() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId == null) {
+        throw Exception('User not logged in');
+      }
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('properties')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      setState(() {
+        _allProperties = querySnapshot.docs;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error fetching properties: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
+  }
+   void _showAssignTenantBottomSheet(PropertyUnitModel unit) {
+    // Will be implemented with tenant selection functionality
+    // Showing a placeholder for now
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return UnitActionBottomSheet(
+          propertyId: widget.propertyId,
+          unit: unit,
+          onComplete: () {
+            Get.back();
+            Get.back();
+            Get.back();
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -398,7 +455,7 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                     label: _tenant != null ? 'Change Tenant' : 'Assign Tenant',
                     color: _tenant != null ? Colors.orange : Colors.green,
                     onTap: () {
-                      Navigator.pop(context);
+                      _showAssignTenantBottomSheet(widget.unit);
                     },
                   ),
                 ],
@@ -435,7 +492,7 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
             SizedBox(height: 24),
             OutlinedButton.icon(
               onPressed: () {
-                Navigator.pop(context); // Return to assign tenant
+                _showAssignTenantBottomSheet(widget.unit);
               },
               icon: Icon(Icons.person_add),
               label: Text('Assign Tenant'),

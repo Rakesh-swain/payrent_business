@@ -7,15 +7,15 @@ class TenantModel {
   final String email;
   final String phone;
   final String landlordId;
-  final String propertyId;
-  final String propertyName;
-  final String propertyAddress;
-  final String unitNumber;
+  final String? propertyId;
+  final String? propertyName;
+  final String? propertyAddress;
+  final String? unitNumber;
   final String? unitId;
-  final DateTime leaseStartDate;
-  final DateTime leaseEndDate;
-  final int rentAmount;
-  final int rentDueDay;
+  final DateTime? leaseStartDate;
+  final DateTime? leaseEndDate;
+  final int? rentAmount;
+  final int? rentDueDay;
   final int? securityDeposit;
   final String? notes;
   final String status;
@@ -39,15 +39,15 @@ class TenantModel {
     required this.email,
     required this.phone,
     required this.landlordId,
-    required this.propertyId,
-    required this.propertyName,
-    required this.propertyAddress,
-    required this.unitNumber,
+    this.propertyId,
+    this.propertyName,
+    this.propertyAddress,
+    this.unitNumber,
     this.unitId,
-    required this.leaseStartDate,
-    required this.leaseEndDate,
-    required this.rentAmount,
-    required this.rentDueDay,
+    this.leaseStartDate,
+    this.leaseEndDate,
+    this.rentAmount,
+    this.rentDueDay,
     this.securityDeposit,
     this.notes,
     this.status = 'active',
@@ -118,8 +118,8 @@ class TenantModel {
       'propertyAddress': propertyAddress,
       'unitNumber': unitNumber,
       'unitId': unitId,
-      'leaseStartDate': Timestamp.fromDate(leaseStartDate),
-      'leaseEndDate': Timestamp.fromDate(leaseEndDate),
+      'leaseStartDate': leaseStartDate != null?Timestamp.fromDate(leaseStartDate!):null,
+      'leaseEndDate': leaseEndDate != null?Timestamp.fromDate(leaseEndDate!):null,
       'rentAmount': rentAmount,
       'rentDueDay': rentDueDay,
       'securityDeposit': securityDeposit,

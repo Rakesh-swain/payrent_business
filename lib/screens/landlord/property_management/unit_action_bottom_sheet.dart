@@ -250,13 +250,14 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Update tenant with property and unit info
+      // Create a new tenant properties assignment document (new doc each time)
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('tenants')
           .doc(_selectedTenantId)
-          .update({
+          .collection('properties')
+          .add({
         'propertyId': widget.propertyId,
         'propertyName': property.name,
         'propertyAddress': property.address,
@@ -265,6 +266,10 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
         'leaseStartDate': Timestamp.fromDate(_leaseStartDate!),
         'leaseEndDate': Timestamp.fromDate(_leaseEndDate!),
         'rentAmount': double.tryParse(_monthlyRentController.text) ?? widget.unit.rent,
+        'securityDeposit': _securityDepositController.text.isNotEmpty
+            ? double.tryParse(_securityDepositController.text)
+            : widget.unit.securityDeposit,
+        'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -298,7 +303,6 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       );
 
       widget.onComplete();
-      Navigator.pop(context);
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -711,17 +715,18 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
               value: tenant.id,
               child: SizedBox(
                 height: 50,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       name,
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
                     ),
+                    SizedBox(width: 10,),
                     if (phone.isNotEmpty)
                       Text(
-                        phone,
+                        "($phone)",
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: Colors.grey[600],
@@ -992,20 +997,19 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
       
-      // Update tenant to remove property association
-      await FirebaseFirestore.instance
+      // Remove tenant assignments for this property/unit from their properties subcollection
+      final propsQuery = await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('tenants')
           .doc(widget.unit.tenantId)
-          .update({
-        'propertyId': null,
-        'propertyName': null,
-        'propertyAddress': null,
-        'unitId': null,
-        'unitNumber': null,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+          .collection('properties')
+          .where('propertyId', isEqualTo: widget.propertyId)
+          .where('unitId', isEqualTo: widget.unit.unitId)
+          .get();
+      for (final d in propsQuery.docs) {
+        await d.reference.delete();
+      }
       
       // Delete lease info from unit
       await FirebaseFirestore.instance

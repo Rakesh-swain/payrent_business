@@ -29,7 +29,7 @@ class BulkUploadController extends GetxController {
     int errors = 0;
     final List<String> messages = [];
 
-    try {
+    try { 
       final userId = _requireUserId();
       final firestore = FirebaseFirestore.instance;
       final batch = firestore.batch();
@@ -52,6 +52,7 @@ class BulkUploadController extends GetxController {
           final List<PropertyUnitModel> units = [];
           for (final unitRow in propertyRows) {
             units.add(PropertyUnitModel(
+              unitId: firestore.collection('users').doc().id,
               unitNumber: (unitRow['Unit Number'] ?? (units.isEmpty ? 'Main' : 'Unit ${units.length + 1}')).toString(),
               unitType: (unitRow['Unit Type'] ?? 'Standard').toString(),
               bedrooms: int.tryParse(unitRow['Bedrooms']?.toString() ?? '1') ?? 1,
@@ -131,6 +132,7 @@ class BulkUploadController extends GetxController {
           for (int i = 0; i < propertyRows.length; i++) {
             final row = propertyRows[i];
             final unit = PropertyUnitModel(
+              unitId: firestore.collection('users').doc().id,
               unitNumber: (row['Unit Number'] ?? (i == 0 && !isMultiUnit ? 'Main' : 'Unit ${i + 1}')).toString(),
               unitType: (row['Unit Type'] ?? 'Standard').toString(),
               bedrooms: int.tryParse(row['Bedrooms']?.toString() ?? '1') ?? 1,
@@ -150,25 +152,24 @@ class BulkUploadController extends GetxController {
               messages.add('Error parsing dates: $e');
             }
 
-            if ((row['Tenant First Name'] ?? '').toString().isNotEmpty) {
-              final tenantRef = firestore.collection('users').doc(userId).collection('tenants').doc();
-              final tenantData = {
+            if ((row['Tenant First Name'] ?? '').toString().isNotEmpty || (row['Phone'] ?? '').toString().isNotEmpty) {
+              final String phoneRaw = (row['Phone'] ?? '').toString().trim();
+              final String tenantDocId = phoneRaw.isNotEmpty
+                  ? phoneRaw.replaceAll(RegExp(r'\s+'), '')
+                  : firestore.collection('users').doc().id;
+
+              final tenantRef = firestore
+                  .collection('users')
+                  .doc(userId)
+                  .collection('tenants')
+                  .doc(tenantDocId);
+
+              final tenantProfileData = {
                 'firstName': (row['Tenant First Name'] ?? '').toString(),
                 'lastName': (row['Tenant Last Name'] ?? '').toString(),
                 'email': (row['Email'] ?? '').toString(),
-                'phone': (row['Phone'] ?? '').toString(),
+                'phone': phoneRaw,
                 'landlordId': userId,
-                'propertyId': propertyRef.id,
-                'propertyName': propertyName,
-                'propertyAddress': (row['Address'] ?? '').toString(),
-                'unitNumber': unit.unitNumber,
-                'unitId': unit.unitId,
-                'leaseStartDate': Timestamp.fromDate(leaseStart),
-                'leaseEndDate': Timestamp.fromDate(leaseEnd),
-                'rentAmount': unit.rent,
-                'paymentFrequency': unit.paymentFrequency,
-                'rentDueDay': 1,
-                'securityDeposit': int.tryParse(row['Security Deposit']?.toString() ?? '0') ?? 0,
                 'status': 'active',
                 'isArchived': false,
                 'createdAt': FieldValue.serverTimestamp(),
@@ -181,7 +182,25 @@ class BulkUploadController extends GetxController {
                 'db_bank_bic': (row['Bank BIC'] ?? '').toString().isEmpty ? null : (row['Bank BIC'] ?? '').toString(),
                 'db_branch_code': (row['Branch Code'] ?? '').toString().isEmpty ? null : (row['Branch Code'] ?? '').toString(),
               };
-              batch.set(tenantRef, tenantData);
+              batch.set(tenantRef, tenantProfileData, SetOptions(merge: true));
+
+              final tenantPropRef = tenantRef.collection('properties').doc();
+              batch.set(tenantPropRef, {
+                'propertyId': propertyRef.id,
+                'propertyName': propertyName,
+                'propertyAddress': (row['Address'] ?? '').toString(),
+                'unitNumber': unit.unitNumber,
+                'unitId': unit.unitId,
+                'leaseStartDate': Timestamp.fromDate(leaseStart),
+                'leaseEndDate': Timestamp.fromDate(leaseEnd),
+                'rentAmount': unit.rent,
+                'paymentFrequency': unit.paymentFrequency,
+                'rentDueDay': 1,
+                'securityDeposit': int.tryParse(row['Security Deposit']?.toString() ?? '0') ?? 0,
+                'createdAt': FieldValue.serverTimestamp(),
+                'updatedAt': FieldValue.serverTimestamp(),
+              });
+
               unitToTenantIds[unit.unitId] = tenantRef.id;
               tenantAssignments.add({
                 'tenantId': tenantRef.id,
