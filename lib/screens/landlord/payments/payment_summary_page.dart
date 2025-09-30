@@ -31,6 +31,10 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
   final PropertyController _propertyController = Get.find<PropertyController>();
   final PaymentController _paymentController = Get.find<PaymentController>();
   final TenantController _tenantController = Get.find<TenantController>();
+  // In-memory indexes built from tenants/{tenantId}/properties subcollections
+  bool _assignmentsLoading = false;
+  final Map<String, List<Map<String, dynamic>>> _propertyIdToAssignments = {};
+  final Map<String, List<Map<String, dynamic>>> _tenantIdToAssignments = {};
 
   @override
   void initState() {
@@ -45,10 +49,58 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
     await _propertyController.fetchProperties();
     await _tenantController.fetchTenants();
     await _paymentController.fetchPayments();
+    await _buildTenantPropertyAssignments();
     
     // Force UI refresh after data load
     if (mounted) {
       setState(() {});
+    }
+  }
+
+  Future<void> _buildTenantPropertyAssignments() async {
+    _assignmentsLoading = true;
+    _propertyIdToAssignments.clear();
+    _tenantIdToAssignments.clear();
+    try {
+      final List<DocumentSnapshot> tenants = _tenantController.tenants;
+      for (final tenantDoc in tenants) {
+        final tData = tenantDoc.data() as Map<String, dynamic>;
+        final String tenantId = tenantDoc.id;
+        final String firstName = (tData['firstName'] ?? '').toString();
+        final String lastName = (tData['lastName'] ?? '').toString();
+        final String fullName = [firstName, lastName].where((e) => e.toString().trim().isNotEmpty).join(' ').trim();
+        final String status = (tData['status'] ?? '').toString();
+        final bool isArchived = (tData['isArchived'] as bool?) ?? false;
+
+        final propsSnap = await tenantDoc.reference.collection('properties').get();
+        for (final prop in propsSnap.docs) {
+          final p = prop.data();
+          final String propertyId = (p['propertyId'] ?? '').toString();
+          if (propertyId.isEmpty) continue;
+          final assignment = {
+            'tenantId': tenantId,
+            'tenantName': fullName,
+            'tenantStatus': status,
+            'tenantArchived': isArchived,
+            'propertyId': propertyId,
+            'propertyName': (p['propertyName'] ?? '').toString(),
+            'unitNumber': (p['unitNumber'] ?? '').toString(),
+            'unitId': (p['unitId'] ?? '').toString(),
+            'rentAmount': (p['rentAmount'] is int) ? (p['rentAmount'] as int).toDouble() : (p['rentAmount'] as double?) ?? 0.0,
+            'paymentFrequency': (p['paymentFrequency'] ?? 'Monthly').toString(),
+            'rentDueDay': (p['rentDueDay'] as int?) ?? 1,
+            'leaseStartDate': (p['leaseStartDate'] is Timestamp) ? (p['leaseStartDate'] as Timestamp).toDate() : null,
+            'leaseEndDate': (p['leaseEndDate'] is Timestamp) ? (p['leaseEndDate'] as Timestamp).toDate() : null,
+          };
+
+          _propertyIdToAssignments.putIfAbsent(propertyId, () => []).add(assignment);
+          _tenantIdToAssignments.putIfAbsent(tenantId, () => []).add(assignment);
+        }
+      }
+    } catch (_) {
+      // ignore
+    } finally {
+      _assignmentsLoading = false;
     }
   }
 
@@ -184,10 +236,80 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
   
   // Get tenants for a specific property
   List<DocumentSnapshot> _getTenantsForProperty(String propertyId) {
-    return _tenantController.tenants.where((tenant) {
-      final data = tenant.data() as Map<String, dynamic>;
-      return data['propertyId'] == propertyId;
-    }).toList();
+    final assignments = _propertyIdToAssignments[propertyId] ?? const [];
+    final assignedTenantIds = assignments.map((a) => a['tenantId'] as String).toSet();
+    return _tenantController.tenants.where((tenant) => assignedTenantIds.contains(tenant.id)).toList();
+  }
+
+  // Helper: calculate expected amount due for a single assignment up to today
+  double _calculateExpectedForAssignment(Map<String, dynamic> a, DateTime now) {
+    final DateTime? start = a['leaseStartDate'] as DateTime?;
+    final DateTime? end = a['leaseEndDate'] as DateTime?;
+    final double rent = (a['rentAmount'] as double?) ?? 0.0;
+    final String freq = (a['paymentFrequency'] ?? 'Monthly').toString().toLowerCase();
+    if (start == null) return 0.0;
+    final DateTime effectiveEnd = (end == null || end.isAfter(now)) ? now : end;
+    if (effectiveEnd.isBefore(start)) return 0.0;
+
+    switch (freq) {
+      case 'weekly':
+        final weeks = (effectiveEnd.difference(start).inDays / 7).floor() + 1;
+        return rent * weeks;
+      case 'quarterly':
+        int quarters = 0;
+        DateTime cursor = DateTime(start.year, start.month, start.day);
+        while (!cursor.isAfter(effectiveEnd)) {
+          quarters++;
+          cursor = DateTime(cursor.year, cursor.month + 3, cursor.day);
+        }
+        return rent * quarters.toDouble();
+      case 'yearly':
+        int years = 0;
+        DateTime c = DateTime(start.year, start.month, start.day);
+        while (!c.isAfter(effectiveEnd)) {
+          years++;
+          c = DateTime(c.year + 1, c.month, c.day);
+        }
+        return rent * years.toDouble();
+      case 'monthly':
+      default:
+        int months = 0;
+        DateTime cur = DateTime(start.year, start.month, start.day);
+        while (!cur.isAfter(effectiveEnd)) {
+          months++;
+          cur = DateTime(cur.year, cur.month + 1, cur.day);
+        }
+        return rent * months.toDouble();
+    }
+  }
+
+  // Helper: next due date for an assignment
+  DateTime? _computeNextDueDate(Map<String, dynamic> a) {
+    final DateTime? start = a['leaseStartDate'] as DateTime?;
+    final DateTime? end = a['leaseEndDate'] as DateTime?;
+    final String freq = (a['paymentFrequency'] ?? 'Monthly').toString().toLowerCase();
+    if (start == null) return null;
+    DateTime due = DateTime(start.year, start.month, start.day);
+    final now = DateTime.now();
+    while (!due.isAfter(now)) {
+      switch (freq) {
+        case 'weekly':
+          due = due.add(const Duration(days: 7));
+          break;
+        case 'quarterly':
+          due = DateTime(due.year, due.month + 3, due.day);
+          break;
+        case 'yearly':
+          due = DateTime(due.year + 1, due.month, due.day);
+          break;
+        case 'monthly':
+        default:
+          due = DateTime(due.year, due.month + 1, due.day);
+          break;
+      }
+      if (end != null && due.isAfter(end)) break;
+    }
+    return due;
   }
 
   @override
@@ -307,7 +429,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
 
   Widget _buildPropertiesTab() {
     return Obx(() {
-      if (_propertyController.isLoading.value || _paymentController.isLoading.value) {
+      if (_propertyController.isLoading.value || _paymentController.isLoading.value || _assignmentsLoading) {
         return const Center(
           child: CircularProgressIndicator(),
         );
@@ -371,7 +493,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
 
   Widget _buildTenantsTab() {
     return Obx(() {
-      if (_tenantController.isLoading.value || _paymentController.isLoading.value) {
+      if (_tenantController.isLoading.value || _paymentController.isLoading.value || _assignmentsLoading) {
         return const Center(
           child: CircularProgressIndicator(),
         );
@@ -446,39 +568,41 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
     final String fullAddress = [address, city, state, zipCode].where((s) => s.isNotEmpty).join(', ');
     final String image = 'assets/home.png'; // Use placeholder image
     
-    // Get payments associated with this property
-    final propertyPayments = _getPaymentsForProperty(id);
-    
-    // Calculate payment statistics
-    double totalRent = 0;
-    double collectedRent = 0;
-    double pendingRent = 0;
-    double overdueRent = 0;
-    
-    for (final payment in propertyPayments) {
-      final paymentData = payment.data() as Map<String, dynamic>;
-      final double amount = (paymentData['amount'] is int) 
-          ? (paymentData['amount'] as int).toDouble() 
-          : (paymentData['amount'] ?? 0.0);
-      final String status = paymentData['status'] ?? '';
-      final bool isLate = paymentData['isLate'] ?? false;
-      
-      totalRent += amount;
-      
-      if (status == 'paid') {
-        collectedRent += amount;
-      } else if (status == 'pending') {
-        if (isLate) {
-          overdueRent += amount;
-        } else {
-          pendingRent += amount;
-        }
+    // Compute expected totals based on tenant assignments and lease dates
+    final now = DateTime.now();
+    final assignments = _propertyIdToAssignments[id] ?? const [];
+    double expectedTotal = 0.0;
+    for (final a in assignments) {
+      if ((a['tenantStatus'] ?? '') == 'active' && (a['tenantArchived'] as bool? ?? false) == false) {
+        expectedTotal += _calculateExpectedForAssignment(a, now);
       }
     }
-    
+
+    // Collected and pending from payment records
+    final propertyPayments = _getPaymentsForProperty(id);
+    double collectedRent = 0.0;
+    double pendingRent = 0.0;
+    double overdueRent = 0.0;
+    for (final payment in propertyPayments) {
+      final paymentData = payment.data() as Map<String, dynamic>;
+      final double amount = (paymentData['amount'] is int)
+          ? (paymentData['amount'] as int).toDouble()
+          : (paymentData['amount'] as double?) ?? 0.0;
+      final String status = (paymentData['status'] ?? '').toString();
+      final bool isLate = (paymentData['isLate'] as bool?) ?? false;
+      if (status == 'paid') collectedRent += amount;
+      if (status == 'pending' && isLate) overdueRent += amount;
+      if (status == 'pending' && !isLate) pendingRent += amount;
+    }
+
+    final double computedPending = (expectedTotal - collectedRent);
+    if (computedPending > (pendingRent + overdueRent)) {
+      pendingRent = computedPending.clamp(0.0, double.infinity);
+    }
+
     // Calculate collection rate
-    final collectionRate = totalRent > 0 
-        ? (collectedRent / totalRent * 100).toInt()
+    final collectionRate = expectedTotal > 0 
+        ? (collectedRent / expectedTotal * 100).toInt()
         : 0;
     
     // Get occupancy information
@@ -553,7 +677,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                 children: [
                   _buildPropertyStatItem(
                     label: 'Total Rent',
-                    value: '\$${NumberFormat('#,##0').format(totalRent)}',
+                    value: '\$${NumberFormat('#,##0').format(expectedTotal)}',
                     color: AppTheme.textPrimary,
                   ),
                   _buildPropertyStatItem(
@@ -674,11 +798,22 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
     final String firstName = data['firstName'] ?? '';
     final String lastName = data['lastName'] ?? '';
     final String fullName = '$firstName $lastName';
-    final String propertyName = data['propertyName'] ?? 'No Property Assigned';
-    final String unitNumber = data['unitNumber'] ?? '';
-    final double rentAmount = (data['rentAmount'] is int) 
-        ? (data['rentAmount'] as int).toDouble() 
-        : (data['rentAmount'] ?? 0.0);
+    // Aggregate across all assigned properties for this tenant
+    final assignments = _tenantIdToAssignments[id] ?? const [];
+    double totalRentAmount = 0.0;
+    DateTime? earliestNextDue;
+    for (final a in assignments) {
+      totalRentAmount += ((a['rentAmount'] as double?) ?? 0.0);
+      final nd = _computeNextDueDate(a);
+      if (nd != null) {
+        if (earliestNextDue == null || nd.isBefore(earliestNextDue!)) {
+          earliestNextDue = nd;
+        }
+      }
+    }
+    final String propertyName = assignments.isNotEmpty ? (assignments.first['propertyName'] as String? ?? 'Assigned') : 'No Property Assigned';
+    final String unitNumber = assignments.isNotEmpty ? (assignments.first['unitNumber'] as String? ?? '') : '';
+    final double rentAmount = totalRentAmount;
     
     // Get tenant's most recent payment status
     String paymentStatus = 'Unknown';
@@ -876,8 +1011,8 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        dueDate != null
-                            ? DateFormat('dd MMM, yyyy').format(dueDate)
+                        (earliestNextDue ?? dueDate) != null
+                            ? DateFormat('dd MMM, yyyy').format((earliestNextDue ?? dueDate)!)
                             : 'Not set',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
@@ -1089,15 +1224,35 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
     final zipCode = data['zipCode'] ?? '';
     final fullAddress = [address, city, state, zipCode].where((s) => s.isNotEmpty).join(', ');
     
-    // Get tenants for this property
+    // Get tenants and assignments for this property
     final tenants = _getTenantsForProperty(id);
-    
-    // Get property payment summary
-    final propertySummary = _paymentController.getPaymentSummaryByProperty(id);
-    final totalDue = propertySummary['totalDue'] ?? 0.0;
-    final totalPaid = propertySummary['totalPaid'] ?? 0.0;
-    final totalPending = propertySummary['totalPending'] ?? 0.0;
-    final totalLate = propertySummary['totalLate'] ?? 0.0;
+    final assignments = _propertyIdToAssignments[id] ?? const [];
+
+    // Compute property payment summary using leases + payments
+    final now = DateTime.now();
+    double totalDue = 0.0;
+    for (final a in assignments) {
+      if ((a['tenantStatus'] ?? '') == 'active' && (a['tenantArchived'] as bool? ?? false) == false) {
+        totalDue += _calculateExpectedForAssignment(a, now);
+      }
+    }
+    final payments = _getPaymentsForProperty(id);
+    double totalPaid = 0.0;
+    double totalPending = 0.0;
+    double totalLate = 0.0;
+    for (final p in payments) {
+      final d = p.data() as Map<String, dynamic>;
+      final double amount = (d['amount'] is int) ? (d['amount'] as int).toDouble() : (d['amount'] as double?) ?? 0.0;
+      final String status = (d['status'] ?? '').toString();
+      final bool isLate = (d['isLate'] as bool?) ?? false;
+      if (status == 'paid') totalPaid += amount;
+      if (status == 'pending') totalPending += amount;
+      if (isLate) totalLate += amount;
+    }
+    final reconPending = (totalDue - totalPaid);
+    if (reconPending > (totalPending + totalLate)) {
+      totalPending = reconPending.clamp(0.0, double.infinity);
+    }
     
     showModalBottomSheet(
       context: context,
