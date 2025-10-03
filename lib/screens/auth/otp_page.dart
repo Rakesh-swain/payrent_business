@@ -3,10 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:payrent_business/controllers/phone_auth_controller.dart';
-import 'package:payrent_business/controllers/tenant_data_controller.dart';
 import 'package:payrent_business/screens/auth/verification_complete_page.dart';
-import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
 import 'package:pinput/pinput.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
@@ -127,49 +126,14 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
     final bool success = await phoneAuthController.verifyOtp(_otpController.text.trim());
     
     if (success) {
-      // Check if this is a tenant login
-      if (widget.tenantInfo != null) {
-        // This is a tenant login - initialize tenant data and navigate to tenant dashboard
-        try {
-          // Initialize tenant data controller if not already done
-          if (!Get.isRegistered<TenantDataController>()) {
-            Get.put(TenantDataController());
-          }
-          
-          final TenantDataController tenantController = Get.find<TenantDataController>();
-          
-          // Initialize tenant data
-          await tenantController.initializeTenantData(widget.tenantInfo!);
-          
-          // Navigate to tenant main page
-          Get.offAll(TenantMainPage());
-          
-          // Show welcome message
-          Get.snackbar(
-            'Welcome!',
-            'Logged in successfully as tenant',
-            backgroundColor: const Color(0xFF34D399),
-            colorText: Colors.white,
-          );
-        } catch (e) {
-          print('Error initializing tenant data: $e');
-          // Show error and go back to login
-          Get.snackbar(
-            'Error',
-            'Failed to load tenant data. Please try again.',
-            backgroundColor: Colors.redAccent,
-            colorText: Colors.white,
-          );
-          Get.offAllNamed('/login');
-        }
-      } else {
-        // This is a landlord login/signup - use existing flow
-        Get.off(() => VerificationCompletePage(
-          islogin: widget.islogin,
-          mobileNumber: widget.mobileNumber,
-        ));
-      }
+      // Navigate to verification complete page with tenant info if available
+      Get.to(() => VerificationCompletePage(
+        islogin: widget.islogin,
+        mobileNumber: widget.mobileNumber,
+        tenantInfo: widget.tenantInfo, // Pass tenant info if it exists
+      ));
     } else {
+      
       // Show error snackbar
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

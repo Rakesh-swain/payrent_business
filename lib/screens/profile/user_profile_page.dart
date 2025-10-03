@@ -14,7 +14,7 @@ import 'package:payrent_business/services/storage_service.dart';
 
 class UserProfilePage extends StatefulWidget {
   final bool isLandlord;
-  const UserProfilePage({super.key, this.isLandlord = true});
+  const UserProfilePage({super.key, required this.isLandlord});
 
   @override
   State<UserProfilePage> createState() => _UserProfilePageState();

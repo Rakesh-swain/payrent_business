@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
-import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:payrent_business/config/theme.dart';
-import 'package:payrent_business/controllers/tenant_data_controller.dart';
-import 'package:payrent_business/screens/tenant/payment/make_payment_page.dart';
-import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:payrent_business/services/tenant_auth_service.dart';
+import 'package:payrent_business/widgets/stat_card.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TenantDashboardPage extends StatefulWidget {
   const TenantDashboardPage({super.key});
@@ -17,12 +15,70 @@ class TenantDashboardPage extends StatefulWidget {
 }
 
 class _TenantDashboardPageState extends State<TenantDashboardPage> {
-  late TenantDataController _tenantController;
+  final TenantAuthService _tenantAuthService = TenantAuthService();
+  final currencyFormat = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
+  
+  // Dashboard data
+  bool _isLoading = true;
+  String _tenantName = '';
+  Map<String, dynamic> _dashboardStats = {
+    'totalRentAmount': 0.0,
+    'amountPaid': 0.0,
+    'amountDue': 0.0,
+    'overdueAmount': 0.0,
+  };
+  List<Map<String, dynamic>> _recentPayments = [];
+  List<Map<String, dynamic>> _assignedProperties = [];
 
   @override
   void initState() {
     super.initState();
-    _tenantController = Get.find<TenantDataController>();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      setState(() => _isLoading = true);
+      
+      // Get tenant info from shared preferences
+      final prefs = await SharedPreferences.getInstance();
+      final tenantId = prefs.getString('tenantId') ?? '';
+      final landlordId = prefs.getString('landlordId') ?? '';
+      
+      if (tenantId.isEmpty || landlordId.isEmpty) {
+        print('Tenant or landlord ID not found');
+        setState(() => _isLoading = false);
+        return;
+      }
+      
+      // Fetch tenant full data
+      final tenantData = await _tenantAuthService.getTenantFullData(landlordId, tenantId);
+      if (tenantData != null) {
+        setState(() {
+          _tenantName = tenantData['name'] ?? 'Tenant';
+          _assignedProperties = List<Map<String, dynamic>>.from(
+            tenantData['assignedProperties'] ?? []
+          );
+        });
+      }
+      
+      // Fetch dashboard statistics
+      final stats = await _tenantAuthService.getTenantDashboardStats(landlordId, tenantId);
+      setState(() {
+        _dashboardStats = stats;
+      });
+      
+      // Fetch recent payment history
+      final payments = await _tenantAuthService.getTenantPaymentHistory(landlordId, tenantId);
+      setState(() {
+        _recentPayments = payments.take(5).toList(); // Show only 5 recent payments
+      });
+      
+      setState(() => _isLoading = false);
+    } catch (e) {
+      print('Error loading dashboard data: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -35,934 +91,369 @@ class _TenantDashboardPageState extends State<TenantDashboardPage> {
         title: Text(
           'Dashboard',
           style: GoogleFonts.poppins(
-            fontSize: 20,
+            fontSize: 24,
             fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_outlined),
-            onPressed: () => _tenantController.refreshTenantData(),
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'logout') {
-                _logout(context);
-              }
+            icon: const Icon(Icons.notifications_outlined, size: 28),
+            onPressed: () {
+              // Handle notifications
             },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(
-                value: 'settings',
-                child: Row(
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: RefreshIndicator(
+        color: AppTheme.primaryColor,
+        onRefresh: _loadDashboardData,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.settings_outlined,
-                      size: 18,
-                      color: AppTheme.textPrimary,
-                    ),
-                    const SizedBox(width: 12),
-                    Text('Settings', style: GoogleFonts.poppins(fontSize: 14)),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              PopupMenuItem<String>(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.logout,
-                      size: 18,
-                      color: AppTheme.errorColor,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Logout',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: AppTheme.errorColor,
+                    // Greeting
+                    FadeInDown(
+                      duration: const Duration(milliseconds: 500),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.wb_sunny_rounded,
+                            color: Color(0xFFFCD34D),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Good ${_getGreeting()}, $_tenantName!',
+                            style: GoogleFonts.poppins(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: Obx(() {
-        if (_tenantController.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (_tenantController.errorMessage.value.isNotEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: AppTheme.errorColor,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Error loading data',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _tenantController.errorMessage.value,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => _tenantController.refreshTenantData(),
-                  child: Text('Retry', style: GoogleFonts.poppins()),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () => _tenantController.refreshTenantData(),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Greeting
-                FadeInDown(
-                  duration: const Duration(milliseconds: 300),
-                  child: Text(
-                    'Hello, ${_tenantController.tenantFullName.split(' ').first}!',
-                    style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                // Property Info
-                FadeInDown(
-                  duration: const Duration(milliseconds: 400),
-                  child: _buildPropertyInfo(),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Next Payment Card
-                FadeInDown(
-                  duration: const Duration(milliseconds: 500),
-                  child: _buildNextPaymentCard(),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Statistics Row
-                FadeInDown(
-                  duration: const Duration(milliseconds: 600),
-                  child: _buildStatisticsRow(),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Quick Actions
-                FadeInDown(
-                  duration: const Duration(milliseconds: 700),
-                  child: _buildQuickActions(),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Recent Payments
-                _buildSectionHeader('Recent Payments', onViewAll: () {
-                  // Navigate to payment history
-                }),
-
-                const SizedBox(height: 12),
-
-                FadeInUp(
-                  duration: const Duration(milliseconds: 800),
-                  child: _buildRecentPayments(),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Maintenance Requests
-                _buildSectionHeader('Maintenance Requests', onViewAll: () {
-                  // Navigate to maintenance requests
-                }),
-
-                const SizedBox(height: 12),
-
-                FadeInUp(
-                  duration: const Duration(milliseconds: 900),
-                  child: _buildMaintenanceRequests(),
-                ),
-
-                const SizedBox(height: 32),
-              ],
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _buildPropertyInfo() {
-    final primaryProperty = _tenantController.primaryProperty;
-    if (primaryProperty == null) return const SizedBox.shrink();
-
-    final propertyData = primaryProperty['propertyData'] as Map<String, dynamic>;
-    final unitDetails = primaryProperty['unitDetails'] as Map<String, dynamic>?;
-
-    return Row(
-      children: [
-        const Icon(
-          Icons.home_outlined,
-          size: 16,
-          color: AppTheme.textSecondary,
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            unitDetails != null
-                ? '${propertyData['name']} - Unit ${unitDetails['unitNumber']}'
-                : propertyData['name'],
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-        ),
-        if (_tenantController.hasMultipleProperties)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '+${_tenantController.totalProperties.value - 1} more',
-              style: GoogleFonts.poppins(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildNextPaymentCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: AppTheme.primaryGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Next Payment',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withOpacity(0.8),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Obx(() => Text(
-                        '\$${NumberFormat('#,##0.00').format(_tenantController.nextPaymentAmount.value)}',
+                    const SizedBox(height: 8),
+                    FadeInDown(
+                      duration: const Duration(milliseconds: 600),
+                      delay: const Duration(milliseconds: 100),
+                      child: Text(
+                        'Here\'s your rent overview',
                         style: GoogleFonts.poppins(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          fontSize: 14,
+                          color: AppTheme.textSecondary,
                         ),
-                      )),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Obx(() => Text(
-                      _tenantController.nextPaymentDate.value.isNotEmpty
-                          ? _tenantController.nextPaymentDate.value
-                          : 'No pending payments',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
                       ),
-                    )),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          if (_tenantController.nextPaymentAmount.value > 0) ...[
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const MakePaymentPage(),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  'Make Payment',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ] else ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.check_circle_outline,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'All payments up to date',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                    const SizedBox(height: 24),
+                    
+                    // Stat Cards
+                    FadeInUp(
+                      duration: const Duration(milliseconds: 700),
+                      delay: const Duration(milliseconds: 200),
+                      child: GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        childAspectRatio: 1.5,
+                        children: [
+                          StatCard(
+                            title: 'Total Rent',
+                            value: currencyFormat.format(_dashboardStats['totalRentAmount']),
+                            icon: Icons.account_balance_wallet_outlined,
+                            color: AppTheme.primaryColor,
+                          ),
+                          StatCard(
+                            title: 'Amount Paid',
+                            value: currencyFormat.format(_dashboardStats['amountPaid']),
+                            icon: Icons.check_circle_outline,
+                            color: const Color(0xFF10B981),
+                          ),
+                          StatCard(
+                            title: 'Amount Due',
+                            value: currencyFormat.format(_dashboardStats['amountDue']),
+                            icon: Icons.pending_outlined,
+                            color: const Color(0xFFF59E0B),
+                          ),
+                          StatCard(
+                            title: 'Overdue',
+                            value: currencyFormat.format(_dashboardStats['overdueAmount']),
+                            icon: Icons.warning_amber_rounded,
+                            color: const Color(0xFFEF4444),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 32),
+                    
+                    // My Properties Section
+                    if (_assignedProperties.isNotEmpty) ...[
+                      FadeInLeft(
+                        duration: const Duration(milliseconds: 700),
+                        delay: const Duration(milliseconds: 300),
+                        child: Text(
+                          'My Properties',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ..._assignedProperties.map((property) => FadeInUp(
+                        duration: const Duration(milliseconds: 700),
+                        delay: Duration(milliseconds: 400 + (_assignedProperties.indexOf(property) * 100)),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: AppTheme.cardShadow,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  Icons.home,
+                                  color: AppTheme.primaryColor,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      property['propertyName'] ?? property['address'] ?? 'Property',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textPrimary,
+                                      ),
+                                    ),
+                                    if (property['unitNumber'] != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Unit ${property['unitNumber']}',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          color: AppTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${property['city']}, ${property['state']}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'Monthly Rent',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    currencyFormat.format(property['rentAmount'] ?? 0),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      )).toList(),
+                      const SizedBox(height: 32),
+                    ],
+                    
+                    // Recent Payments Section
+                    if (_recentPayments.isNotEmpty) ...[
+                      FadeInLeft(
+                        duration: const Duration(milliseconds: 700),
+                        delay: const Duration(milliseconds: 400),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Recent Payments',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                // Navigate to payments page - tab index 2
+                                final scaffold = context.findAncestorStateOfType<ScaffoldState>();
+                                if (scaffold != null && scaffold.widget.bottomNavigationBar != null) {
+                                  // Switch to payments tab
+                                }
+                              },
+                              child: Text(
+                                'View All',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ..._recentPayments.map((payment) {
+                        final status = payment['status'] ?? 'pending';
+                        final dueDate = payment['dueDate'] != null
+                            ? DateFormat('dd MMM yyyy').format(payment['dueDate'].toDate())
+                            : 'N/A';
+                        
+                        return FadeInUp(
+                          duration: const Duration(milliseconds: 700),
+                          delay: Duration(milliseconds: 500 + (_recentPayments.indexOf(payment) * 100)),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: AppTheme.cardShadow,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: _getStatusColor(status).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    _getStatusIcon(status),
+                                    color: _getStatusColor(status),
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Due: $dueDate',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppTheme.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: _getStatusColor(status).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          status.toUpperCase(),
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: _getStatusColor(status),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  currencyFormat.format(payment['amount'] ?? 0),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ],
       ),
     );
   }
-
-  Widget _buildStatisticsRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            icon: Icons.home_outlined,
-            label: 'Properties',
-            value: _tenantController.totalProperties.value.toString(),
-            color: AppTheme.primaryColor,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Obx(() => _buildStatCard(
-                icon: Icons.payment_outlined,
-                label: 'Pending Payments',
-                value: _tenantController.pendingPaymentsCount.value.toString(),
-                color: _tenantController.pendingPaymentsCount.value > 0
-                    ? AppTheme.errorColor
-                    : AppTheme.successColor,
-              )),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Obx(() => _buildStatCard(
-                icon: Icons.attach_money,
-                label: 'Total Rent',
-                value: '\$${NumberFormat('#,##0').format(_tenantController.totalRentAmount.value)}',
-                color: AppTheme.infoColor,
-              )),
-        ),
-      ],
-    );
+  
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Morning';
+    } else if (hour < 17) {
+      return 'Afternoon';
+    } else {
+      return 'Evening';
+    }
   }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 24,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Quick Actions',
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildQuickAction(
-              icon: Icons.home_repair_service_outlined,
-              label: 'Request\\nMaintenance',
-              onTap: () {
-                // Navigate to maintenance request page
-              },
-            ),
-            _buildQuickAction(
-              icon: Icons.receipt_long_outlined,
-              label: 'View\\nDocuments',
-              onTap: () {
-                // Navigate to documents page
-              },
-            ),
-            _buildQuickAction(
-              icon: Icons.history_outlined,
-              label: 'Payment\\nHistory',
-              onTap: () {
-                // Navigate to payment history page
-              },
-            ),
-            _buildQuickAction(
-              icon: Icons.message_outlined,
-              label: 'Message\\nLandlord',
-              onTap: () {
-                // Navigate to messaging page
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickAction({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 72,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 24,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title, {VoidCallback? onViewAll}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (onViewAll != null)
-          TextButton(
-            onPressed: onViewAll,
-            child: Text(
-              'View All',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildRecentPayments() {
-    return Obx(() {
-      if (_tenantController.paymentHistory.isEmpty) {
-        return _buildEmptyState(
-          icon: Icons.payment_outlined,
-          title: 'No payments yet',
-          subtitle: 'Your payment history will appear here',
-        );
-      }
-
-      final recentPayments = _tenantController.paymentHistory.take(3).toList();
-
-      return Column(
-        children: recentPayments.map((payment) {
-          final paymentData = payment['paymentData'] as Map<String, dynamic>;
-          return _buildPaymentItem(paymentData);
-        }).toList(),
-      );
-    });
-  }
-
-  Widget _buildPaymentItem(Map<String, dynamic> payment) {
-    final amount = (payment['amount'] as num?)?.toDouble() ?? 0.0;
-    final status = payment['status']?.toString() ?? 'unknown';
-    final dueDate = payment['dueDate'] as Timestamp?;
-
-    Color statusColor;
+  
+  Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'paid':
-        statusColor = AppTheme.successColor;
-        break;
+        return const Color(0xFF10B981);
       case 'pending':
-        statusColor = Colors.orange;
-        break;
+        return const Color(0xFFF59E0B);
       case 'overdue':
-        statusColor = AppTheme.errorColor;
-        break;
+        return const Color(0xFFEF4444);
       default:
-        statusColor = AppTheme.textSecondary;
+        return AppTheme.textSecondary;
     }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              Icons.payment_outlined,
-              size: 20,
-              color: statusColor,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  payment['description'] ?? 'Payment',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (dueDate != null)
-                  Text(
-                    DateFormat('MMM dd, yyyy').format(dueDate.toDate()),
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '\$${NumberFormat('#,##0.00').format(amount)}',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: statusColor,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status.toUpperCase(),
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: statusColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
-
-  Widget _buildMaintenanceRequests() {
-    return Obx(() {
-      if (_tenantController.maintenanceRequests.isEmpty) {
-        return _buildEmptyState(
-          icon: Icons.home_repair_service_outlined,
-          title: 'No maintenance requests',
-          subtitle: 'Your maintenance requests will appear here',
-        );
-      }
-
-      final recentRequests = _tenantController.maintenanceRequests.take(3).toList();
-
-      return Column(
-        children: recentRequests.map((request) {
-          final requestData = request['maintenanceData'] as Map<String, dynamic>;
-          return _buildMaintenanceItem(requestData);
-        }).toList(),
-      );
-    });
-  }
-
-  Widget _buildMaintenanceItem(Map<String, dynamic> request) {
-    final status = request['status']?.toString() ?? 'pending';
-    final createdAt = request['createdAt'] as Timestamp?;
-
-    Color statusColor;
+  
+  IconData _getStatusIcon(String status) {
     switch (status.toLowerCase()) {
-      case 'completed':
-      case 'resolved':
-        statusColor = AppTheme.successColor;
-        break;
-      case 'in_progress':
-      case 'in progress':
-        statusColor = AppTheme.infoColor;
-        break;
+      case 'paid':
+        return Icons.check_circle_outline;
       case 'pending':
-        statusColor = Colors.orange;
-        break;
+        return Icons.access_time;
+      case 'overdue':
+        return Icons.error_outline;
       default:
-        statusColor = AppTheme.textSecondary;
+        return Icons.help_outline;
     }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              Icons.home_repair_service_outlined,
-              size: 20,
-              color: statusColor,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  request['title'] ?? 'Maintenance Request',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (createdAt != null)
-                  Text(
-                    DateFormat('MMM dd, yyyy').format(createdAt.toDate()),
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              status.toUpperCase(),
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: statusColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            size: 48,
-            color: Colors.grey.shade400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: AppTheme.textLight,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _logout(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            'Logout',
-            style: GoogleFonts.poppins(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Text(
-            'Are you sure you want to logout?',
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                
-                // Clear tenant data
-                _tenantController.clearData();
-                
-                // Navigate to login page
-                Get.offAllNamed('/login');
-                
-                Get.snackbar(
-                  'Logged Out',
-                  'You have been logged out successfully',
-                  backgroundColor: AppTheme.successColor,
-                  colorText: Colors.white,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.errorColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                'Logout',
-                style: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 }

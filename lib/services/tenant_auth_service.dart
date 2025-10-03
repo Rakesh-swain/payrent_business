@@ -1,93 +1,73 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class TenantAuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
-  /// Check if phone number exists in any user's tenant subcollection
-  /// Returns a Map with tenant data if found, null if not found
-  Future<Map<String, dynamic>?> checkTenantByPhoneNumber(String phoneNumber) async {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  /// Check if phone number exists as a tenant across all landlords
+  /// Returns tenant info if found, null otherwise
+  Future<Map<String, dynamic>?> checkTenantExists(String phoneNumber) async {
     try {
-      // Remove any non-numeric characters from phone number
-      final cleanPhone = phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
-      
-      print('Checking phone number: $cleanPhone');
-      
-      // Get all users
+      // First, get all users (landlords)
       final usersSnapshot = await _firestore.collection('users').get();
       
-      // Search through each user's tenant subcollection
-      for (final userDoc in usersSnapshot.docs) {
-        try {
-          // Get tenant subcollection for this user
-          final tenantSnapshot = await _firestore
-              .collection('users')
-              .doc(userDoc.id)
-              .collection('tenants')
-              .get();
-          
-          // Check each tenant document
-          for (final tenantDoc in tenantSnapshot.docs) {
-            final tenantData = tenantDoc.data();
-            final tenantPhone = tenantData['phone']?.toString() ?? '';
-            
-            print('Checking tenant ${tenantDoc.id}: $tenantPhone');
-            
-            // If phone numbers match, return tenant data with additional info
-            if (tenantPhone == cleanPhone) {
-              print('Phone number found in tenant: ${tenantDoc.id}');
-              
-              return {
-                'tenantId': tenantDoc.id,
-                'landlordId': userDoc.id,
-                'tenantData': tenantData,
-                'landlordData': userDoc.data(),
-              };
-            }
-          }
-        } catch (e) {
-          print('Error checking tenants for user ${userDoc.id}: $e');
-          continue; // Skip this user if there's an error
+      // Check each landlord's tenants subcollection
+      for (var userDoc in usersSnapshot.docs) {
+        final tenantsSnapshot = await _firestore
+            .collection('users')
+            .doc(userDoc.id)
+            .collection('tenants')
+            .where('phone', isEqualTo: phoneNumber)
+            .get();
+        
+        if (tenantsSnapshot.docs.isNotEmpty) {
+          // Tenant found - return tenant info with landlord ID
+          final tenantData = tenantsSnapshot.docs.first.data();
+          return {
+            'landlordId': userDoc.id,
+            'tenantId': tenantsSnapshot.docs.first.id,
+            'tenantData': tenantData,
+            'landlordData': userDoc.data(),
+          };
         }
       }
       
-      print('Phone number not found in any tenant records');
-      return null;
+      return null; // No tenant found with this phone number
     } catch (e) {
-      print('Error checking tenant by phone number: $e');
-      throw Exception('Failed to verify phone number: $e');
+      print('Error checking tenant existence: $e');
+      return null;
     }
   }
-  
-  /// Get tenant data by landlord ID and tenant ID
-  Future<Map<String, dynamic>?> getTenantData(String landlordId, String tenantId) async {
+
+  /// Get tenant data by phone number and landlord ID (for faster lookup if we know the landlord)
+  Future<Map<String, dynamic>?> getTenantByPhoneAndLandlord(String phoneNumber, String landlordId) async {
     try {
-      final tenantDoc = await _firestore
+      final tenantSnapshot = await _firestore
           .collection('users')
           .doc(landlordId)
           .collection('tenants')
-          .doc(tenantId)
+          .where('phone', isEqualTo: phoneNumber)
           .get();
       
-      if (tenantDoc.exists) {
+      if (tenantSnapshot.docs.isNotEmpty) {
         return {
-          'tenantId': tenantDoc.id,
-          'landlordId': landlordId,
-          'tenantData': tenantDoc.data(),
+          'tenantId': tenantSnapshot.docs.first.id,
+          'tenantData': tenantSnapshot.docs.first.data(),
         };
       }
       
       return null;
     } catch (e) {
-      print('Error getting tenant data: $e');
-      throw Exception('Failed to get tenant data: $e');
+      print('Error fetching tenant data: $e');
+      return null;
     }
   }
-  
-  /// Get tenant's property details
-  Future<List<Map<String, dynamic>>> getTenantProperties(String landlordId, String tenantId) async {
+
+  /// Get all tenant data including assigned properties
+  Future<Map<String, dynamic>?> getTenantFullData(String landlordId, String tenantId) async {
     try {
-      // Get tenant data
+      // Get tenant basic info
       final tenantDoc = await _firestore
           .collection('users')
           .doc(landlordId)
@@ -96,124 +76,163 @@ class TenantAuthService {
           .get();
       
       if (!tenantDoc.exists) {
-        return [];
+        return null;
       }
       
       final tenantData = tenantDoc.data()!;
-      final propertyId = tenantData['propertyId'];
       
-      if (propertyId == null) {
-        return [];
-      }
+      // Get properties assigned to this tenant
+      List<Map<String, dynamic>> assignedProperties = [];
       
-      // Get property details
-      final propertyDoc = await _firestore
+      // Get all properties of the landlord
+      final propertiesSnapshot = await _firestore
           .collection('users')
           .doc(landlordId)
           .collection('properties')
-          .doc(propertyId)
           .get();
       
-      if (propertyDoc.exists) {
-        final propertyData = propertyDoc.data()!;
-        final unitId = tenantData['unitId'];
-        final unitNumber = tenantData['unitNumber'];
+      // Filter properties where this tenant is assigned
+      for (var propertyDoc in propertiesSnapshot.docs) {
+        final propertyData = propertyDoc.data();
         
-        // Find the specific unit if it's a multi-unit property
-        Map<String, dynamic>? unitDetails;
+        // Check if tenant is directly assigned to single-unit property
+        if (propertyData['tenantId'] == tenantId) {
+          assignedProperties.add({
+            'propertyId': propertyDoc.id,
+            ...propertyData,
+          });
+        }
+        
+        // Check multi-unit properties
         if (propertyData['isMultiUnit'] == true && propertyData['units'] != null) {
-          final units = propertyData['units'] as List;
-          for (final unit in units) {
-            final unitData = unit as Map<String, dynamic>;
-            if ((unitId != null && unitData['id'] == unitId) ||
-                (unitNumber != null && unitData['unitNumber'] == unitNumber)) {
-              unitDetails = unitData;
-              break;
+          final units = propertyData['units'] as List<dynamic>;
+          for (var unit in units) {
+            if (unit['tenantId'] == tenantId) {
+              assignedProperties.add({
+                'propertyId': propertyDoc.id,
+                'unitNumber': unit['unitNumber'],
+                'propertyName': propertyData['name'],
+                'address': propertyData['address'],
+                'city': propertyData['city'],
+                'state': propertyData['state'],
+                'rentAmount': unit['rentAmount'],
+                'bedrooms': unit['bedrooms'],
+                'bathrooms': unit['bathrooms'],
+                'isMultiUnit': true,
+                ...unit,
+              });
             }
           }
         }
-        
-        return [{
-          'propertyId': propertyDoc.id,
-          'propertyData': propertyData,
-          'unitDetails': unitDetails,
-          'tenantData': tenantData,
-        }];
       }
       
-      return [];
+      return {
+        'tenantId': tenantId,
+        'landlordId': landlordId,
+        ...tenantData,
+        'assignedProperties': assignedProperties,
+      };
     } catch (e) {
-      print('Error getting tenant properties: $e');
-      throw Exception('Failed to get tenant properties: $e');
+      print('Error fetching tenant full data: $e');
+      return null;
     }
   }
-  
-  /// Get tenant's payment history
-  Future<List<Map<String, dynamic>>> getTenantPayments(String landlordId, String tenantId) async {
+
+  /// Get payment history for a tenant
+  Future<List<Map<String, dynamic>>> getTenantPaymentHistory(String landlordId, String tenantId) async {
     try {
       final paymentsSnapshot = await _firestore
           .collection('users')
           .doc(landlordId)
           .collection('payments')
           .where('tenantId', isEqualTo: tenantId)
-          .orderBy('dueDate', descending: true)
+          .orderBy('createdAt', descending: true)
           .get();
       
       return paymentsSnapshot.docs.map((doc) => {
         'paymentId': doc.id,
-        'paymentData': doc.data(),
+        ...doc.data(),
       }).toList();
     } catch (e) {
-      print('Error getting tenant payments: $e');
-      throw Exception('Failed to get tenant payments: $e');
-    }
-  }
-  
-  /// Get tenant's maintenance requests
-  Future<List<Map<String, dynamic>>> getTenantMaintenanceRequests(String landlordId, String tenantId) async {
-    try {
-      // Check if maintenance collection exists
-      final maintenanceSnapshot = await _firestore
-          .collection('users')
-          .doc(landlordId)
-          .collection('maintenance')
-          .where('tenantId', isEqualTo: tenantId)
-          .orderBy('createdAt', descending: true)
-          .get();
-      
-      return maintenanceSnapshot.docs.map((doc) => {
-        'maintenanceId': doc.id,
-        'maintenanceData': doc.data(),
-      }).toList();
-    } catch (e) {
-      print('Error getting tenant maintenance requests: $e');
-      // Return empty list if maintenance collection doesn't exist
+      print('Error fetching payment history: $e');
       return [];
     }
   }
-  
-  /// Get landlord contact information
-  Future<Map<String, dynamic>?> getLandlordInfo(String landlordId) async {
+
+  /// Update tenant profile
+  Future<bool> updateTenantProfile(String landlordId, String tenantId, Map<String, dynamic> updates) async {
     try {
-      final landlordDoc = await _firestore
+      await _firestore
           .collection('users')
           .doc(landlordId)
+          .collection('tenants')
+          .doc(tenantId)
+          .update(updates);
+      
+      return true;
+    } catch (e) {
+      print('Error updating tenant profile: $e');
+      return false;
+    }
+  }
+
+  /// Get dashboard statistics for tenant
+  Future<Map<String, dynamic>> getTenantDashboardStats(String landlordId, String tenantId) async {
+    try {
+      // Get all payments for this tenant
+      final paymentsSnapshot = await _firestore
+          .collection('users')
+          .doc(landlordId)
+          .collection('payments')
+          .where('tenantId', isEqualTo: tenantId)
           .get();
       
-      if (landlordDoc.exists) {
-        final data = landlordDoc.data()!;
-        return {
-          'name': '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}',
-          'email': data['email'],
-          'phone': data['phone'],
-          'profileImage': data['profileImage'],
-        };
+      double totalRentAmount = 0;
+      double amountPaid = 0;
+      double amountDue = 0;
+      double overdueAmount = 0;
+      
+      final now = DateTime.now();
+      
+      for (var paymentDoc in paymentsSnapshot.docs) {
+        final paymentData = paymentDoc.data();
+        final amount = (paymentData['amount'] ?? 0).toDouble();
+        final status = paymentData['status'] ?? 'pending';
+        final dueDateTimestamp = paymentData['dueDate'] as Timestamp?;
+        
+        totalRentAmount += amount;
+        
+        if (status == 'paid') {
+          amountPaid += amount;
+        } else if (status == 'pending') {
+          amountDue += amount;
+          
+          // Check if overdue
+          if (dueDateTimestamp != null) {
+            final dueDate = dueDateTimestamp.toDate();
+            if (dueDate.isBefore(now)) {
+              overdueAmount += amount;
+            }
+          }
+        }
       }
       
-      return null;
+      return {
+        'totalRentAmount': totalRentAmount,
+        'amountPaid': amountPaid,
+        'amountDue': amountDue,
+        'overdueAmount': overdueAmount,
+        'totalPayments': paymentsSnapshot.docs.length,
+      };
     } catch (e) {
-      print('Error getting landlord info: $e');
-      throw Exception('Failed to get landlord info: $e');
+      print('Error fetching dashboard stats: $e');
+      return {
+        'totalRentAmount': 0,
+        'amountPaid': 0,
+        'amountDue': 0,
+        'overdueAmount': 0,
+        'totalPayments': 0,
+      };
     }
   }
 }

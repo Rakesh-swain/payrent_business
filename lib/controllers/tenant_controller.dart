@@ -15,7 +15,7 @@ class TenantController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxString errorMessage = ''.obs;
   final RxString successMessage = ''.obs;
-  final RxList<DocumentSnapshot> tenants = <DocumentSnapshot>[].obs;
+  final RxList<DocumentSnapshot> tenants = <DocumentSnapshot>[].obs;  
   final RxList<DocumentSnapshot> filteredTenants = <DocumentSnapshot>[].obs;
   
   @override

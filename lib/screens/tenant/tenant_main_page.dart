@@ -1,12 +1,11 @@
-// lib/modules/tenant/tenant_main_page.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:payrent_business/config/theme.dart';
-import 'package:payrent_business/screens/profile/user_profile_page.dart';
-import 'package:payrent_business/screens/tenant/maintenance_request/maintenance_request_page.dart';
-import 'package:payrent_business/screens/tenant/payment/payment_history_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_dashboard_page.dart';
-import 'package:payrent_business/screens/tenant/tenant_property_page.dart';
+import 'package:payrent_business/screens/tenant/tenant_properties_page.dart';
+import 'package:payrent_business/screens/tenant/tenant_payments_page.dart';
+import 'package:payrent_business/screens/tenant/tenant_maintenance_page.dart';
+import 'package:payrent_business/screens/tenant/tenant_profile_page.dart';
 
 class TenantMainPage extends StatefulWidget {
   const TenantMainPage({super.key});
@@ -20,16 +19,16 @@ class _TenantMainPageState extends State<TenantMainPage> {
   
   final List<Widget> _pages = [
     const TenantDashboardPage(),
-    const PaymentHistoryPage(),
-    const TenantPropertyPage(),
-    const MaintenanceRequestPage(),
-    const UserProfilePage(isLandlord: false,),
+    const TenantPropertiesPage(),
+    const TenantPaymentsPage(),
+    const TenantMaintenancePage(),
+    const TenantProfilePage(),
   ];
 
   final List<String> _titles = [
     'Dashboard',
+    'Properties',
     'Payments',
-    'My Property',
     'Maintenance',
     'Profile',
   ];
@@ -74,18 +73,18 @@ class _TenantMainPageState extends State<TenantMainPage> {
               label: 'Dashboard',
             ),
             BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Properties',
+            ),
+            BottomNavigationBarItem(
               icon: Icon(Icons.payment_outlined),
               activeIcon: Icon(Icons.payment),
               label: 'Payments',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Property',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_repair_service_outlined),
-              activeIcon: Icon(Icons.home_repair_service),
+              icon: Icon(Icons.build_outlined),
+              activeIcon: Icon(Icons.build),
               label: 'Maintenance',
             ),
             BottomNavigationBarItem(

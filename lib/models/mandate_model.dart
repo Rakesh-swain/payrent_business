@@ -7,6 +7,11 @@ class MandateModel {
   final String propertyId;
   final String unitId;
   
+  // API Response fields
+  final String? referenceNumber;
+  final String? mmsId;
+  final String? mmsStatus; // from API response
+  
   // Landlord Account Information
   final String landlordAccountHolderName;
   final String landlordAccountNumber;
@@ -25,9 +30,10 @@ class MandateModel {
   
   // Mandate Details
   final int rentAmount;
-  final String paymentFrequency;
+  final String paymentFrequency; // 'W' for weekly, 'M' for monthly, etc.
   final DateTime startDate;
   final DateTime? endDate;
+  final int noOfInstallments;
   final String status; // 'pending', 'active', 'cancelled', 'expired'
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -38,6 +44,9 @@ class MandateModel {
     required this.tenantId,
     required this.propertyId,
     required this.unitId,
+    this.referenceNumber,
+    this.mmsId,
+    this.mmsStatus,
     required this.landlordAccountHolderName,
     required this.landlordAccountNumber,
     required this.landlordIdType,
@@ -54,6 +63,7 @@ class MandateModel {
     required this.paymentFrequency,
     required this.startDate,
     this.endDate,
+    required this.noOfInstallments,
     this.status = 'pending',
     required this.createdAt,
     required this.updatedAt,
@@ -68,6 +78,9 @@ class MandateModel {
       tenantId: data['tenantId'] ?? '',
       propertyId: data['propertyId'] ?? '',
       unitId: data['unitId'] ?? '',
+      referenceNumber: data['referenceNumber'],
+      mmsId: data['mmsId'],
+      mmsStatus: data['mmsStatus'],
       landlordAccountHolderName: data['landlordAccountHolderName'] ?? '',
       landlordAccountNumber: data['landlordAccountNumber'] ?? '',
       landlordIdType: data['landlordIdType'] ?? '',
@@ -84,6 +97,7 @@ class MandateModel {
       paymentFrequency: data['paymentFrequency'] ?? 'monthly',
       startDate: (data['startDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       endDate: (data['endDate'] as Timestamp?)?.toDate(),
+      noOfInstallments: data['noOfInstallments'] ?? 1,
       status: data['status'] ?? 'pending',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -96,6 +110,9 @@ class MandateModel {
       'tenantId': tenantId,
       'propertyId': propertyId,
       'unitId': unitId,
+      'referenceNumber': referenceNumber,
+      'mmsId': mmsId,
+      'mmsStatus': mmsStatus,
       'landlordAccountHolderName': landlordAccountHolderName,
       'landlordAccountNumber': landlordAccountNumber,
       'landlordIdType': landlordIdType,
@@ -112,6 +129,7 @@ class MandateModel {
       'paymentFrequency': paymentFrequency,
       'startDate': Timestamp.fromDate(startDate),
       'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
+      'noOfInstallments': noOfInstallments,
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -123,6 +141,9 @@ class MandateModel {
     String? tenantId,
     String? propertyId,
     String? unitId,
+    String? referenceNumber,
+    String? mmsId,
+    String? mmsStatus,
     String? landlordAccountHolderName,
     String? landlordAccountNumber,
     String? landlordIdType,
@@ -139,6 +160,7 @@ class MandateModel {
     String? paymentFrequency,
     DateTime? startDate,
     DateTime? endDate,
+    int? noOfInstallments,
     String? status,
   }) {
     return MandateModel(
@@ -147,6 +169,9 @@ class MandateModel {
       tenantId: tenantId ?? this.tenantId,
       propertyId: propertyId ?? this.propertyId,
       unitId: unitId ?? this.unitId,
+      referenceNumber: referenceNumber ?? this.referenceNumber,
+      mmsId: mmsId ?? this.mmsId,
+      mmsStatus: mmsStatus ?? this.mmsStatus,
       landlordAccountHolderName: landlordAccountHolderName ?? this.landlordAccountHolderName,
       landlordAccountNumber: landlordAccountNumber ?? this.landlordAccountNumber,
       landlordIdType: landlordIdType ?? this.landlordIdType,
@@ -163,9 +188,62 @@ class MandateModel {
       paymentFrequency: paymentFrequency ?? this.paymentFrequency,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
+      noOfInstallments: noOfInstallments ?? this.noOfInstallments,
       status: status ?? this.status,
       createdAt: this.createdAt,
       updatedAt: DateTime.now(),
     );
+  }
+
+  // Method to create API payload for mandate creation
+  Map<String, dynamic> toApiPayload() {
+    return {
+      'referenceNumber': referenceNumber,
+      'freqType': _getFreqTypeForApi(paymentFrequency),
+      'startDate': _formatDateForApi(startDate),
+      'endDate': endDate != null ? _formatDateForApi(endDate!) : '',
+      'noOfPayments': noOfInstallments,
+      'txnAmt': rentAmount,
+      'crName': landlordAccountHolderName,
+      'crIDNum': landlordIdNumber,
+      'crIDType': landlordIdType,
+      'crAccNum': landlordAccountNumber,
+      'crBankBIC': landlordBankBic,
+      'crBranchCode': landlordBranchCode,
+      'dbName': tenantAccountHolderName,
+      'dbIDNum': tenantIdNumber,
+      'dbIDType': tenantIdType,
+      'dbAccNum': tenantAccountNumber,
+      'dbBankBIC': tenantBankBic,
+      'dbBranchCode': tenantBranchCode,
+    };
+  }
+
+  // Helper method to get freqType for API based on frequency
+  String _getFreqTypeForApi(String frequency) {
+    switch (frequency.toLowerCase()) {
+      case 'daily':
+        return 'D';
+      case 'weekly':
+        return 'W';
+      case 'monthly':
+        return 'M';
+      case 'yearly':
+        return 'Y';
+      default:
+        return 'W'; // Default to weekly
+    }
+  }
+
+  // Helper method to format date for API
+  String _formatDateForApi(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  // Method to create enquiry payload
+  Map<String, dynamic> toEnquiryPayload() {
+    return {
+      'mmsId': mmsId ?? '',
+    };
   }
 }

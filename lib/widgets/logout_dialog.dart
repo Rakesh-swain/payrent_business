@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:payrent_business/screens/auth/login_page.dart';
 
 class LogoutDialog extends StatelessWidget {
+  final VoidCallback? onLogout;
 
-   LogoutDialog({
+   const LogoutDialog({
     super.key,
+    this.onLogout,
   });
   @override
   Widget build(BuildContext context) {
@@ -18,7 +20,7 @@ class LogoutDialog extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.w600,fontFamily: 'SFProDisplay'),
           ),
         ),
-        content: Text(
+        content: const Text(
           textAlign: TextAlign.center,
           'Are you sure you want to logout?',
         ),actionsAlignment: MainAxisAlignment.spaceBetween,
@@ -33,12 +35,17 @@ class LogoutDialog extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-              Navigator.of(context).pop(); 
-               Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-        (Route<dynamic> route) => false,
-      );
+              Navigator.of(context).pop();
+              // Use the provided callback if available, otherwise default behavior
+              if (onLogout != null) {
+                onLogout!();
+              } else {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                  (Route<dynamic> route) => false,
+                );
+              }
             },
             child: const Text('Logout'),
           ),

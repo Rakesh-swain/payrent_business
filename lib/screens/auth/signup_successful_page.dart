@@ -24,7 +24,7 @@ class _SignupSuccessfulPageState extends State<SignupSuccessfulPage> {
       if (widget.accountType) {
         Get.offAll(LandlordMainPage());
       } else {
-        Get.offAll(TenantMainPage());
+        Get.offAll(const TenantMainPage());
       }
     });
   }

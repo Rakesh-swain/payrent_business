@@ -590,6 +590,7 @@ class _MandatePreviewPageState extends State<MandatePreviewPage> {
         endDate: widget.endDate,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        noOfInstallments: widget.totalInstallments
       );
       
       await FirebaseFirestore.instance

@@ -6,6 +6,7 @@ import '../controllers/user_profile_controller.dart';
 import '../controllers/property_controller.dart';
 import '../controllers/tenant_controller.dart';
 import '../controllers/payment_controller.dart';
+import '../controllers/mandate_controller.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
@@ -32,5 +33,6 @@ class ControllerBindings implements Bindings {
     Get.lazyPut<PropertyController>(() => PropertyController(), fenix: true);
     Get.lazyPut<TenantController>(() => TenantController(), fenix: true);
     Get.lazyPut<PaymentController>(() => PaymentController(), fenix: true);
+    Get.lazyPut<MandateController>(() => MandateController(), fenix: true);
   }
 }

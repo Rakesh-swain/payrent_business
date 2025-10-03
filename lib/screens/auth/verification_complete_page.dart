@@ -6,13 +6,19 @@ import 'package:get/get.dart';
 import 'package:payrent_business/screens/auth/profile_signup_page.dart';
 import 'package:payrent_business/screens/landlord/landlord_main_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
+import 'package:payrent_business/services/tenant_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class VerificationCompletePage extends StatefulWidget {
   final bool islogin;
   final String mobileNumber;
-  const VerificationCompletePage(
-      {super.key, required this.islogin, required this.mobileNumber});
+  final Map<String, dynamic>? tenantInfo; // Add tenant info parameter
+  const VerificationCompletePage({
+    super.key, 
+    required this.islogin, 
+    required this.mobileNumber,
+    this.tenantInfo, // Optional tenant info for tenant authentication
+  });
 
   @override
   State<VerificationCompletePage> createState() =>
@@ -29,7 +35,20 @@ class _VerificationCompletePageState extends State<VerificationCompletePage> {
   }
 Future<void> _checkUserTypeAndNavigate() async {
     try {
-      // 👇 Replace "users" with your actual collection name
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Check if this is a tenant login
+      if (widget.tenantInfo != null) {
+        // Tenant user - store tenant info in shared preferences
+        await prefs.setString('userType', 'Tenant');
+        await prefs.setString('tenantId', widget.tenantInfo!['tenantId']);
+        await prefs.setString('landlordId', widget.tenantInfo!['landlordId']);
+        
+        Get.offAll(() => const TenantMainPage());
+        return;
+      }
+      
+      // Check if this is a landlord login
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('phone', isEqualTo: widget.mobileNumber)
@@ -38,19 +57,18 @@ Future<void> _checkUserTypeAndNavigate() async {
 
       if (snapshot.docs.isNotEmpty) {
         final userData = snapshot.docs.first.data();
-        final userType = userData['userType'];
-         final prefs = await SharedPreferences.getInstance();
-                            await prefs.setString(
-                              'userType',
-                              userType,
-                            );
+        final userType = userData['userType'] ?? 'Landlord';
+        
+        await prefs.setString('userType', userType);
+        
         if (userType == 'Landlord') {
           Get.offAll(() => const LandlordMainPage());
         } else {
-          Get.offAll(() =>
-            TenantMainPage());
+          // This case shouldn't happen, but handle it anyway
+          Get.offAll(() => const TenantMainPage());
         }
       } else {
+        // New user - go to profile signup
         Get.offAll(() =>
             ProfileSignupPage(isPhoneRequired: widget.mobileNumber.isNotEmpty));
       }

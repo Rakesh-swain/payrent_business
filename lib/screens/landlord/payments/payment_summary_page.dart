@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
@@ -13,1657 +14,1738 @@ import 'package:payrent_business/screens/landlord/property_management/property_d
 import 'package:payrent_business/screens/landlord/tenant_management/tenant_detail_page.dart';
 
 class PaymentSummaryPage extends StatefulWidget {
- const PaymentSummaryPage({super.key});
+  const PaymentSummaryPage({super.key});
 
- @override
- State<PaymentSummaryPage> createState() => _PaymentSummaryPageState();
+  @override
+  State<PaymentSummaryPage> createState() => _PaymentSummaryPageState();
 }
 
 class _PaymentSummaryPageState extends State<PaymentSummaryPage>
- with SingleTickerProviderStateMixin {
- late TabController _tabController;
- String _selectedFilter = 'All';
- final List<String> _filters = ['All', 'This Month', 'Last Month', 'Overdue'];
- final TextEditingController _searchController = TextEditingController();
- String _searchQuery = '';
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  String _selectedFilter = 'All';
+  final List<String> _filters = ['All', 'This Month', 'Last Month', 'Overdue'];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
- // Use controllers instead of static data
- final PropertyController _propertyController = Get.find();
- final PaymentController _paymentController = Get.find();
- final TenantController _tenantController = Get.find();
- // In-memory indexes built from tenants/{tenantId}/properties subcollections
- bool _assignmentsLoading = false;
- final Map<String, List<Map<String, dynamic>>> _propertyIdToAssignments = {};
- final Map<String, List<Map<String, dynamic>>> _tenantIdToAssignments = {};
+  // Use controllers instead of static data
+  final PropertyController _propertyController = Get.find();
+  final PaymentController _paymentController = Get.find();
+  final TenantController _tenantController = Get.find();
+  // In-memory indexes built from tenants/{tenantId}/properties subcollections
+  bool _assignmentsLoading = false;
+  final Map<String, List<Map<String, dynamic>>> _propertyIdToAssignments = {};
+  final Map<String, List<Map<String, dynamic>>> _tenantIdToAssignments = {};
 
- @override
- void initState() {
-  super.initState();
-  _tabController = TabController(length: 2, vsync: this);
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
 
-  // Fetch data when page loads
-  _loadData();
- }
-
- Future<void> _loadData() async {
-  await _propertyController.fetchProperties();
-  await _tenantController.fetchTenants();
-  await _paymentController.fetchPayments();
-  await _buildTenantPropertyAssignments();
-
-  // Force UI refresh after data load
-  if (mounted) {
-   setState(() {});
+    // Fetch data when page loads
+    _loadData();
   }
- }
 
- Future<void> _buildTenantPropertyAssignments() async {
-  _assignmentsLoading = true;
-  _propertyIdToAssignments.clear();
-  _tenantIdToAssignments.clear();
-  try {
-   final List<DocumentSnapshot> tenants = _tenantController.tenants;
-   for (final tenantDoc in tenants) {
-    final tData = tenantDoc.data() as Map<String, dynamic>;
-    final String tenantId = tenantDoc.id;
-    final String firstName = (tData['firstName'] ?? '').toString();
-    final String lastName = (tData['lastName'] ?? '').toString();
-    final String fullName = [firstName, lastName].where((e) => e.toString().trim().isNotEmpty).join(' ').trim();
-    final String status = (tData['status'] ?? '').toString();
-    final bool isArchived = (tData['isArchived'] as bool?) ?? false;
+  Future<void> _loadData() async {
+    await _propertyController.fetchProperties();
+    await _tenantController.fetchTenants();
+    await _paymentController.fetchPayments();
+    await _buildTenantPropertyAssignments();
 
-    final propsSnap = await tenantDoc.reference.collection('properties').get();
-    for (final prop in propsSnap.docs) {
-     final p = prop.data();
-     final String propertyId = (p['propertyId'] ?? '').toString();
-     if (propertyId.isEmpty) continue;
-     final assignment = {
-      'tenantId': tenantId,
-      'tenantName': fullName,
-      'tenantStatus': status,
-      'tenantArchived': isArchived,
-      'propertyId': propertyId,
-      'propertyName': (p['propertyName'] ?? '').toString(),
-      'unitNumber': (p['unitNumber'] ?? '').toString(),
-      'unitId': (p['unitId'] ?? '').toString(),
-      'rentAmount': (p['rentAmount'] is int) ? (p['rentAmount'] as int).toDouble() : (p['rentAmount'] as double?) ?? 0.0,
-      'paymentFrequency': (p['paymentFrequency'] ?? 'Monthly').toString(),
-      'rentDueDay': (p['rentDueDay'] as int?) ?? 1,
-      'leaseStartDate': (p['leaseStartDate'] is Timestamp) ? (p['leaseStartDate'] as Timestamp).toDate() : null,
-      'leaseEndDate': (p['leaseEndDate'] is Timestamp) ? (p['leaseEndDate'] as Timestamp).toDate() : null,
-     };
-
-     _propertyIdToAssignments.putIfAbsent(propertyId, () => []).add(assignment);
-     _tenantIdToAssignments.putIfAbsent(tenantId, () => []).add(assignment);
+    // Force UI refresh after data load
+    if (mounted) {
+      setState(() {});
     }
-   }
-  } catch (_) {
-   // ignore
-  } finally {
-   _assignmentsLoading = false;
   }
- }
 
- @override
- void dispose() {
-  _tabController.dispose();
-  _searchController.dispose();
-  super.dispose();
- }
+  Future<void> _buildTenantPropertyAssignments() async {
+    _assignmentsLoading = true;
+    _propertyIdToAssignments.clear();
+    _tenantIdToAssignments.clear();
+    try {
+      final List<DocumentSnapshot> tenants = _tenantController.tenants;
+      for (final tenantDoc in tenants) {
+        final tData = tenantDoc.data() as Map<String, dynamic>;
+        final String tenantId = tenantDoc.id;
+        final String firstName = (tData['firstName'] ?? '').toString();
+        final String lastName = (tData['lastName'] ?? '').toString();
+        final String fullName = [
+          firstName,
+          lastName,
+        ].where((e) => e.toString().trim().isNotEmpty).join(' ').trim();
+        final String status = (tData['status'] ?? '').toString();
+        final bool isArchived = (tData['isArchived'] as bool?) ?? false;
 
- // Filter properties based on search query
- List<DocumentSnapshot> _getFilteredProperties() {
-  List<DocumentSnapshot> filteredProperties = _propertyController.properties;
+        final propsSnap = await tenantDoc.reference
+            .collection('properties')
+            .get();
+        for (final prop in propsSnap.docs) {
+          final p = prop.data();
+          final String propertyId = (p['propertyId'] ?? '').toString();
+          if (propertyId.isEmpty) continue;
+          final assignment = {
+            'tenantId': tenantId,
+            'tenantName': fullName,
+            'tenantStatus': status,
+            'tenantArchived': isArchived,
+            'propertyId': propertyId,
+            'propertyName': (p['propertyName'] ?? '').toString(),
+            'unitNumber': (p['unitNumber'] ?? '').toString(),
+            'unitId': (p['unitId'] ?? '').toString(),
+            'rentAmount': (p['rentAmount'] is int)
+                ? (p['rentAmount'] as int).toDouble()
+                : (p['rentAmount'] as double?) ?? 0.0,
+            'paymentFrequency': (p['paymentFrequency'] ?? 'Monthly').toString(),
+            'rentDueDay': (p['rentDueDay'] as int?) ?? 1,
+            'leaseStartDate': (p['leaseStartDate'] is Timestamp)
+                ? (p['leaseStartDate'] as Timestamp).toDate()
+                : null,
+            'leaseEndDate': (p['leaseEndDate'] is Timestamp)
+                ? (p['leaseEndDate'] as Timestamp).toDate()
+                : null,
+          };
 
-  // Apply search filter
-  if (_searchQuery.isNotEmpty) {
-   filteredProperties = filteredProperties.where((property) {
+          _propertyIdToAssignments
+              .putIfAbsent(propertyId, () => [])
+              .add(assignment);
+          _tenantIdToAssignments
+              .putIfAbsent(tenantId, () => [])
+              .add(assignment);
+        }
+      }
+    } catch (_) {
+      // ignore
+    } finally {
+      _assignmentsLoading = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Filter properties based on search query
+  List<DocumentSnapshot> _getFilteredProperties() {
+    List<DocumentSnapshot> filteredProperties = _propertyController.properties;
+
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      filteredProperties = filteredProperties.where((property) {
+        final data = property.data() as Map<String, dynamic>;
+        final name = (data['name'] ?? '').toString().toLowerCase();
+        final address = (data['address'] ?? '').toString().toLowerCase();
+        final searchLower = _searchQuery.toLowerCase();
+
+        return name.contains(searchLower) || address.contains(searchLower);
+      }).toList();
+    }
+
+    return filteredProperties;
+  }
+
+  // Filter tenants based on search query and filter selection
+  List<DocumentSnapshot> _getFilteredTenants() {
+    List<DocumentSnapshot> filteredTenants = _tenantController.tenants;
+
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      filteredTenants = filteredTenants.where((tenant) {
+        final data = tenant.data() as Map<String, dynamic>;
+
+        final firstName = (data['firstName'] ?? '').toString().toLowerCase();
+        final lastName = (data['lastName'] ?? '').toString().toLowerCase();
+        final fullName = '$firstName $lastName'.toLowerCase();
+        final propertyName = (data['propertyName'] ?? '')
+            .toString()
+            .toLowerCase();
+        final email = (data['email'] ?? '').toString().toLowerCase();
+        final searchLower = _searchQuery.toLowerCase();
+
+        return fullName.contains(searchLower) ||
+            propertyName.contains(searchLower) ||
+            email.contains(searchLower);
+      }).toList();
+    }
+
+    // Apply time-based filter
+    if (_selectedFilter == 'Overdue') {
+      // Get payments that are overdue
+      final overduePayments = _paymentController.payments.where((payment) {
+        final data = payment.data() as Map<String, dynamic>;
+        final bool isLate = data['isLate'] ?? false;
+        final String status = data['status'] ?? '';
+
+        return isLate && status == 'pending';
+      }).toList();
+
+      // Get tenant IDs with overdue payments
+      final overdueTenantIds = overduePayments.map((payment) {
+        final data = payment.data() as Map<String, dynamic>;
+        return data['tenantId'] ?? '';
+      }).toSet();
+
+      // Filter tenants to only those with overdue payments
+      filteredTenants = filteredTenants.where((tenant) {
+        return overdueTenantIds.contains(tenant.id);
+      }).toList();
+    } else if (_selectedFilter == 'This Month') {
+      final now = DateTime.now();
+      final currentMonth = DateTime(now.year, now.month);
+
+      // Get payments due this month
+      final thisMonthPayments = _paymentController.payments.where((payment) {
+        final data = payment.data() as Map<String, dynamic>;
+        if (data['dueDate'] == null) return false;
+
+        final dueDate = (data['dueDate'] as Timestamp).toDate();
+        final dueMonth = DateTime(dueDate.year, dueDate.month);
+        return dueMonth.isAtSameMomentAs(currentMonth);
+      }).toList();
+
+      // Get tenant IDs with payments due this month
+      final thisMonthTenantIds = thisMonthPayments.map((payment) {
+        final data = payment.data() as Map<String, dynamic>;
+        return data['tenantId'] ?? '';
+      }).toSet();
+
+      // Filter tenants to only those with payments due this month
+      filteredTenants = filteredTenants.where((tenant) {
+        return thisMonthTenantIds.contains(tenant.id);
+      }).toList();
+    } else if (_selectedFilter == 'Last Month') {
+      final now = DateTime.now();
+      final lastMonth = DateTime(now.year, now.month - 1);
+
+      // Get payments due last month
+      final lastMonthPayments = _paymentController.payments.where((payment) {
+        final data = payment.data() as Map<String, dynamic>;
+        if (data['dueDate'] == null) return false;
+
+        final dueDate = (data['dueDate'] as Timestamp).toDate();
+        final dueMonth = DateTime(dueDate.year, dueDate.month);
+        return dueMonth.isAtSameMomentAs(lastMonth);
+      }).toList();
+
+      // Get tenant IDs with payments due last month
+      final lastMonthTenantIds = lastMonthPayments.map((payment) {
+        final data = payment.data() as Map<String, dynamic>;
+        return data['tenantId'] ?? '';
+      }).toSet();
+
+      // Filter tenants to only those with payments due last month
+      filteredTenants = filteredTenants.where((tenant) {
+        return lastMonthTenantIds.contains(tenant.id);
+      }).toList();
+    }
+
+    return filteredTenants;
+  }
+
+  // Get payments for a specific property
+  List<DocumentSnapshot> _getPaymentsForProperty(String propertyId) {
+    return _paymentController.payments.where((payment) {
+      final data = payment.data() as Map<String, dynamic>;
+      return data['propertyId'] == propertyId;
+    }).toList();
+  }
+
+  // Get tenants for a specific property
+  Future<List<Map<String, dynamic>>> getTenantsForProperty(
+    String propertyId,
+  ) async {
+     final user = FirebaseAuth.instance.currentUser;
+    final assignments = _propertyIdToAssignments[propertyId] ?? const [];
+    final assignedTenantIds = assignments
+        .map((a) => a['tenantId'] as String)
+        .toSet();
+
+    List<Map<String, dynamic>> tenantsWithProperties = [];
+
+    for (var tenant in _tenantController.tenants) {
+      if (assignedTenantIds.contains(tenant.id)) {
+        // Fetch properties for this tenant
+        final propertiesSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user!.uid)
+            .collection('tenants')
+            .doc(tenant.id)
+            .collection('properties')
+            .get();
+        final propertyList = propertiesSnapshot.docs
+            .map((p) => {'propertyId': p.id, ...p.data()})
+            .toList();
+        tenantsWithProperties.add({
+          'tenantId': tenant.id,
+          ...tenant.data() as Map<String, dynamic>,
+          'properties': propertyList,
+        });
+      }
+    }
+    print(tenantsWithProperties);
+
+    return tenantsWithProperties;
+  }
+
+  // Helper: calculate expected amount due for a single assignment up to today
+  double _calculateExpectedForAssignment(Map<String, dynamic> a, DateTime now) {
+    final DateTime? start = a['leaseStartDate'] as DateTime?;
+    final DateTime? end = a['leaseEndDate'] as DateTime?;
+    final double rent = (a['rentAmount'] as double?) ?? 0.0;
+    final String freq = (a['paymentFrequency'] ?? 'Monthly')
+        .toString()
+        .toLowerCase();
+    if (start == null) return 0.0;
+    final DateTime effectiveEnd = (end == null || end.isAfter(now)) ? now : end;
+    if (effectiveEnd.isBefore(start)) return 0.0;
+
+    switch (freq) {
+      case 'weekly':
+        final weeks = (effectiveEnd.difference(start).inDays / 7).floor() + 1;
+        return rent * weeks;
+      case 'quarterly':
+        int quarters = 0;
+        DateTime cursor = DateTime(start.year, start.month, start.day);
+        while (!cursor.isAfter(effectiveEnd)) {
+          quarters++;
+          cursor = DateTime(cursor.year, cursor.month + 3, cursor.day);
+        }
+        return rent * quarters.toDouble();
+      case 'yearly':
+        int years = 0;
+        DateTime c = DateTime(start.year, start.month, start.day);
+        while (!c.isAfter(effectiveEnd)) {
+          years++;
+          c = DateTime(c.year + 1, c.month, c.day);
+        }
+        return rent * years.toDouble();
+      case 'monthly':
+      default:
+        int months = 0;
+        DateTime cur = DateTime(start.year, start.month, start.day);
+        while (!cur.isAfter(effectiveEnd)) {
+          months++;
+          cur = DateTime(cur.year, cur.month + 1, cur.day);
+        }
+        return rent * months.toDouble();
+    }
+  }
+
+  // Helper: next due date for an assignment
+  DateTime? _computeNextDueDate(Map<String, dynamic> a) {
+    final DateTime? start = a['leaseStartDate'] as DateTime?;
+    final DateTime? end = a['leaseEndDate'] as DateTime?;
+    final String freq = (a['paymentFrequency'] ?? 'Monthly')
+        .toString()
+        .toLowerCase();
+    if (start == null) return null;
+    DateTime due = DateTime(start.year, start.month, start.day);
+    final now = DateTime.now();
+    while (!due.isAfter(now)) {
+      switch (freq) {
+        case 'weekly':
+          due = due.add(const Duration(days: 7));
+          break;
+        case 'quarterly':
+          due = DateTime(due.year, due.month + 3, due.day);
+          break;
+        case 'yearly':
+          due = DateTime(due.year + 1, due.month, due.day);
+          break;
+        case 'monthly':
+        default:
+          due = DateTime(due.year, due.month + 1, due.day);
+          break;
+      }
+      if (end != null && due.isAfter(end)) break;
+    }
+    return due;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Payment Summary',
+          style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: () {
+              _showFilterBottomSheet();
+            },
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: AppTheme.primaryColor,
+          unselectedLabelColor: AppTheme.textSecondary,
+          indicatorColor: AppTheme.primaryColor,
+          indicatorWeight: 3,
+          labelStyle: GoogleFonts.poppins(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+          tabs: const [
+            Tab(text: 'Properties'),
+            Tab(text: 'Tenants'),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() {
+                            _searchController.clear();
+                            _searchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppTheme.dividerColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppTheme.dividerColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                    color: AppTheme.primaryColor,
+                    width: 2,
+                  ),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+          ),
+
+          // Filter Chips
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _filters
+                    .map((filter) => _buildFilterChip(filter))
+                    .toList(),
+              ),
+            ),
+          ),
+
+          // Tab Content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Properties Tab
+                _buildPropertiesTab(),
+
+                // Tenants Tab
+                _buildTenantsTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPropertiesTab() {
+    return Obx(() {
+      if (_propertyController.isLoading.value ||
+          _paymentController.isLoading.value ||
+          _assignmentsLoading) {
+        return const Center(child: CircularProgressIndicator());
+      } else if (_propertyController.errorMessage.isNotEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 60, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading properties',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _propertyController.errorMessage.value,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => _loadData(),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        final properties = _getFilteredProperties();
+        if (properties.isEmpty) {
+          return _buildEmptyState(
+            'No properties found',
+            'Try adjusting your search or filters',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: properties.length,
+          physics: const BouncingScrollPhysics(),
+          itemBuilder: (context, index) {
+            final property = properties[index];
+            return FutureBuilder<Widget>(
+              future: _buildPropertyCard(property),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return FadeInUp(
+                  duration: Duration(milliseconds: 300 + (index * 100)),
+                  child: snapshot.data!,
+                );
+              },
+            );
+          },
+        );
+      }
+    });
+  }
+
+  Widget _buildTenantsTab() {
+    return Obx(() {
+      if (_tenantController.isLoading.value ||
+          _paymentController.isLoading.value ||
+          _assignmentsLoading) {
+        return const Center(child: CircularProgressIndicator());
+      } else if (_tenantController.errorMessage.isNotEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 60, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                'Error loading tenants',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _tenantController.errorMessage.value,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => _loadData(),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        final tenants = _getFilteredTenants();
+        if (tenants.isEmpty) {
+          return _buildEmptyState(
+            'No tenants found',
+            'Try adjusting your search or filters',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: tenants.length,
+          physics: const BouncingScrollPhysics(),
+          itemBuilder: (context, index) {
+            final tenant = tenants[index];
+            return FadeInUp(
+              duration: Duration(milliseconds: 300 + (index * 100)),
+              child: _buildTenantCard(tenant),
+            );
+          },
+        );
+      }
+    });
+  }
+
+  Future<Widget> _buildPropertyCard(DocumentSnapshot property) async {
     final data = property.data() as Map<String, dynamic>;
-    final name = (data['name'] ?? '').toString().toLowerCase();
-    final address = (data['address'] ?? '').toString().toLowerCase();
-    final searchLower = _searchQuery.toLowerCase();
 
-    return name.contains(searchLower) || address.contains(searchLower);
-   }).toList();
+    // Extract basic property info
+    final String id = property.id;
+    final String name = data['name'] ?? 'Unnamed Property';
+    final String address = data['address'] ?? '';
+    final String city = data['city'] ?? '';
+    final String state = data['state'] ?? '';
+    final String zipCode = data['zipCode'] ?? '';
+    final String fullAddress = [
+      address,
+      city,
+      state,
+      zipCode,
+    ].where((s) => s.isNotEmpty).join(', ');
+    final String image = 'assets/home.png'; // Use placeholder image
+
+    // Compute expected totals based on tenant assignments and lease dates
+    final now = DateTime.now();
+    final assignments = _propertyIdToAssignments[id] ?? const [];
+    double expectedTotal = 0.0;
+    for (final a in assignments) {
+      if ((a['tenantStatus'] ?? '') == 'active' &&
+          (a['tenantArchived'] as bool? ?? false) == false) {
+        expectedTotal += _calculateExpectedForAssignment(a, now);
+      }
+    }
+
+    // Collected and pending from payment records
+    final propertyPayments = _getPaymentsForProperty(id);
+    double collectedRent = 0.0;
+    double pendingRent = 0.0;
+    double overdueRent = 0.0;
+    for (final payment in propertyPayments) {
+      final paymentData = payment.data() as Map<String, dynamic>;
+      final double amount = (paymentData['amount'] is int)
+          ? (paymentData['amount'] as int).toDouble()
+          : (paymentData['amount'] as double?) ?? 0.0;
+      final String status = (paymentData['status'] ?? '').toString();
+      final bool isLate = (paymentData['isLate'] as bool?) ?? false;
+      if (status == 'paid') collectedRent += amount;
+      if (status == 'pending' && isLate) overdueRent += amount;
+      if (status == 'pending' && !isLate) pendingRent += amount;
+    }
+
+    final double computedPending = (expectedTotal - collectedRent);
+    if (computedPending > (pendingRent + overdueRent)) {
+      pendingRent = computedPending.clamp(0.0, double.infinity);
+    }
+
+    // Calculate collection rate
+    final collectionRate = expectedTotal > 0
+        ? (collectedRent / expectedTotal * 100).toInt()
+        : 0;
+
+    // Get occupancy information
+    final propertyTenants = await getTenantsForProperty(id);
+    final units = data['units'] ?? [];
+    final int totalUnits = units is List
+        ? units.length
+        : (data['totalUnits'] ?? 1);
+    final int occupiedUnits = propertyTenants.length;
+
+    return GestureDetector(
+      onTap: () {
+        _showPropertyPaymentDetails(property);
+      },
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // Property Image
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      image: DecorationImage(
+                        image: AssetImage(image),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Property Info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          fullAddress,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+              // Payment Stats
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildPropertyStatItem(
+                    label: 'Total Rent',
+                    value: '\$${NumberFormat('#,##0').format(expectedTotal)}',
+                    color: AppTheme.textPrimary,
+                  ),
+                  _buildPropertyStatItem(
+                    label: 'Collected',
+                    value: '\$${NumberFormat('#,##0').format(collectedRent)}',
+                    color: AppTheme.successColor,
+                  ),
+                  _buildPropertyStatItem(
+                    label: 'Pending',
+                    value: '\$${NumberFormat('#,##0').format(pendingRent)}',
+                    color: AppTheme.warningColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Collection Rate Progress
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Collection Rate',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '$collectionRate%',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: collectionRate >= 80
+                              ? AppTheme.successColor
+                              : collectionRate >= 50
+                              ? AppTheme.warningColor
+                              : AppTheme.errorColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Progress Bar
+                  Container(
+                    height: 8,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                      color: Colors.grey.shade200,
+                    ),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          flex: collectionRate,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              gradient: LinearGradient(
+                                colors: collectionRate >= 80
+                                    ? [
+                                        const Color(0xFF43A047),
+                                        const Color(0xFF388E3C),
+                                      ]
+                                    : collectionRate >= 50
+                                    ? [
+                                        const Color(0xFFFFA726),
+                                        const Color(0xFFFB8C00),
+                                      ]
+                                    : [
+                                        const Color(0xFFEF5350),
+                                        const Color(0xFFE53935),
+                                      ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Flexible(
+                          flex: 100 - collectionRate,
+                          child: const SizedBox(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // View Details Button
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    _showPropertyPaymentDetails(property);
+                  },
+                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  label: Text(
+                    'View Details',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
-  return filteredProperties;
- }
-
- // Filter tenants based on search query and filter selection
- List<DocumentSnapshot> _getFilteredTenants() {
-  List<DocumentSnapshot> filteredTenants = _tenantController.tenants;
-
-  // Apply search filter
-  if (_searchQuery.isNotEmpty) {
-   filteredTenants = filteredTenants.where((tenant) {
+  Widget _buildTenantCard(DocumentSnapshot tenant) {
     final data = tenant.data() as Map<String, dynamic>;
 
-    final firstName = (data['firstName'] ?? '').toString().toLowerCase();
-    final lastName = (data['lastName'] ?? '').toString().toLowerCase();
-    final fullName = '$firstName $lastName'.toLowerCase();
-    final propertyName = (data['propertyName'] ?? '').toString().toLowerCase();
-    final email = (data['email'] ?? '').toString().toLowerCase();
-    final searchLower = _searchQuery.toLowerCase();
-
-    return fullName.contains(searchLower) ||
-     propertyName.contains(searchLower) ||
-     email.contains(searchLower);
-   }).toList();
-  }
-
-  // Apply time-based filter
-  if (_selectedFilter == 'Overdue') {
-   // Get payments that are overdue
-   final overduePayments = _paymentController.payments.where((payment) {
-    final data = payment.data() as Map<String, dynamic>;
-    final bool isLate = data['isLate'] ?? false;
-    final String status = data['status'] ?? '';
-
-    return isLate && status == 'pending';
-   }).toList();
-
-   // Get tenant IDs with overdue payments
-   final overdueTenantIds = overduePayments.map((payment) {
-    final data = payment.data() as Map<String, dynamic>;
-    return data['tenantId'] ?? '';
-   }).toSet();
-
-   // Filter tenants to only those with overdue payments
-   filteredTenants = filteredTenants.where((tenant) {
-    return overdueTenantIds.contains(tenant.id);
-   }).toList();
-  } else if (_selectedFilter == 'This Month') {
-   final now = DateTime.now();
-   final currentMonth = DateTime(now.year, now.month);
-
-   // Get payments due this month
-   final thisMonthPayments = _paymentController.payments.where((payment) {
-    final data = payment.data() as Map<String, dynamic>;
-    if (data['dueDate'] == null) return false;
-
-    final dueDate = (data['dueDate'] as Timestamp).toDate();
-    final dueMonth = DateTime(dueDate.year, dueDate.month);
-    return dueMonth.isAtSameMomentAs(currentMonth);
-   }).toList();
-
-   // Get tenant IDs with payments due this month
-   final thisMonthTenantIds = thisMonthPayments.map((payment) {
-    final data = payment.data() as Map<String, dynamic>;
-    return data['tenantId'] ?? '';
-   }).toSet();
-
-   // Filter tenants to only those with payments due this month
-   filteredTenants = filteredTenants.where((tenant) {
-    return thisMonthTenantIds.contains(tenant.id);
-   }).toList();
-  } else if (_selectedFilter == 'Last Month') {
-   final now = DateTime.now();
-   final lastMonth = DateTime(now.year, now.month - 1);
-
-   // Get payments due last month
-   final lastMonthPayments = _paymentController.payments.where((payment) {
-    final data = payment.data() as Map<String, dynamic>;
-    if (data['dueDate'] == null) return false;
-
-    final dueDate = (data['dueDate'] as Timestamp).toDate();
-    final dueMonth = DateTime(dueDate.year, dueDate.month);
-    return dueMonth.isAtSameMomentAs(lastMonth);
-   }).toList();
-
-   // Get tenant IDs with payments due last month
-   final lastMonthTenantIds = lastMonthPayments.map((payment) {
-    final data = payment.data() as Map<String, dynamic>;
-    return data['tenantId'] ?? '';
-   }).toSet();
-
-   // Filter tenants to only those with payments due last month
-   filteredTenants = filteredTenants.where((tenant) {
-    return lastMonthTenantIds.contains(tenant.id);
-   }).toList();
-  }
-
-  return filteredTenants;
- }
-
- // Get payments for a specific property
- List<DocumentSnapshot> _getPaymentsForProperty(String propertyId) {
-  return _paymentController.payments.where((payment) {
-   final data = payment.data() as Map<String, dynamic>;
-   return data['propertyId'] == propertyId;
-  }).toList();
- }
-
- // Get tenants for a specific property
- List<DocumentSnapshot> _getTenantsForProperty(String propertyId) {
-  final assignments = _propertyIdToAssignments[propertyId] ?? const [];
-  final assignedTenantIds = assignments.map((a) => a['tenantId'] as String).toSet();
-  return _tenantController.tenants.where((tenant) => assignedTenantIds.contains(tenant.id)).toList();
- }
-
- // Helper: calculate expected amount due for a single assignment up to today
- double _calculateExpectedForAssignment(Map<String, dynamic> a, DateTime now) {
-  final DateTime? start = a['leaseStartDate'] as DateTime?;
-  final DateTime? end = a['leaseEndDate'] as DateTime?;
-  final double rent = (a['rentAmount'] as double?) ?? 0.0;
-  final String freq = (a['paymentFrequency'] ?? 'Monthly').toString().toLowerCase();
-  if (start == null) return 0.0;
-  final DateTime effectiveEnd = (end == null || end.isAfter(now)) ? now : end;
-  if (effectiveEnd.isBefore(start)) return 0.0;
-
-  switch (freq) {
-   case 'weekly':
-    final weeks = (effectiveEnd.difference(start).inDays / 7).floor() + 1;
-    return rent * weeks;
-   case 'quarterly':
-    int quarters = 0;
-    DateTime cursor = DateTime(start.year, start.month, start.day);
-    while (!cursor.isAfter(effectiveEnd)) {
-     quarters++;
-     cursor = DateTime(cursor.year, cursor.month + 3, cursor.day);
+    // Extract tenant information
+    final String id = tenant.id;
+    final String firstName = data['firstName'] ?? '';
+    final String lastName = data['lastName'] ?? '';
+    final String fullName = '$firstName $lastName';
+    // Aggregate across all assigned properties for this tenant
+    final assignments = _tenantIdToAssignments[id] ?? const [];
+    double totalRentAmount = 0.0;
+    DateTime? earliestNextDue;
+    for (final a in assignments) {
+      totalRentAmount += ((a['rentAmount'] as double?) ?? 0.0);
+      final nd = _computeNextDueDate(a);
+      if (nd != null) {
+        if (earliestNextDue == null || nd.isBefore(earliestNextDue)) {
+          earliestNextDue = nd;
+        }
+      }
     }
-    return rent * quarters.toDouble();
-   case 'yearly':
-    int years = 0;
-    DateTime c = DateTime(start.year, start.month, start.day);
-    while (!c.isAfter(effectiveEnd)) {
-     years++;
-     c = DateTime(c.year + 1, c.month, c.day);
-    }
-    return rent * years.toDouble();
-   case 'monthly':
-   default:
-    int months = 0;
-    DateTime cur = DateTime(start.year, start.month, start.day);
-    while (!cur.isAfter(effectiveEnd)) {
-     months++;
-     cur = DateTime(cur.year, cur.month + 1, cur.day);
-    }
-    return rent * months.toDouble();
-  }
- }
+    final String propertyName = assignments.isNotEmpty
+        ? (assignments.first['propertyName'] as String? ?? 'Assigned')
+        : 'No Property Assigned';
+    final String unitNumber = assignments.isNotEmpty
+        ? (assignments.first['unitNumber'] as String? ?? '')
+        : '';
+    final double rentAmount = totalRentAmount;
 
- // Helper: next due date for an assignment
- DateTime? _computeNextDueDate(Map<String, dynamic> a) {
-  final DateTime? start = a['leaseStartDate'] as DateTime?;
-  final DateTime? end = a['leaseEndDate'] as DateTime?;
-  final String freq = (a['paymentFrequency'] ?? 'Monthly').toString().toLowerCase();
-  if (start == null) return null;
-  DateTime due = DateTime(start.year, start.month, start.day);
-  final now = DateTime.now();
-  while (!due.isAfter(now)) {
-   switch (freq) {
-    case 'weekly':
-     due = due.add(const Duration(days: 7));
-     break;
-    case 'quarterly':
-     due = DateTime(due.year, due.month + 3, due.day);
-     break;
-    case 'yearly':
-     due = DateTime(due.year + 1, due.month, due.day);
-     break;
-    case 'monthly':
-    default:
-     due = DateTime(due.year, due.month + 1, due.day);
-     break;
-   }
-   if (end != null && due.isAfter(end)) break;
-  }
-  return due;
- }
+    // Get tenant's most recent payment status
+    String paymentStatus = 'Unknown';
+    DateTime? dueDate;
+    DateTime? paymentDate;
 
- @override
- Widget build(BuildContext context) {
-  return Scaffold(
-   backgroundColor: AppTheme.backgroundColor,
-   appBar: AppBar(
-    backgroundColor: Colors.transparent,
-    elevation: 0,
-    title: Text(
-     'Payment Summary',
-     style: GoogleFonts.poppins(
-      fontSize: 24,
-      fontWeight: FontWeight.w600,
-     ),
-    ),
-    actions: [
-     IconButton(
-      icon: const Icon(Icons.filter_list),
-      onPressed: () {
-       _showFilterBottomSheet();
+    // Find the most recent payment for this tenant
+    final tenantPayments = _paymentController.payments.where((payment) {
+      final paymentData = payment.data() as Map<String, dynamic>;
+      return paymentData['tenantId'] == id;
+    }).toList();
+
+    if (tenantPayments.isNotEmpty) {
+      // Sort payments by due date (most recent first)
+      tenantPayments.sort((a, b) {
+        final aData = a.data() as Map<String, dynamic>;
+        final bData = b.data() as Map<String, dynamic>;
+
+        final aDate = aData['dueDate'] != null
+            ? (aData['dueDate'] as Timestamp).toDate()
+            : DateTime(1900);
+        final bDate = bData['dueDate'] != null
+            ? (bData['dueDate'] as Timestamp).toDate()
+            : DateTime(1900);
+
+        return bDate.compareTo(aDate); // Reverse sort
+      });
+
+      // Get status from most recent payment
+      final recentPayment = tenantPayments.first;
+      final recentPaymentData = recentPayment.data() as Map<String, dynamic>;
+
+      final String status = recentPaymentData['status'] ?? '';
+      final bool isLate = recentPaymentData['isLate'] ?? false;
+
+      if (status == 'paid') {
+        paymentStatus = 'Paid';
+      } else if (status == 'pending' && isLate) {
+        paymentStatus = 'Overdue';
+      } else if (status == 'pending') {
+        paymentStatus = 'Due';
+      }
+
+      // Get dates
+      if (recentPaymentData['dueDate'] != null) {
+        dueDate = (recentPaymentData['dueDate'] as Timestamp).toDate();
+      }
+
+      if (recentPaymentData['paymentDate'] != null) {
+        paymentDate = (recentPaymentData['paymentDate'] as Timestamp).toDate();
+      }
+    }
+
+    Color statusColor;
+    IconData statusIcon;
+
+    switch (paymentStatus) {
+      case 'Paid':
+        statusColor = AppTheme.successColor;
+        statusIcon = Icons.check_circle;
+        break;
+      case 'Due':
+        statusColor = AppTheme.warningColor;
+        statusIcon = Icons.access_time;
+        break;
+      case 'Overdue':
+        statusColor = AppTheme.errorColor;
+        statusIcon = Icons.warning_amber_rounded;
+        break;
+      default:
+        statusColor = AppTheme.textLight;
+        statusIcon = Icons.help_outline;
+    }
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TenantDetailPage(tenantId: id),
+          ),
+        );
       },
-     ),
-    ],
-    bottom: TabBar(
-     controller: _tabController,
-     labelColor: AppTheme.primaryColor,
-     unselectedLabelColor: AppTheme.textSecondary,
-     indicatorColor: AppTheme.primaryColor,
-     indicatorWeight: 3,
-     labelStyle: GoogleFonts.poppins(
-      fontSize: 15,
-      fontWeight: FontWeight.w500,
-     ),
-     tabs: const [
-      Tab(text: 'Properties'),
-      Tab(text: 'Tenants'),
-     ],
-    ),
-   ),
-   body: Column(
-    children: [
-     // Search Bar
-     Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: TextField(
-       controller: _searchController,
-       decoration: InputDecoration(
-        hintText: 'Search',
-        prefixIcon: const Icon(Icons.search),
-        suffixIcon: _searchQuery.isNotEmpty
-         ? IconButton(
-          icon: const Icon(Icons.clear),
-          onPressed: () {
-           setState(() {
-            _searchController.clear();
-            _searchQuery = '';
-           });
-          },
-         )
-         : null,
-        border: OutlineInputBorder(
-         borderRadius: BorderRadius.circular(12),
-         borderSide: const BorderSide(color: AppTheme.dividerColor),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  // Tenant Image
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundImage: const AssetImage('assets/profile.png'),
+                    onBackgroundImageError: (_, __) {},
+                  ),
+                  const SizedBox(width: 12),
+                  // Tenant Info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fullName,
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          unitNumber.isEmpty
+                              ? propertyName
+                              : '$propertyName - $unitNumber',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Payment Status
+                  // Container(
+                  //   padding: const EdgeInsets.symmetric(
+                  //     horizontal: 10,
+                  //     vertical: 5,
+                  //   ),
+                  //   decoration: BoxDecoration(
+                  //     color: statusColor.withOpacity(0.1),
+                  //     borderRadius: BorderRadius.circular(20),
+                  //     border: Border.all(
+                  //       color: statusColor.withOpacity(0.3),
+                  //       width: 1,
+                  //     ),
+                  //   ),
+                  //   child: Row(
+                  //     mainAxisSize: MainAxisSize.min,
+                  //     children: [
+                  //       Icon(statusIcon, size: 14, color: statusColor),
+                  //       const SizedBox(width: 4),
+                  //       Text(
+                  //         paymentStatus,
+                  //         style: GoogleFonts.poppins(
+                  //           fontSize: 12,
+                  //           fontWeight: FontWeight.w600,
+                  //           color: statusColor,
+                  //         ),
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Rent Amount',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppTheme.textLight,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '\$${NumberFormat('#,##0').format(rentAmount)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Due Date',
+                        style: GoogleFonts.poppins(
+                          fontSize: 12,
+                          color: AppTheme.textLight,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        (earliestNextDue ?? dueDate) != null
+                            ? DateFormat(
+                                'dd MMM, yyyy',
+                              ).format((earliestNextDue ?? dueDate)!)
+                            : 'Not set',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: paymentStatus == 'Overdue'
+                              ? AppTheme.errorColor
+                              : AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Column(
+                  //   crossAxisAlignment: CrossAxisAlignment.end,
+                  //   children: [
+                  //     Text(
+                  //       paymentStatus == 'Paid' ? 'Payment Date' : 'Status',
+                  //       style: GoogleFonts.poppins(
+                  //         fontSize: 12,
+                  //         color: AppTheme.textLight,
+                  //       ),
+                  //     ),
+                  //     const SizedBox(height: 4),
+                  //     Text(
+                  //       paymentStatus == 'Paid' && paymentDate != null
+                  //           ? DateFormat('dd MMM, yyyy').format(paymentDate)
+                  //           : paymentStatus,
+                  //       style: GoogleFonts.poppins(
+                  //         fontSize: 14,
+                  //         fontWeight: FontWeight.w500,
+                  //         color: statusColor,
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Action Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (paymentStatus != 'Paid')
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        // Send payment reminder
+                        _showSnackBar('Payment reminder sent to $fullName');
+                      },
+                      icon: const Icon(
+                        Icons.notifications_active_outlined,
+                        size: 18,
+                      ),
+                      label: const Text('Send Reminder'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.warningColor,
+                        side: BorderSide(color: AppTheme.warningColor),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () {
+                      // Find most recent payment to show
+                      final payments = _paymentController.payments.where((
+                        payment,
+                      ) {
+                        final paymentData =
+                            payment.data() as Map<String, dynamic>;
+                        return paymentData['tenantId'] == id;
+                      }).toList();
+
+                      if (payments.isNotEmpty) {
+                        // Sort by due date (most recent first)
+                        payments.sort((a, b) {
+                          final aData = a.data() as Map<String, dynamic>;
+                          final bData = b.data() as Map<String, dynamic>;
+
+                          final aDate = aData['dueDate'] != null
+                              ? (aData['dueDate'] as Timestamp).toDate()
+                              : DateTime(1900);
+                          final bDate = bData['dueDate'] != null
+                              ? (bData['dueDate'] as Timestamp).toDate()
+                              : DateTime(1900);
+
+                          return bDate.compareTo(aDate);
+                        });
+
+                        // Navigate to most recent payment
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                PaymentDetailPage(paymentId: payments.first.id),
+                          ),
+                        );
+                      } else {
+                        _showSnackBar('No payments found for this tenant');
+                      }
+                    },
+                    icon: const Icon(Icons.visibility_outlined, size: 18),
+                    label: const Text('View Payment'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        enabledBorder: OutlineInputBorder(
-         borderRadius: BorderRadius.circular(12),
-         borderSide: const BorderSide(color: AppTheme.dividerColor),
-        ),
-        focusedBorder: OutlineInputBorder(
-         borderRadius: BorderRadius.circular(12),
-         borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(vertical: 12),
-       ),
-       onChanged: (value) {
-        setState(() {
-         _searchQuery = value;
-        });
-       },
       ),
-     ),
-
-     // Filter Chips
-     Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: SingleChildScrollView(
-       physics: const BouncingScrollPhysics(),
-       scrollDirection: Axis.horizontal,
-       child: Row(
-        children: _filters
-         .map((filter) => _buildFilterChip(filter))
-         .toList(),
-       ),
-      ),
-     ),
-
-     // Tab Content
-     Expanded(
-      child: TabBarView(
-       controller: _tabController,
-       children: [
-        // Properties Tab
-        _buildPropertiesTab(),
-
-        // Tenants Tab
-        _buildTenantsTab(),
-       ],
-      ),
-     ),
-    ],
-   ),
-  );
- }
-
- Widget _buildPropertiesTab() {
-  return Obx(() {
-   if (_propertyController.isLoading.value || _paymentController.isLoading.value || _assignmentsLoading) {
-    return const Center(
-     child: CircularProgressIndicator(),
     );
-   } else if (_propertyController.errorMessage.isNotEmpty) {
-    return Center(
-     child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-       const Icon(
-        Icons.error_outline,
-        size: 60,
-        color: Colors.red,
-       ),
-       const SizedBox(height: 16),
-       Text(
-        'Error loading properties',
-        style: GoogleFonts.poppins(
-         fontSize: 18,
-         fontWeight: FontWeight.w600,
-        ),
-       ),
-       const SizedBox(height: 8),
-       Text(
-        _propertyController.errorMessage.value,
-        style: GoogleFonts.poppins(
-         fontSize: 14,
-         color: AppTheme.textSecondary,
-        ),
-        textAlign: TextAlign.center,
-       ),
-       const SizedBox(height: 24),
-       ElevatedButton.icon(
-        onPressed: () => _loadData(),
-        icon: const Icon(Icons.refresh),
-        label: const Text('Retry'),
-       ),
-      ],
-     ),
-    );
-   } else {
-    final properties = _getFilteredProperties();
-    if (properties.isEmpty) {
-     return _buildEmptyState('No properties found', 'Try adjusting your search or filters');
-    }
-
-    return ListView.builder(
-     padding: const EdgeInsets.all(16),
-     itemCount: properties.length,
-     physics: const BouncingScrollPhysics(),
-     itemBuilder: (context, index) {
-      final property = properties[index];
-      return FadeInUp(
-       duration: Duration(milliseconds: 300 + (index * 100)),
-       child: _buildPropertyCard(property),
-      );
-     },
-    );
-   }
-  });
- }
-
- Widget _buildTenantsTab() {
-  return Obx(() {
-   if (_tenantController.isLoading.value || _paymentController.isLoading.value || _assignmentsLoading) {
-    return const Center(
-     child: CircularProgressIndicator(),
-    );
-   } else if (_tenantController.errorMessage.isNotEmpty) {
-    return Center(
-     child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-       const Icon(
-        Icons.error_outline,
-        size: 60,
-        color: Colors.red,
-       ),
-       const SizedBox(height: 16),
-       Text(
-        'Error loading tenants',
-        style: GoogleFonts.poppins(
-         fontSize: 18,
-         fontWeight: FontWeight.w600,
-        ),
-       ),
-       const SizedBox(height: 8),
-       Text(
-        _tenantController.errorMessage.value,
-        style: GoogleFonts.poppins(
-         fontSize: 14,
-         color: AppTheme.textSecondary,
-        ),
-        textAlign: TextAlign.center,
-       ),
-       const SizedBox(height: 24),
-       ElevatedButton.icon(
-        onPressed: () => _loadData(),
-        icon: const Icon(Icons.refresh),
-        label: const Text('Retry'),
-       ),
-      ],
-     ),
-    );
-   } else {
-    final tenants = _getFilteredTenants();
-    if (tenants.isEmpty) {
-     return _buildEmptyState('No tenants found', 'Try adjusting your search or filters');
-    }
-
-    return ListView.builder(
-     padding: const EdgeInsets.all(16),
-     itemCount: tenants.length,
-     physics: const BouncingScrollPhysics(),
-     itemBuilder: (context, index) {
-      final tenant = tenants[index];
-      return FadeInUp(
-       duration: Duration(milliseconds: 300 + (index * 100)),
-       child: _buildTenantCard(tenant),
-      );
-     },
-    );
-   }
-  });
- }
-
- Widget _buildPropertyCard(DocumentSnapshot property) {
-  final data = property.data() as Map<String, dynamic>;
-
-  // Extract basic property info
-  final String id = property.id;
-  final String name = data['name'] ?? 'Unnamed Property';
-  final String address = data['address'] ?? '';
-  final String city = data['city'] ?? '';
-  final String state = data['state'] ?? '';
-  final String zipCode = data['zipCode'] ?? '';
-  final String fullAddress = [address, city, state, zipCode].where((s) => s.isNotEmpty).join(', ');
-  final String image = 'assets/home.png'; // Use placeholder image
-
-  // Compute expected totals based on tenant assignments and lease dates
-  final now = DateTime.now();
-  final assignments = _propertyIdToAssignments[id] ?? const [];
-  double expectedTotal = 0.0;
-  for (final a in assignments) {
-   if ((a['tenantStatus'] ?? '') == 'active' && (a['tenantArchived'] as bool? ?? false) == false) {
-    expectedTotal += _calculateExpectedForAssignment(a, now);
-   }
   }
 
-  // Collected and pending from payment records
-  final propertyPayments = _getPaymentsForProperty(id);
-  double collectedRent = 0.0;
-  double pendingRent = 0.0;
-  double overdueRent = 0.0;
-  for (final payment in propertyPayments) {
-   final paymentData = payment.data() as Map<String, dynamic>;
-   final double amount = (paymentData['amount'] is int)
-    ? (paymentData['amount'] as int).toDouble()
-    : (paymentData['amount'] as double?) ?? 0.0;
-   final String status = (paymentData['status'] ?? '').toString();
-   final bool isLate = (paymentData['isLate'] as bool?) ?? false;
-   if (status == 'paid') collectedRent += amount;
-   if (status == 'pending' && isLate) overdueRent += amount;
-   if (status == 'pending' && !isLate) pendingRent += amount;
-  }
-
-  final double computedPending = (expectedTotal - collectedRent);
-  if (computedPending > (pendingRent + overdueRent)) {
-   pendingRent = computedPending.clamp(0.0, double.infinity);
-  }
-
-  // Calculate collection rate
-  final collectionRate = expectedTotal > 0
-   ? (collectedRent / expectedTotal * 100).toInt()
-   : 0;
-
-  // Get occupancy information
-  final propertyTenants = _getTenantsForProperty(id);
-  final units = data['units'] ?? [];
-  final int totalUnits = units is List ? units.length : (data['totalUnits'] ?? 1);
-  final int occupiedUnits = propertyTenants.length;
-
-  return GestureDetector(
-   onTap: () {
-    _showPropertyPaymentDetails(property);
-   },
-   child: Card(
-    margin: const EdgeInsets.only(bottom: 16),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-    elevation: 0,
-    child: Padding(
-     padding: const EdgeInsets.all(16),
-     child: Column(
+  Widget _buildPropertyStatItem({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-       Row(
-        children: [
-         // Property Image
-         Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-           borderRadius: BorderRadius.circular(12),
-           image: DecorationImage(
-            image: AssetImage(image),
-            fit: BoxFit.cover,
-           ),
-          ),
-         ),
-         const SizedBox(width: 12),
-         // Property Info
-         Expanded(
-          child: Column(
-           crossAxisAlignment: CrossAxisAlignment.start,
-           children: [
-            Text(
-             name,
-             style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-             ),
-             maxLines: 1,
-             overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-             fullAddress,
-             style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-             ),
-             maxLines: 2,
-             overflow: TextOverflow.ellipsis,
-            ),
-           ],
-          ),
-         ),
-        ],
-       ),
-       const SizedBox(height: 16),
-       const Divider(height: 1),
-       const SizedBox(height: 16),
-       // Payment Stats
-       Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-         _buildPropertyStatItem(
-          label: 'Total Rent',
-          value: '\$${NumberFormat('#,##0').format(expectedTotal)}',
-          color: AppTheme.textPrimary,
-         ),
-         _buildPropertyStatItem(
-          label: 'Collected',
-          value: '\$${NumberFormat('#,##0').format(collectedRent)}',
-          color: AppTheme.successColor,
-         ),
-         _buildPropertyStatItem(
-          label: 'Pending',
-          value: '\$${NumberFormat('#,##0').format(pendingRent)}',
-          color: AppTheme.warningColor,
-         ),
-        ],
-       ),
-       const SizedBox(height: 16),
-       // Collection Rate Progress
-       Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-           Text(
-            'Collection Rate',
-            style: GoogleFonts.poppins(
-             fontSize: 14,
-             fontWeight: FontWeight.w500,
-             color: AppTheme.textSecondary,
-            ),
-           ),
-           Text(
-            '$collectionRate%',
-            style: GoogleFonts.poppins(
-             fontSize: 14,
-             fontWeight: FontWeight.w600,
-             color: collectionRate >= 80
-              ? AppTheme.successColor
-              : collectionRate >= 50
-               ? AppTheme.warningColor
-               : AppTheme.errorColor,
-            ),
-           ),
-          ],
-         ),
-         const SizedBox(height: 8),
-         // Progress Bar
-         Container(
-          height: 8,
-          decoration: BoxDecoration(
-           borderRadius: BorderRadius.circular(4),
-           color: Colors.grey.shade200,
-          ),
-          child: Row(
-           children: [
-            Flexible(
-             flex: collectionRate,
-             child: Container(
-              decoration: BoxDecoration(
-               borderRadius: BorderRadius.circular(4),
-               gradient: LinearGradient(
-                colors: collectionRate >= 80
-                 ? [
-                  const Color(0xFF43A047),
-                  const Color(0xFF388E3C),
-                 ]
-                 : collectionRate >= 50
-                  ? [
-                   const Color(0xFFFFA726),
-                   const Color(0xFFFB8C00),
-                  ]
-                  : [
-                   const Color(0xFFEF5350),
-                   const Color(0xFFE53935),
-                  ],
-               ),
-              ),
-             ),
-            ),
-            Flexible(
-             flex: 100 - collectionRate,
-             child: const SizedBox(),
-            ),
-           ],
-          ),
-         ),
-        ],
-       ),
-       const SizedBox(height: 16),
-       // View Details Button
-       Align(
-        alignment: Alignment.centerRight,
-        child: TextButton.icon(
-         onPressed: () {
-          _showPropertyPaymentDetails(property);
-         },
-         icon: const Icon(Icons.visibility_outlined, size: 18),
-         label: Text(
-          'View Details',
-          style: GoogleFonts.poppins(
-           fontSize: 14,
-           fontWeight: FontWeight.w500,
-          ),
-         ),
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textLight),
         ),
-       ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
       ],
-     ),
-    ),
-   ),
-  );
- }
-
- Widget _buildTenantCard(DocumentSnapshot tenant) {
-  final data = tenant.data() as Map<String, dynamic>;
-
-  // Extract tenant information
-  final String id = tenant.id;
-  final String firstName = data['firstName'] ?? '';
-  final String lastName = data['lastName'] ?? '';
-  final String fullName = '$firstName $lastName';
-  // Aggregate across all assigned properties for this tenant
-  final assignments = _tenantIdToAssignments[id] ?? const [];
-  double totalRentAmount = 0.0;
-  DateTime? earliestNextDue;
-  for (final a in assignments) {
-   totalRentAmount += ((a['rentAmount'] as double?) ?? 0.0);
-   final nd = _computeNextDueDate(a);
-   if (nd != null) {
-    if (earliestNextDue == null || nd.isBefore(earliestNextDue)) {
-     earliestNextDue = nd;
-    }
-   }
-  }
-  final String propertyName = assignments.isNotEmpty ? (assignments.first['propertyName'] as String? ?? 'Assigned') : 'No Property Assigned';
-  final String unitNumber = assignments.isNotEmpty ? (assignments.first['unitNumber'] as String? ?? '') : '';
-  final double rentAmount = totalRentAmount;
-
-  // Get tenant's most recent payment status
-  String paymentStatus = 'Unknown';
-  DateTime? dueDate;
-  DateTime? paymentDate;
-
-  // Find the most recent payment for this tenant
-  final tenantPayments = _paymentController.payments.where((payment) {
-   final paymentData = payment.data() as Map<String, dynamic>;
-   return paymentData['tenantId'] == id;
-  }).toList();
-
-  if (tenantPayments.isNotEmpty) {
-   // Sort payments by due date (most recent first)
-   tenantPayments.sort((a, b) {
-    final aData = a.data() as Map<String, dynamic>;
-    final bData = b.data() as Map<String, dynamic>;
-
-    final aDate = aData['dueDate'] != null
-     ? (aData['dueDate'] as Timestamp).toDate()
-     : DateTime(1900);
-    final bDate = bData['dueDate'] != null
-     ? (bData['dueDate'] as Timestamp).toDate()
-     : DateTime(1900);
-
-    return bDate.compareTo(aDate); // Reverse sort
-   });
-
-   // Get status from most recent payment
-   final recentPayment = tenantPayments.first;
-   final recentPaymentData = recentPayment.data() as Map<String, dynamic>;
-
-   final String status = recentPaymentData['status'] ?? '';
-   final bool isLate = recentPaymentData['isLate'] ?? false;
-
-   if (status == 'paid') {
-    paymentStatus = 'Paid';
-   } else if (status == 'pending' && isLate) {
-    paymentStatus = 'Overdue';
-   } else if (status == 'pending') {
-    paymentStatus = 'Due';
-   }
-
-   // Get dates
-   if (recentPaymentData['dueDate'] != null) {
-    dueDate = (recentPaymentData['dueDate'] as Timestamp).toDate();
-   }
-
-   if (recentPaymentData['paymentDate'] != null) {
-    paymentDate = (recentPaymentData['paymentDate'] as Timestamp).toDate();
-   }
-  }
-
-  Color statusColor;
-  IconData statusIcon;
-
-  switch (paymentStatus) {
-   case 'Paid':
-    statusColor = AppTheme.successColor;
-    statusIcon = Icons.check_circle;
-    break;
-   case 'Due':
-    statusColor = AppTheme.warningColor;
-    statusIcon = Icons.access_time;
-    break;
-   case 'Overdue':
-    statusColor = AppTheme.errorColor;
-    statusIcon = Icons.warning_amber_rounded;
-    break;
-   default:
-    statusColor = AppTheme.textLight;
-    statusIcon = Icons.help_outline;
-  }
-
-  return GestureDetector(
-   onTap: () {
-    Navigator.push(
-     context,
-     MaterialPageRoute(
-      builder: (context) => TenantDetailPage(tenantId: id),
-     ),
     );
-   },
-   child: Card(
-    margin: const EdgeInsets.only(bottom: 16),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-    elevation: 0,
-    child: Padding(
-     padding: const EdgeInsets.all(16),
-     child: Column(
-      children: [
-       Row(
-        children: [
-         // Tenant Image
-         CircleAvatar(
-          radius: 24,
-          backgroundImage: const AssetImage('assets/profile.png'),
-          onBackgroundImageError: (_, __) {},
-         ),
-         const SizedBox(width: 12),
-         // Tenant Info
-         Expanded(
-          child: Column(
-           crossAxisAlignment: CrossAxisAlignment.start,
-           children: [
-            Text(
-             fullName,
-             style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-             ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-             unitNumber.isEmpty ? propertyName : '$propertyName - $unitNumber',
-             style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-             ),
-             maxLines: 1,
-             overflow: TextOverflow.ellipsis,
-            ),
-           ],
+  }
+
+  Widget _buildFilterChip(String filter) {
+    final isSelected = _selectedFilter == filter;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedFilter = filter;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : AppTheme.dividerColor,
           ),
-         ),
-         const SizedBox(width: 8),
-         // Payment Status
-         Container(
-          padding: const EdgeInsets.symmetric(
-           horizontal: 10,
-           vertical: 5,
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppTheme.primaryColor.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          filter,
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? Colors.white : AppTheme.textSecondary,
           ),
-          decoration: BoxDecoration(
-           color: statusColor.withOpacity(0.1),
-           borderRadius: BorderRadius.circular(20),
-           border: Border.all(
-            color: statusColor.withOpacity(0.3),
-            width: 1,
-           ),
-          ),
-          child: Row(
-           mainAxisSize: MainAxisSize.min,
-           children: [
-            Icon(statusIcon, size: 14, color: statusColor),
-            const SizedBox(width: 4),
-            Text(
-             paymentStatus,
-             style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: statusColor,
-             ),
-            ),
-           ],
-          ),
-         ),
-        ],
-       ),
-       const SizedBox(height: 16),
-       const Divider(height: 1),
-       const SizedBox(height: 16),
-       Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-         Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-           Text(
-            'Rent Amount',
-            style: GoogleFonts.poppins(
-             fontSize: 12,
-             color: AppTheme.textLight,
-            ),
-           ),
-           const SizedBox(height: 4),
-           Text(
-            '\$${NumberFormat('#,##0').format(rentAmount)}',
-            style: GoogleFonts.poppins(
-             fontSize: 16,
-             fontWeight: FontWeight.w700,
-             color: AppTheme.primaryColor,
-            ),
-           ),
-          ],
-         ),
-         Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-           Text(
-            'Due Date',
-            style: GoogleFonts.poppins(
-             fontSize: 12,
-             color: AppTheme.textLight,
-            ),
-           ),
-           const SizedBox(height: 4),
-           Text(
-            (earliestNextDue ?? dueDate) != null
-             ? DateFormat('dd MMM, yyyy').format((earliestNextDue ?? dueDate)!)
-             : 'Not set',
-            style: GoogleFonts.poppins(
-             fontSize: 14,
-             fontWeight: FontWeight.w500,
-             color: paymentStatus == 'Overdue'
-              ? AppTheme.errorColor
-              : AppTheme.textPrimary,
-            ),
-           ),
-          ],
-         ),
-         Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-           Text(
-            paymentStatus == 'Paid'
-             ? 'Payment Date'
-             : 'Status',
-            style: GoogleFonts.poppins(
-             fontSize: 12,
-             color: AppTheme.textLight,
-            ),
-           ),
-           const SizedBox(height: 4),
-           Text(
-            paymentStatus == 'Paid' && paymentDate != null
-             ? DateFormat('dd MMM, yyyy').format(paymentDate)
-             : paymentStatus,
-            style: GoogleFonts.poppins(
-             fontSize: 14,
-             fontWeight: FontWeight.w500,
-             color: statusColor,
-            ),
-           ),
-          ],
-         ),
-        ],
-       ),
-       const SizedBox(height: 16),
-       // Action Buttons
-       Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-         if (paymentStatus != 'Paid')
-          OutlinedButton.icon(
-           onPressed: () {
-            // Send payment reminder
-            _showSnackBar('Payment reminder sent to $fullName');
-           },
-           icon: const Icon(Icons.notifications_active_outlined, size: 18),
-           label: const Text('Send Reminder'),
-           style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.warningColor,
-            side: BorderSide(color: AppTheme.warningColor),
-           ),
-          ),
-         const SizedBox(width: 8),
-         TextButton.icon(
-          onPressed: () {
-           // Find most recent payment to show
-           final payments = _paymentController.payments.where((payment) {
-            final paymentData = payment.data() as Map<String, dynamic>;
-            return paymentData['tenantId'] == id;
-           }).toList();
-
-           if (payments.isNotEmpty) {
-            // Sort by due date (most recent first)
-            payments.sort((a, b) {
-             final aData = a.data() as Map<String, dynamic>;
-             final bData = b.data() as Map<String, dynamic>;
-
-             final aDate = aData['dueDate'] != null
-              ? (aData['dueDate'] as Timestamp).toDate()
-              : DateTime(1900);
-             final bDate = bData['dueDate'] != null
-              ? (bData['dueDate'] as Timestamp).toDate()
-              : DateTime(1900);
-
-             return bDate.compareTo(aDate);
-            });
-
-            // Navigate to most recent payment
-            Navigator.push(
-             context,
-             MaterialPageRoute(
-              builder: (context) => PaymentDetailPage(paymentId: payments.first.id),
-             ),
-            );
-           } else {
-            _showSnackBar('No payments found for this tenant');
-           }
-          },
-          icon: const Icon(Icons.visibility_outlined, size: 18),
-          label: const Text('View Payment'),
-         ),
-        ],
-       ),
-      ],
-     ),
-    ),
-   ),
-  );
- }
-
- Widget _buildPropertyStatItem({
-  required String label,
-  required String value,
-  required Color color,
- }) {
-  return Column(
-   crossAxisAlignment: CrossAxisAlignment.start,
-   children: [
-    Text(
-     label,
-     style: GoogleFonts.poppins(
-      fontSize: 12,
-      color: AppTheme.textLight,
-     ),
-    ),
-    const SizedBox(height: 4),
-    Text(
-     value,
-     style: GoogleFonts.poppins(
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-      color: color,
-     ),
-    ),
-   ],
-  );
- }
-
- Widget _buildFilterChip(String filter) {
-  final isSelected = _selectedFilter == filter;
-
-  return GestureDetector(
-   onTap: () {
-    setState(() {
-     _selectedFilter = filter;
-    });
-   },
-   child: Container(
-    margin: const EdgeInsets.only(right: 8),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    decoration: BoxDecoration(
-     color: isSelected ? AppTheme.primaryColor : Colors.white,
-     borderRadius: BorderRadius.circular(20),
-     border: Border.all(
-      color: isSelected ? AppTheme.primaryColor : AppTheme.dividerColor,
-     ),
-     boxShadow: isSelected
-      ? [
-       BoxShadow(
-        color: AppTheme.primaryColor.withOpacity(0.2),
-        blurRadius: 4,
-        offset: const Offset(0, 2),
-       ),
-      ]
-      : null,
-    ),
-    child: Text(
-     filter,
-     style: GoogleFonts.poppins(
-      fontSize: 14,
-      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-      color: isSelected ? Colors.white : AppTheme.textSecondary,
-     ),
-    ),
-   ),
-  );
- }
-
- Widget _buildEmptyState(String title, String subtitle) {
-  return Center(
-   child: Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-     Icon(
-      Icons.search_off_outlined,
-      size: 80,
-      color: AppTheme.textLight.withOpacity(0.5),
-     ),
-     const SizedBox(height: 16),
-     Text(
-      title,
-      style: GoogleFonts.poppins(
-       fontSize: 18,
-       fontWeight: FontWeight.w600,
-       color: AppTheme.textSecondary,
+        ),
       ),
-     ),
-     const SizedBox(height: 8),
-     Text(
-      subtitle,
-      style: GoogleFonts.poppins(fontSize: 14, color: AppTheme.textLight),
-     ),
-    ],
-   ),
-  );
- }
-
- void _showPropertyPaymentDetails(DocumentSnapshot property) {
-  final data = property.data() as Map<String, dynamic>;
-  final id = property.id;
-  final name = data['name'] ?? 'Unnamed Property';
-  final address = data['address'] ?? '';
-  final city = data['city'] ?? '';
-  final state = data['state'] ?? '';
-  final zipCode = data['zipCode'] ?? '';
-  final fullAddress = [address, city, state, zipCode].where((s) => s.isNotEmpty).join(', ');
-
-  // Get tenants and assignments for this property
-  final tenants = _getTenantsForProperty(id);
-  final assignments = _propertyIdToAssignments[id] ?? const [];
-
-  // Compute property payment summary using leases + payments
-  final now = DateTime.now();
-  double totalDue = 0.0;
-  for (final a in assignments) {
-   if ((a['tenantStatus'] ?? '') == 'active' && (a['tenantArchived'] as bool? ?? false) == false) {
-    totalDue += _calculateExpectedForAssignment(a, now);
-   }
-  }
-  final payments = _getPaymentsForProperty(id);
-  double totalPaid = 0.0;
-  double totalPending = 0.0;
-  double totalLate = 0.0;
-  for (final p in payments) {
-   final d = p.data() as Map<String, dynamic>;
-   final double amount = (d['amount'] is int) ? (d['amount'] as int).toDouble() : (d['amount'] as double?) ?? 0.0;
-   final String status = (d['status'] ?? '').toString();
-   final bool isLate = (d['isLate'] as bool?) ?? false;
-   if (status == 'paid') totalPaid += amount;
-   if (status == 'pending') totalPending += amount;
-   if (isLate) totalLate += amount;
-  }
-  final reconPending = (totalDue - totalPaid);
-  if (reconPending > (totalPending + totalLate)) {
-   totalPending = reconPending.clamp(0.0, double.infinity);
+    );
   }
 
-  showModalBottomSheet(
-   context: context,
-   isScrollControlled: true,
-   shape: const RoundedRectangleBorder(
-    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-   ),
-   builder: (context) {
-    return DraggableScrollableSheet(
-     initialChildSize: 0.7,
-     minChildSize: 0.5,
-     maxChildSize: 0.95,
-     expand: false,
-     builder: (context, scrollController) {
-      return Container(
-       padding: const EdgeInsets.all(16),
-       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildEmptyState(String title, String subtitle) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-         // Handle
-         Center(
-          child: Container(
-           width: 40,
-           height: 5,
-           decoration: BoxDecoration(
-            color: Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(2.5),
-           ),
+          Icon(
+            Icons.search_off_outlined,
+            size: 80,
+            color: AppTheme.textLight.withOpacity(0.5),
           ),
-         ),
-         const SizedBox(height: 16),
-         // Property Title
-         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-           Expanded(
-            child: Text(
-             name,
-             style: GoogleFonts.poppins(
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-             ),
-            ),
-           ),
-           IconButton(
-            icon: const Icon(Icons.home_outlined),
-            onPressed: () {
-             Navigator.pop(context);
-             Navigator.push(
-              context,
-              MaterialPageRoute(
-               builder: (context) => PropertyDetailsPage(propertyId: id),
-              ),
-             );
-            },
-           ),
-          ],
-         ),
-         Text(
-          fullAddress,
-          style: GoogleFonts.poppins(
-           fontSize: 14,
-           color: AppTheme.textSecondary,
-          ),
-         ),
-         const SizedBox(height: 24),
-         // Payment Stats
-         Row(
-          children: [
-           Expanded(
-            child: _buildPropertyPaymentStatCard(
-             title: 'Total Rent',
-             value: '\$${NumberFormat('#,##0').format(totalDue)}',
-             icon: Icons.attach_money,
-             color: AppTheme.primaryColor,
-            ),
-           ),
-           const SizedBox(width: 12),
-           Expanded(
-            child: _buildPropertyPaymentStatCard(
-             title: 'Collected',
-             value: '\$${NumberFormat('#,##0').format(totalPaid)}',
-             icon: Icons.check_circle_outline,
-             color: AppTheme.successColor,
-            ),
-           ),
-          ],
-         ),
-         const SizedBox(height: 12),
-         Row(
-          children: [
-           Expanded(
-            child: _buildPropertyPaymentStatCard(
-             title: 'Pending',
-             value: '\$${NumberFormat('#,##0').format(totalPending)}',
-             icon: Icons.access_time,
-             color: AppTheme.warningColor,
-            ),
-           ),
-           const SizedBox(width: 12),
-           Expanded(
-            child: _buildPropertyPaymentStatCard(
-             title: 'Overdue',
-             value: '\$${NumberFormat('#,##0').format(totalLate)}',
-             icon: Icons.warning_amber_rounded,
-             color: AppTheme.errorColor,
-            ),
-           ),
-          ],
-         ),
-         const SizedBox(height: 24),
-         // Tenants List
-         Text(
-          'Tenants',
-          style: GoogleFonts.poppins(
-           fontSize: 16,
-           fontWeight: FontWeight.w600,
-          ),
-         ),
-         const SizedBox(height: 12),
-         Expanded(
-          child: tenants.isEmpty
-           ? Center(
-            child: Text(
-             'No tenants found for this property',
-             style: GoogleFonts.poppins(
-              fontSize: 14,
               color: AppTheme.textSecondary,
-             ),
             ),
-           )
-           : ListView.builder(
-            controller: scrollController,
-            itemCount: tenants.length,
-            itemBuilder: (context, index) {
-             final tenant = tenants[index];
-             return _buildTenantPaymentListItem(tenant);
-            },
-           ),
-         ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: GoogleFonts.poppins(fontSize: 14, color: AppTheme.textLight),
+          ),
         ],
-       ),
-      );
-     },
-    );
-   },
-  );
- }
-
- Widget _buildPropertyPaymentStatCard({
-  required String title,
-  required String value,
-  required IconData icon,
-  required Color color,
- }) {
-  return Container(
-   padding: const EdgeInsets.all(16),
-   decoration: BoxDecoration(
-    color: color.withOpacity(0.1),
-    borderRadius: BorderRadius.circular(12),
-    border: Border.all(
-     color: color.withOpacity(0.3),
-     width: 1,
-    ),
-   ),
-   child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-     Row(
-      children: [
-       Icon(icon, size: 18, color: color),
-       const SizedBox(width: 8),
-       Text(
-        title,
-        style: GoogleFonts.poppins(
-         fontSize: 14,
-         fontWeight: FontWeight.w500,
-         color: color,
-        ),
-       ),
-      ],
-     ),
-     const SizedBox(height: 8),
-     Text(
-      value,
-      style: GoogleFonts.poppins(
-       fontSize: 18,
-       fontWeight: FontWeight.w700,
-       color: color,
       ),
-     ),
-    ],
-   ),
-  );
- }
+    );
+  }
 
- Widget _buildTenantPaymentListItem(DocumentSnapshot tenant) {
-  final data = tenant.data() as Map<String, dynamic>;
-  final id = tenant.id;
-  final firstName = data['firstName'] ?? '';
-  final lastName = data['lastName'] ?? '';
+  Future<void> _showPropertyPaymentDetails(DocumentSnapshot property) async {
+    final data = property.data() as Map<String, dynamic>;
+    final id = property.id;
+    final name = data['name'] ?? 'Unnamed Property';
+    final address = data['address'] ?? '';
+    final city = data['city'] ?? '';
+    final state = data['state'] ?? '';
+    final zipCode = data['zipCode'] ?? '';
+    final fullAddress = [
+      address,
+      city,
+      state,
+      zipCode,
+    ].where((s) => s.isNotEmpty).join(', ');
+
+    // Get tenants and assignments for this property
+    final tenants = await getTenantsForProperty(id);
+    final assignments = _propertyIdToAssignments[id] ?? const [];
+
+    // Compute property payment summary using leases + payments
+    final now = DateTime.now();
+    double totalDue = 0.0;
+    for (final a in assignments) {
+      if ((a['tenantStatus'] ?? '') == 'active' &&
+          (a['tenantArchived'] as bool? ?? false) == false) {
+        totalDue += _calculateExpectedForAssignment(a, now);
+      }
+    }
+    final payments = _getPaymentsForProperty(id);
+    double totalPaid = 0.0;
+    double totalPending = 0.0;
+    double totalLate = 0.0;
+    for (final p in payments) {
+      final d = p.data() as Map<String, dynamic>;
+      final double amount = (d['amount'] is int)
+          ? (d['amount'] as int).toDouble()
+          : (d['amount'] as double?) ?? 0.0;
+      final String status = (d['status'] ?? '').toString();
+      final bool isLate = (d['isLate'] as bool?) ?? false;
+      if (status == 'paid') totalPaid += amount;
+      if (status == 'pending') totalPending += amount;
+      if (isLate) totalLate += amount;
+    }
+    final reconPending = (totalDue - totalPaid);
+    if (reconPending > (totalPending + totalLate)) {
+      totalPending = reconPending.clamp(0.0, double.infinity);
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Property Title
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.home_outlined),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  PropertyDetailsPage(propertyId: id),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  Text(
+                    fullAddress,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Payment Stats
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildPropertyPaymentStatCard(
+                          title: 'Total Rent',
+                          value: '\$${NumberFormat('#,##0').format(totalDue)}',
+                          icon: Icons.attach_money,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildPropertyPaymentStatCard(
+                          title: 'Collected',
+                          value: '\$${NumberFormat('#,##0').format(totalPaid)}',
+                          icon: Icons.check_circle_outline,
+                          color: AppTheme.successColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildPropertyPaymentStatCard(
+                          title: 'Pending',
+                          value:
+                              '\$${NumberFormat('#,##0').format(totalPending)}',
+                          icon: Icons.access_time,
+                          color: AppTheme.warningColor,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildPropertyPaymentStatCard(
+                          title: 'Overdue',
+                          value: '\$${NumberFormat('#,##0').format(totalLate)}',
+                          icon: Icons.warning_amber_rounded,
+                          color: AppTheme.errorColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  // Tenants List
+                  Text(
+                    'Tenants',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: tenants.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No tenants found for this property',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            controller: scrollController,
+                            itemCount: tenants.length,
+                            itemBuilder: (context, index) {
+                              print(tenants.length);
+                              final tenant = tenants[index];
+                              return _buildTenantPaymentListItem(tenant);
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPropertyPaymentStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTenantPaymentListItem(Map<String, dynamic> tenant) {
+  final id = tenant['tenantId'];
+  final firstName = tenant['firstName'] ?? '';
+  final lastName = tenant['lastName'] ?? '';
   final fullName = '$firstName $lastName';
-  final unitNumber = data['unitNumber'] ?? '';
-  final double rentAmount = (data['rentAmount'] is int)
-   ? (data['rentAmount'] as int).toDouble()
-   : (data['rentAmount'] ?? 0.0);
 
-  // Get tenant's most recent payment status
+  // Access tenant properties
+  final properties = tenant['properties'] as List<dynamic>? ?? [];
+
+  // Payment logic (same as before)
   String paymentStatus = 'Unknown';
-
-  // Find the most recent payment for this tenant
   final tenantPayments = _paymentController.payments.where((payment) {
-   final paymentData = payment.data() as Map<String, dynamic>;
-   return paymentData['tenantId'] == id;
+    final paymentData = payment.data() as Map<String, dynamic>;
+    return paymentData['tenantId'] == id;
   }).toList();
 
   if (tenantPayments.isNotEmpty) {
-   // Sort payments by due date (most recent first)
-   tenantPayments.sort((a, b) {
-    final aData = a.data() as Map<String, dynamic>;
-    final bData = b.data() as Map<String, dynamic>;
+    tenantPayments.sort((a, b) {
+      final aDate = (a.data() as Map<String, dynamic>)['dueDate'] != null
+          ? ((a.data() as Map<String, dynamic>)['dueDate'] as Timestamp).toDate()
+          : DateTime(1900);
+      final bDate = (b.data() as Map<String, dynamic>)['dueDate'] != null
+          ? ((b.data() as Map<String, dynamic>)['dueDate'] as Timestamp).toDate()
+          : DateTime(1900);
+      return bDate.compareTo(aDate);
+    });
 
-    final aDate = aData['dueDate'] != null
-     ? (aData['dueDate'] as Timestamp).toDate()
-     : DateTime(1900);
-    final bDate = bData['dueDate'] != null
-     ? (bData['dueDate'] as Timestamp).toDate()
-     : DateTime(1900);
+    final recentPayment = tenantPayments.first;
+    final recentPaymentData = recentPayment.data() as Map<String, dynamic>;
+    final String status = recentPaymentData['status'] ?? '';
+    final bool isLate = recentPaymentData['isLate'] ?? false;
 
-    return bDate.compareTo(aDate); // Reverse sort
-   });
-
-   // Get status from most recent payment
-   final recentPayment = tenantPayments.first;
-   final recentPaymentData = recentPayment.data() as Map<String, dynamic>;
-
-   final String status = recentPaymentData['status'] ?? '';
-   final bool isLate = recentPaymentData['isLate'] ?? false;
-
-   if (status == 'paid') {
-    paymentStatus = 'Paid';
-   } else if (status == 'pending' && isLate) {
-    paymentStatus = 'Overdue';
-   } else if (status == 'pending') {
-    paymentStatus = 'Due';
-   }
+    if (status == 'paid') {
+      paymentStatus = 'Paid';
+    } else if (status == 'pending' && isLate) {
+      paymentStatus = 'Overdue';
+    } else if (status == 'pending') {
+      paymentStatus = 'Due';
+    }
   }
 
   Color statusColor;
   IconData statusIcon;
-
   switch (paymentStatus) {
-   case 'Paid':
-    statusColor = AppTheme.successColor;
-    statusIcon = Icons.check_circle;
-    break;
-   case 'Due':
-    statusColor = AppTheme.warningColor;
-    statusIcon = Icons.access_time;
-    break;
-   case 'Overdue':
-    statusColor = AppTheme.errorColor;
-    statusIcon = Icons.warning_amber_rounded;
-    break;
-   default:
-    statusColor = AppTheme.textLight;
-    statusIcon = Icons.help_outline;
+    case 'Paid':
+      statusColor = AppTheme.successColor;
+      statusIcon = Icons.check_circle;
+      break;
+    case 'Due':
+      statusColor = AppTheme.warningColor;
+      statusIcon = Icons.access_time;
+      break;
+    case 'Overdue':
+      statusColor = AppTheme.errorColor;
+      statusIcon = Icons.warning_amber_rounded;
+      break;
+    default:
+      statusColor = AppTheme.textLight;
+      statusIcon = Icons.help_outline;
   }
 
   return Card(
-   margin: const EdgeInsets.only(bottom: 12),
-   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-   elevation: 0,
-   child: InkWell(
-    onTap: () {
-     Navigator.push(
-      context,
-      MaterialPageRoute(
-       builder: (context) => TenantDetailPage(tenantId: id),
-      ),
-     );
-    },
-    borderRadius: BorderRadius.circular(12),
-    child: Padding(
-     padding: const EdgeInsets.all(12),
-     child: Row(
-      children: [
-       CircleAvatar(
-        radius: 20,
-        backgroundImage: const AssetImage('assets/profile.png'),
-       ),
-       const SizedBox(width: 12),
-       Expanded(
-        child: Column(
-         crossAxisAlignment: CrossAxisAlignment.start,
-         children: [
-          Text(
-           fullName,
-           style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-           ),
+    margin: const EdgeInsets.only(bottom: 12),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    elevation: 0,
+    child: InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TenantDetailPage(tenantId: id),
           ),
-          Text(
-           unitNumber.isEmpty ? 'No unit assigned' : unitNumber,
-           style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: AppTheme.textSecondary,
-           ),
-          ),
-         ],
-        ),
-       ),
-       Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-         Text(
-          '\$${NumberFormat('#,##0').format(rentAmount)}',
-          style: GoogleFonts.poppins(
-           fontSize: 14,
-           fontWeight: FontWeight.w600,
-           color: AppTheme.primaryColor,
-          ),
-         ),
-         Container(
-          padding: const EdgeInsets.symmetric(
-           horizontal: 8,
-           vertical: 4,
-          ),
-          decoration: BoxDecoration(
-           color: statusColor.withOpacity(0.1),
-           borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-           mainAxisSize: MainAxisSize.min,
-           children: [
-            Icon(statusIcon, size: 12, color: statusColor),
-            const SizedBox(width: 4),
-            Text(
-             paymentStatus,
-             style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: statusColor,
-             ),
-            ),
-           ],
-          ),
-         ),
-        ],
-       ),
-      ],
-     ),
-    ),
-   ),
-  );
- }
-
- void _showFilterBottomSheet() {
-  showModalBottomSheet(
-   context: context,
-   shape: const RoundedRectangleBorder(
-    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-   ),
-   builder: (context) {
-    return Padding(
-     padding: const EdgeInsets.all(16),
-     child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-       Text(
-        'Filter Payments',
-        style: GoogleFonts.poppins(
-         fontSize: 18,
-         fontWeight: FontWeight.w600,
-        ),
-       ),
-       const SizedBox(height: 16),
-       ..._filters.map((filter) {
-        return RadioListTile<String>(
-         title: Text(filter),
-         value: filter,
-         groupValue: _selectedFilter,
-         activeColor: AppTheme.primaryColor,
-         onChanged: (value) {
-          setState(() {
-           _selectedFilter = value!;
-          });
-          Navigator.pop(context);
-         },
         );
-       }).toList(),
-       const SizedBox(height: 16),
-      ],
-     ),
-    );
-   },
-  );
- }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Tenant name row
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundImage: const AssetImage('assets/profile.png'),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    fullName,
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                // Latest payment status
+                Row(
+                  children: [
+                    Icon(statusIcon, color: statusColor, size: 18),
+                    const SizedBox(width: 4),
+                    Text(
+                      paymentStatus,
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: statusColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // Properties list
+            ...properties.map((prop) {
+              final property = prop as Map<String, dynamic>;
+              final unitNumber = property['unitNumber'] ?? '';
+              final propertyName = property['propertyName'] ?? '';
+              final rentAmount = (property['rentAmount'] is int)
+                  ? (property['rentAmount'] as int).toDouble()
+                  : (property['rentAmount'] ?? 0.0);
 
- void _showSnackBar(String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-   SnackBar(
-    content: Text(message),
-    behavior: SnackBarBehavior.floating,
-    shape: RoundedRectangleBorder(
-     borderRadius: BorderRadius.circular(10),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '$propertyName - $unitNumber',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '\$${NumberFormat('#,##0').format(rentAmount)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
     ),
-    backgroundColor: AppTheme.primaryColor,
-   ),
   );
- }
+}
+
+
+
+  void _showFilterBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Filter Payments',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ..._filters.map((filter) {
+                return RadioListTile<String>(
+                  title: Text(filter),
+                  value: filter,
+                  groupValue: _selectedFilter,
+                  activeColor: AppTheme.primaryColor,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedFilter = value!;
+                    });
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: AppTheme.primaryColor,
+      ),
+    );
+  }
 }

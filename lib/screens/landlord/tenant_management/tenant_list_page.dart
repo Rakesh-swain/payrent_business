@@ -21,27 +21,27 @@ class _TenantListPageState extends State<TenantListPage> {
   final TenantController _tenantController = Get.find<TenantController>();
   final PropertyController _propertyController = Get.find<PropertyController>();
   final TextEditingController _searchController = TextEditingController();
-  
+
   String _searchQuery = '';
   String _selectedFilter = 'all'; // all, active, inactive
   bool _isLoading = false;
   bool _isRefreshing = false;
-  
+
   @override
   void initState() {
     super.initState();
     _fetchData();
   }
-  
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
-    
+
     try {
       await Future.wait([
         _tenantController.fetchTenants(),
@@ -53,13 +53,13 @@ class _TenantListPageState extends State<TenantListPage> {
       setState(() => _isLoading = false);
     }
   }
-  
+
   Future<void> _refreshData() async {
     setState(() => _isRefreshing = true);
     await _fetchData();
     setState(() => _isRefreshing = false);
   }
-  
+
   List<DocumentSnapshot> _getFilteredTenants() {
     var tenants = _tenantController.tenants.value.where((tenant) {
       final data = tenant.data() as Map<String, dynamic>;
@@ -68,42 +68,47 @@ class _TenantListPageState extends State<TenantListPage> {
       final email = (data['email'] ?? '').toString().toLowerCase();
       final phone = (data['phone'] ?? '').toString().toLowerCase();
       final fullName = '$firstName $lastName';
-      
+
       // Search filter
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
-        if (!fullName.contains(query) && 
-            !email.contains(query) && 
+        if (!fullName.contains(query) &&
+            !email.contains(query) &&
             !phone.contains(query)) {
           return false;
         }
       }
-      
-      // Status filter
-      if (_selectedFilter == 'active') {
-        return data['propertyId'] != null && data['propertyId'].toString().isNotEmpty;
-      } else if (_selectedFilter == 'inactive') {
-        return data['propertyId'] == null || data['propertyId'].toString().isEmpty;
-      }
-      
+
+      // Get tenant properties safely
+      // final properties = (data['properties'] as List<dynamic>?) ?? [];
+
+      // Status filter based on properties
+      // if (_selectedFilter == 'active') {
+      //   return properties.isNotEmpty;
+      // } else if (_selectedFilter == 'inactive') {
+      //   return properties.isEmpty;
+      // }
+
       return true;
     }).toList();
-    
-    // Sort by name
+
+    // Sort by tenant name
     tenants.sort((a, b) {
       final aData = a.data() as Map<String, dynamic>;
       final bData = b.data() as Map<String, dynamic>;
-      final aName = '${aData['firstName'] ?? ''} ${aData['lastName'] ?? ''}'.trim();
-      final bName = '${bData['firstName'] ?? ''} ${bData['lastName'] ?? ''}'.trim();
+      final aName = '${aData['firstName'] ?? ''} ${aData['lastName'] ?? ''}'
+          .trim();
+      final bName = '${bData['firstName'] ?? ''} ${bData['lastName'] ?? ''}'
+          .trim();
       return aName.compareTo(bName);
     });
-    
+
     return tenants;
   }
-  
+
   String _getPropertyName(String? propertyId) {
     if (propertyId == null || propertyId.isEmpty) return 'No Property';
-    
+
     try {
       final property = _propertyController.properties.firstWhere(
         (p) => p.id == propertyId,
@@ -114,28 +119,28 @@ class _TenantListPageState extends State<TenantListPage> {
       return 'Unknown Property';
     }
   }
-  
+
   String _getTenantStatus(Map<String, dynamic> tenantData) {
     final propertyId = tenantData['propertyId'];
     final leaseEndDate = tenantData['leaseEndDate'];
-    
+
     if (propertyId == null || propertyId.toString().isEmpty) {
       return 'Inactive';
     }
-    
+
     if (leaseEndDate != null) {
-      final endDate = leaseEndDate is Timestamp 
-          ? leaseEndDate.toDate() 
+      final endDate = leaseEndDate is Timestamp
+          ? leaseEndDate.toDate()
           : DateTime.tryParse(leaseEndDate.toString());
-      
+
       if (endDate != null && endDate.isBefore(DateTime.now())) {
         return 'Lease Expired';
       }
     }
-    
+
     return 'Active';
   }
-  
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'Active':
@@ -148,10 +153,10 @@ class _TenantListPageState extends State<TenantListPage> {
         return AppTheme.textSecondary;
     }
   }
-  
+
   void _showTenantOptions(DocumentSnapshot tenant) {
     final data = tenant.data() as Map<String, dynamic>;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -208,7 +213,8 @@ class _TenantListPageState extends State<TenantListPage> {
                       _viewTenantPayments(tenant);
                     },
                   ),
-                  if (data['propertyId'] == null || data['propertyId'].toString().isEmpty)
+                  if (data['propertyId'] == null ||
+                      data['propertyId'].toString().isEmpty)
                     _buildOptionTile(
                       icon: Icons.home_outlined,
                       title: 'Assign Property',
@@ -234,7 +240,7 @@ class _TenantListPageState extends State<TenantListPage> {
       ),
     );
   }
-  
+
   Widget _buildOptionTile({
     required IconData icon,
     required String title,
@@ -254,28 +260,28 @@ class _TenantListPageState extends State<TenantListPage> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
-  
+
   void _viewTenantDetails(DocumentSnapshot tenant) {
-    Get.to(TenantDetailPage(tenantId: tenant.id,));
+    Get.to(TenantDetailPage(tenantId: tenant.id));
   }
-  
+
   void _editTenant(DocumentSnapshot tenant) {
-    Get.to(EditTenantPage(tenantId: tenant.id,));
+    Get.to(EditTenantPage(tenantId: tenant.id));
   }
-  
+
   void _viewTenantPayments(DocumentSnapshot tenant) {
     // Navigate to tenant payments page
     Get.snackbar('Info', 'Tenant payments page coming soon!');
   }
-  
+
   void _assignProperty(DocumentSnapshot tenant) {
     // Navigate to property assignment page
     Get.snackbar('Info', 'Property assignment coming soon!');
   }
-  
+
   void _deleteTenant(DocumentSnapshot tenant) {
     final data = tenant.data() as Map<String, dynamic>;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -309,14 +315,17 @@ class _TenantListPageState extends State<TenantListPage> {
             },
             child: Text(
               'Delete',
-              style: GoogleFonts.poppins(color: AppTheme.errorColor, fontWeight: FontWeight.w600),
+              style: GoogleFonts.poppins(
+                color: AppTheme.errorColor,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
       ),
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -382,9 +391,9 @@ class _TenantListPageState extends State<TenantListPage> {
                             setState(() => _searchQuery = value);
                           },
                         ),
-                        
+
                         const SizedBox(height: 16),
-                        
+
                         // Filter Chips
                         Row(
                           children: [
@@ -394,24 +403,26 @@ class _TenantListPageState extends State<TenantListPage> {
                             const SizedBox(width: 8),
                             _buildFilterChip('Inactive', 'inactive'),
                             const Spacer(),
-                            Obx(() => Text(
-                              '${_getFilteredTenants().length} tenant${_getFilteredTenants().length != 1 ? 's' : ''}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: AppTheme.textSecondary,
+                            Obx(
+                              () => Text(
+                                '${_getFilteredTenants().length} tenant${_getFilteredTenants().length != 1 ? 's' : ''}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondary,
+                                ),
                               ),
-                            )),
+                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
-                  
+
                   // Tenant List
                   Expanded(
                     child: Obx(() {
                       final filteredTenants = _getFilteredTenants();
-                      
+
                       if (filteredTenants.isEmpty) {
                         return Center(
                           child: Column(
@@ -447,14 +458,22 @@ class _TenantListPageState extends State<TenantListPage> {
                                 const SizedBox(height: 24),
                                 ElevatedButton.icon(
                                   onPressed: () {
-                                    Get.to(() => const AddTenantPage())?.then((_) => _refreshData());
+                                    Get.to(
+                                      () => const AddTenantPage(),
+                                    )?.then((_) => _refreshData());
                                   },
                                   icon: const Icon(Icons.add_outlined),
-                                  label: Text('Add Tenant', style: GoogleFonts.poppins()),
+                                  label: Text(
+                                    'Add Tenant',
+                                    style: GoogleFonts.poppins(),
+                                  ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppTheme.primaryColor,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -465,18 +484,39 @@ class _TenantListPageState extends State<TenantListPage> {
                           ),
                         );
                       }
-                      
+
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         itemCount: filteredTenants.length,
                         itemBuilder: (context, index) {
                           final tenant = filteredTenants[index];
                           final data = tenant.data() as Map<String, dynamic>;
-                          final status = _getTenantStatus(data);
-                          final propertyName = _getPropertyName(data['propertyId']);
-                          
+
+                          // Get list of property names
+                          final properties =
+                              data['properties'] as List<dynamic>? ?? [];
+                          print(properties);
+                          final propertyNames = properties
+                              .map(
+                                (prop) =>
+                                    (prop
+                                        as Map<
+                                          String,
+                                          dynamic
+                                        >)['propertyName'] ??
+                                    '',
+                              )
+                              .where((name) => name.isNotEmpty)
+                              .toList();
+
+                          final propertyNamesString = propertyNames.join(
+                            ', ',
+                          ); // comma-separated list
+
                           return FadeInUp(
-                            duration: Duration(milliseconds: 300 + (index * 100)),
+                            duration: Duration(
+                              milliseconds: 300 + (index * 100),
+                            ),
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 12),
                               child: Card(
@@ -495,7 +535,8 @@ class _TenantListPageState extends State<TenantListPage> {
                                         // Avatar
                                         CircleAvatar(
                                           radius: 28,
-                                          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                          backgroundColor: AppTheme.primaryColor
+                                              .withOpacity(0.1),
                                           child: Text(
                                             '${data['firstName']?.toString().substring(0, 1).toUpperCase() ?? ''}${data['lastName']?.toString().substring(0, 1).toUpperCase() ?? ''}',
                                             style: GoogleFonts.poppins(
@@ -505,26 +546,28 @@ class _TenantListPageState extends State<TenantListPage> {
                                             ),
                                           ),
                                         ),
-                                        
+
                                         const SizedBox(width: 16),
-                                        
+
                                         // Tenant Info
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               // Name
                                               Text(
-                                                '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim(),
+                                                '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'
+                                                    .trim(),
                                                 style: GoogleFonts.poppins(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w600,
                                                   color: AppTheme.textPrimary,
                                                 ),
                                               ),
-                                              
+
                                               const SizedBox(height: 4),
-                                              
+
                                               // Email
                                               Text(
                                                 data['email'] ?? '',
@@ -533,89 +576,41 @@ class _TenantListPageState extends State<TenantListPage> {
                                                   color: AppTheme.textSecondary,
                                                 ),
                                               ),
-                                              
+
                                               const SizedBox(height: 4),
-                                              
-                                              // Property and Unit
-                                              Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.home_outlined,
-                                                    size: 16,
-                                                    color: AppTheme.textSecondary,
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Expanded(
-                                                    child: Text(
-                                                      propertyName,
-                                                      style: GoogleFonts.poppins(
-                                                        fontSize: 12,
-                                                        color: AppTheme.textSecondary,
-                                                      ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  if (data['unitNumber'] != null) ...[
-                                                    Text(
-                                                      ' • Unit ${data['unitNumber']}',
-                                                      style: GoogleFonts.poppins(
-                                                        fontSize: 12,
-                                                        color: AppTheme.textSecondary,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ],
-                                              ),
+
+                                              // Properties list
+                                              // if (propertyNames.isNotEmpty)
+                                              //   Row(
+                                              //     children: [
+                                              //       Icon(
+                                              //         Icons.home_outlined,
+                                              //         size: 16,
+                                              //         color: AppTheme
+                                              //             .textSecondary,
+                                              //       ),
+                                              //       const SizedBox(width: 4),
+                                              //       Expanded(
+                                              //         child: Text(
+                                              //           propertyNamesString,
+                                              //           style:
+                                              //               GoogleFonts.poppins(
+                                              //                 fontSize: 12,
+                                              //                 color: AppTheme
+                                              //                     .textSecondary,
+                                              //               ),
+                                              //           overflow: TextOverflow
+                                              //               .ellipsis,
+                                              //         ),
+                                              //       ),
+                                              //     ],
+                                              //   ),
                                             ],
                                           ),
                                         ),
-                                        
-                                        // Status and Actions
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.end,
-                                          children: [
-                                            // Status Badge
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: _getStatusColor(status).withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                status,
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: _getStatusColor(status),
-                                                ),
-                                              ),
-                                            ),
-                                            
-                                            const SizedBox(height: 8),
-                                            
-                                            // Rent Amount
-                                            if (data['rentAmount'] != null) ...[
-                                              Text(
-                                                '\$${data['rentAmount']}',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppTheme.primaryColor,
-                                                ),
-                                              ),
-                                              Text(
-                                                '/${data['paymentFrequency'] ?? 'month'}',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 10,
-                                                  color: AppTheme.textSecondary,
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                        
+
                                         const SizedBox(width: 8),
-                                        
+
                                         // More Options
                                         Icon(
                                           Icons.more_vert,
@@ -645,10 +640,10 @@ class _TenantListPageState extends State<TenantListPage> {
       ),
     );
   }
-  
+
   Widget _buildFilterChip(String label, String value) {
     final isSelected = _selectedFilter == value;
-    
+
     return FilterChip(
       label: Text(
         label,

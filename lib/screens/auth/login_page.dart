@@ -7,7 +7,6 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:payrent_business/controllers/phone_auth_controller.dart';
-import 'package:payrent_business/controllers/tenant_data_controller.dart';
 import 'package:payrent_business/screens/auth/otp_page.dart';
 import 'package:payrent_business/services/tenant_auth_service.dart';
 
@@ -37,7 +36,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   final FocusNode _mobileFocusNode = FocusNode();
   
   // Services
-  final TenantAuthService _tenantAuthService = TenantAuthService();
   
   // State variables
   String selectedCountry = 'India';
@@ -610,13 +608,11 @@ Future<void> _simulateLogin() async {
   
   try {
     // 🔍 FIRST: Check if number exists as a tenant
-    final tenantInfo = await _tenantAuthService.checkTenantByPhoneNumber(phoneNumber);
+    final tenantAuthService = TenantAuthService();
+    final tenantInfo = await tenantAuthService.checkTenantExists(phoneNumber);
     
     if (tenantInfo != null) {
-      // ✅ Phone number found in tenant records - proceed with tenant flow
-      print('Tenant found: ${tenantInfo['tenantId']}');
-      
-      // Send OTP for tenant authentication
+      // ✅ Phone number found as a tenant - proceed with tenant flow
       final bool success = await phoneAuthController.sendVerificationCode("+$selectedCountryCode$phoneNumber");
       
       setState(() => isLoading = false);
@@ -625,11 +621,10 @@ Future<void> _simulateLogin() async {
         phoneAuthController.countryCode.value = selectedCountryCode;
         phoneAuthController.mobileNumber.value = phoneNumber;
         
-        // Navigate to OTP page with tenant info
         Get.to(OtpVerificationPage(
           islogin: true,
           mobileNumber: phoneNumber,
-          tenantInfo: tenantInfo, // Pass tenant info for after OTP verification
+          tenantInfo: tenantInfo, // Pass tenant info to OTP page
         ));
         
         ScaffoldMessenger.of(context).showSnackBar(

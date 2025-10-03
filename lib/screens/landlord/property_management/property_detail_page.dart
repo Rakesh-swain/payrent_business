@@ -17,6 +17,7 @@ import 'package:payrent_business/models/tenant_model.dart';
 import 'package:payrent_business/models/mandate_model.dart';
 import 'package:payrent_business/models/account_information_model.dart';
 import 'package:payrent_business/screens/landlord/mandate/create_mandate_page.dart';
+import 'package:payrent_business/screens/landlord/mandate/new_create_mandate_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/edit_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/tenant_detail_page.dart';
@@ -1409,7 +1410,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => CreateMandatePage(
+                  builder: (context) => NewCreateMandatePage(
                     unit: unit,
                     tenantDoc: tenantDoc,
                     landlordAccountInfo: _landlordAccountInfo!,
@@ -1459,200 +1460,200 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
     );
   }
 
-  void _showCreateMandateDialog(
-    PropertyUnitModel unit,
-    DocumentSnapshot tenantDoc,
-  ) {
-    final tenantData = tenantDoc.data() as Map<String, dynamic>;
+  // void _showCreateMandateDialog(
+  //   PropertyUnitModel unit,
+  //   DocumentSnapshot tenantDoc,
+  // ) {
+  //   final tenantData = tenantDoc.data() as Map<String, dynamic>;
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'Create Mandate',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'This will create a payment mandate between:',
-                style: GoogleFonts.poppins(fontSize: 14),
-              ),
-              const SizedBox(height: 16),
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: Text(
+  //         'Create Mandate',
+  //         style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+  //       ),
+  //       content: SingleChildScrollView(
+  //         child: Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Text(
+  //               'This will create a payment mandate between:',
+  //               style: GoogleFonts.poppins(fontSize: 14),
+  //             ),
+  //             const SizedBox(height: 16),
 
-              // Landlord Account Info
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Landlord Account (Receiver)',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.blue,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Name: ${_landlordAccountInfo!.accountHolderName}'),
-                    Text('Account: ${_landlordAccountInfo!.accountNumber}'),
-                    Text('Bank: ${_landlordAccountInfo!.bankBic}'),
-                    Text('Branch: ${_landlordAccountInfo!.branchCode}'),
-                  ],
-                ),
-              ),
+  //             // Landlord Account Info
+  //             Container(
+  //               padding: const EdgeInsets.all(12),
+  //               decoration: BoxDecoration(
+  //                 color: Colors.blue.withOpacity(0.1),
+  //                 borderRadius: BorderRadius.circular(8),
+  //                 border: Border.all(color: Colors.blue.withOpacity(0.3)),
+  //               ),
+  //               child: Column(
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   Text(
+  //                     'Landlord Account (Receiver)',
+  //                     style: GoogleFonts.poppins(
+  //                       fontWeight: FontWeight.w600,
+  //                       color: Colors.blue,
+  //                       fontSize: 12,
+  //                     ),
+  //                   ),
+  //                   const SizedBox(height: 8),
+  //                   Text('Name: ${_landlordAccountInfo!.accountHolderName}'),
+  //                   Text('Account: ${_landlordAccountInfo!.accountNumber}'),
+  //                   Text('Bank: ${_landlordAccountInfo!.bankBic}'),
+  //                   Text('Branch: ${_landlordAccountInfo!.branchCode}'),
+  //                 ],
+  //               ),
+  //             ),
 
-              const SizedBox(height: 12),
+  //             const SizedBox(height: 12),
 
-              // Tenant Account Info
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tenant Account (Payer)',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Name: ${tenantData['db_account_holder_name']}'),
-                    Text('Account: ${tenantData['db_account_number']}'),
-                    Text('Bank: ${tenantData['db_bank_bic']}'),
-                    Text('Branch: ${tenantData['db_branch_code']}'),
-                  ],
-                ),
-              ),
+  //             // Tenant Account Info
+  //             Container(
+  //               padding: const EdgeInsets.all(12),
+  //               decoration: BoxDecoration(
+  //                 color: Colors.green.withOpacity(0.1),
+  //                 borderRadius: BorderRadius.circular(8),
+  //                 border: Border.all(color: Colors.green.withOpacity(0.3)),
+  //               ),
+  //               child: Column(
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   Text(
+  //                     'Tenant Account (Payer)',
+  //                     style: GoogleFonts.poppins(
+  //                       fontWeight: FontWeight.w600,
+  //                       color: Colors.green,
+  //                       fontSize: 12,
+  //                     ),
+  //                   ),
+  //                   const SizedBox(height: 8),
+  //                   Text('Name: ${tenantData['db_account_holder_name']}'),
+  //                   Text('Account: ${tenantData['db_account_number']}'),
+  //                   Text('Bank: ${tenantData['db_bank_bic']}'),
+  //                   Text('Branch: ${tenantData['db_branch_code']}'),
+  //                 ],
+  //               ),
+  //             ),
 
-              const SizedBox(height: 16),
+  //             const SizedBox(height: 16),
 
-              // Payment Details
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Payment Details',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.orange,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Amount: \$${unit.rent}'),
-                    Text(
-                      'Frequency: ${tenantData['paymentFrequency'] ?? 'Monthly'}',
-                    ),
-                    Text('Unit: ${unit.unitNumber}'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _createMandate(unit, tenantDoc);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-            ),
-            child: Text('Create Mandate'),
-          ),
-        ],
-      ),
-    );
-  }
+  //             // Payment Details
+  //             Container(
+  //               padding: const EdgeInsets.all(12),
+  //               decoration: BoxDecoration(
+  //                 color: Colors.orange.withOpacity(0.1),
+  //                 borderRadius: BorderRadius.circular(8),
+  //                 border: Border.all(color: Colors.orange.withOpacity(0.3)),
+  //               ),
+  //               child: Column(
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   Text(
+  //                     'Payment Details',
+  //                     style: GoogleFonts.poppins(
+  //                       fontWeight: FontWeight.w600,
+  //                       color: Colors.orange,
+  //                       fontSize: 12,
+  //                     ),
+  //                   ),
+  //                   const SizedBox(height: 8),
+  //                   Text('Amount: \$${unit.rent}'),
+  //                   Text(
+  //                     'Frequency: ${tenantData['paymentFrequency'] ?? 'Monthly'}',
+  //                   ),
+  //                   Text('Unit: ${unit.unitNumber}'),
+  //                 ],
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: Text('Cancel'),
+  //         ),
+  //         ElevatedButton(
+  //           onPressed: () async {
+  //             Navigator.pop(context);
+  //             await _createMandate(unit, tenantDoc);
+  //           },
+  //           style: ElevatedButton.styleFrom(
+  //             backgroundColor: AppTheme.primaryColor,
+  //             foregroundColor: Colors.white,
+  //           ),
+  //           child: Text('Create Mandate'),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-  Future<void> _createMandate(
-    PropertyUnitModel unit,
-    DocumentSnapshot tenantDoc,
-  ) async {
-    try {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-      if (userId == null) throw Exception('User not logged in');
+  // Future<void> _createMandate(
+  //   PropertyUnitModel unit,
+  //   DocumentSnapshot tenantDoc,
+  // ) async {
+  //   try {
+  //     final userId = FirebaseAuth.instance.currentUser?.uid;
+  //     if (userId == null) throw Exception('User not logged in');
 
-      final tenantData = tenantDoc.data() as Map<String, dynamic>;
+  //     final tenantData = tenantDoc.data() as Map<String, dynamic>;
 
-      final mandate = MandateModel(
-        landlordId: userId,
-        tenantId: tenantDoc.id,
-        propertyId: widget.propertyId,
-        unitId: unit.unitId,
-        landlordAccountHolderName: _landlordAccountInfo!.accountHolderName,
-        landlordAccountNumber: _landlordAccountInfo!.accountNumber,
-        landlordIdType: _landlordAccountInfo!.idType.value,
-        landlordIdNumber: _landlordAccountInfo!.idNumber,
-        landlordBankBic: _landlordAccountInfo!.bankBic,
-        landlordBranchCode: _landlordAccountInfo!.branchCode,
-        tenantAccountHolderName: tenantData['db_account_holder_name'],
-        tenantAccountNumber: tenantData['db_account_number'],
-        tenantIdType: tenantData['db_id_type'],
-        tenantIdNumber: tenantData['db_id_number'],
-        tenantBankBic: tenantData['db_bank_bic'],
-        tenantBranchCode: tenantData['db_branch_code'],
-        rentAmount: unit.rent,
-        paymentFrequency: tenantData['paymentFrequency'] ?? 'monthly',
-        startDate: DateTime.now(),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+  //     final mandate = MandateModel(
+  //       landlordId: userId,
+  //       tenantId: tenantDoc.id,
+  //       propertyId: widget.propertyId,
+  //       unitId: unit.unitId,
+  //       landlordAccountHolderName: _landlordAccountInfo!.accountHolderName,
+  //       landlordAccountNumber: _landlordAccountInfo!.accountNumber,
+  //       landlordIdType: _landlordAccountInfo!.idType.value,
+  //       landlordIdNumber: _landlordAccountInfo!.idNumber,
+  //       landlordBankBic: _landlordAccountInfo!.bankBic,
+  //       landlordBranchCode: _landlordAccountInfo!.branchCode,
+  //       tenantAccountHolderName: tenantData['db_account_holder_name'],
+  //       tenantAccountNumber: tenantData['db_account_number'],
+  //       tenantIdType: tenantData['db_id_type'],
+  //       tenantIdNumber: tenantData['db_id_number'],
+  //       tenantBankBic: tenantData['db_bank_bic'],
+  //       tenantBranchCode: tenantData['db_branch_code'],
+  //       rentAmount: unit.rent,
+  //       paymentFrequency: tenantData['paymentFrequency'] ?? 'monthly',
+  //       startDate: DateTime.now(),
+  //       createdAt: DateTime.now(),
+  //       updatedAt: DateTime.now(),
+  //     );
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('mandates')
-          .add(mandate.toFirestore());
+  //     await FirebaseFirestore.instance
+  //         .collection('users')
+  //         .doc(userId)
+  //         .collection('mandates')
+  //         .add(mandate.toFirestore());
 
-      // Refresh data to show updated mandate status
-      await _fetchPropertyData();
+  //     // Refresh data to show updated mandate status
+  //     await _fetchPropertyData();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Mandate created successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error creating mandate: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text('Mandate created successfully'),
+  //         backgroundColor: Colors.green,
+  //       ),
+  //     );
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text('Error creating mandate: $e'),
+  //         backgroundColor: Colors.red,
+  //       ),
+  //     );
+  //   }
+  // }
 
   Future<void> _fetchProperties() async {
     setState(() {

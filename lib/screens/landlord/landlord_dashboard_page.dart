@@ -10,11 +10,13 @@ import 'package:payrent_business/controllers/payment_controller.dart';
 import 'package:payrent_business/controllers/property_controller.dart';
 import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
+import 'package:payrent_business/controllers/mandate_controller.dart';
 import 'package:payrent_business/screens/landlord/earnings/earning_details_page.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_summary_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/bulk_upload_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/add_tenant_page.dart';
+import 'package:payrent_business/screens/landlord/mandate/mandate_status_page.dart';
 import 'package:payrent_business/widgets/action_button.dart';
 import 'package:payrent_business/widgets/custom_card.dart';
 import 'package:payrent_business/widgets/stat_card.dart';
@@ -31,14 +33,17 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
   late TabController _chartTabController;
   int _selectedChartPeriod = 1; // 0: 1 month, 1: 3 months, 2: 6 months
   int _selectedTimeFrame = 1; // 0: 3 months, 1: 6 months, 2: 1 year
-  
+
   // Get controllers for Firebase data
   final AuthController _authController = Get.find<AuthController>();
-  final UserProfileController _profileController = Get.put(UserProfileController());
+  final UserProfileController _profileController = Get.put(
+    UserProfileController(),
+  );
   final PropertyController _propertyController = Get.find<PropertyController>();
   final TenantController _tenantController = Get.find<TenantController>();
   final PaymentController _paymentController = Get.find<PaymentController>();
-  
+  final MandateController _mandateController = Get.find<MandateController>();
+
   // Track if initial data is loaded
 
   @override
@@ -47,23 +52,22 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
     _chartTabController = TabController(length: 3, vsync: this);
     _loadDashboardData();
   }
-  
+
   Future<void> _loadDashboardData() async {
     try {
       await _profileController.getUserProfile();
-      
+
       // Load properties, tenants and payments data in parallel for better performance
       await Future.wait([
         _propertyController.fetchProperties(),
         _tenantController.fetchTenants(),
         _paymentController.fetchPayments(),
       ]);
-      
+
       print('Dashboard data loaded successfully');
       print('Properties: ${_propertyController.propertyCount}');
       print('Tenants: ${_tenantController.tenantCount}');
       print('Payments: ${_paymentController.payments.length}');
-      
     } catch (e) {
       print('Error loading dashboard data: $e');
     }
@@ -126,11 +130,9 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
         },
         child: Obx(() {
           if (_profileController.isLoading.value) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
-          
+
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.all(16),
@@ -155,12 +157,14 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Obx(() => Text(
-                        _profileController.name.value,
-                        style: context.bodyLarge.copyWith(
-                          fontWeight: FontWeight.w600,
+                      Obx(
+                        () => Text(
+                          _profileController.name.value,
+                          style: context.bodyLarge.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      )),
+                      ),
                     ],
                   ),
                 ),
@@ -169,148 +173,152 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
 
                 // Properties at a Glance
                 // Properties at a Glance
-FadeInUp(
-  duration: const Duration(milliseconds: 600),
-  child: CustomCard(
-    title: 'Properties at a Glance',
-    child: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Obx(() {
-        final int totalProperties = _propertyController.propertyCount;
-        
-        // Calculate fully occupied properties
-        int fullyOccupiedProperties = 0;
-        for (var property in _propertyController.properties) {
-          final totalUnits = property['units'].length;
-          if (totalUnits > 0) {
-            final occupiedUnits = property['units']
-                .where((unit) => unit['tenantId'] != null)
-                .length;
-            final isFullyOccupied = occupiedUnits == totalUnits;
-            if (isFullyOccupied) {
-              fullyOccupiedProperties++;
-            }
-          }
-        }
-        
-        final occupancyRate = totalProperties > 0 
-          ? (fullyOccupiedProperties / totalProperties * 100).round()
-          : 0;
-          
-        return Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'You have ',
-                          style: context.bodyMedium.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        TextSpan(
-                          text: '$fullyOccupiedProperties Fully Occupied',
-                          style: context.titleMedium.copyWith(
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                        TextSpan(
-                          text: ' properties out of ',
-                          style: context.bodyMedium.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        TextSpan(
-                          text: '$totalProperties Total',
-                          style: context.titleMedium.copyWith(
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                        TextSpan(
-                          text: ' properties',
-                          style: context.bodyMedium.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
+                FadeInUp(
+                  duration: const Duration(milliseconds: 600),
+                  child: CustomCard(
+                    title: 'Properties at a Glance',
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Obx(() {
+                        final int totalProperties =
+                            _propertyController.propertyCount;
+
+                        // Calculate fully occupied properties
+                        int fullyOccupiedProperties = 0;
+                        for (var property in _propertyController.properties) {
+                          final totalUnits = property['units'].length;
+                          if (totalUnits > 0) {
+                            final occupiedUnits = property['units']
+                                .where((unit) => unit['tenantId'] != null)
+                                .length;
+                            final isFullyOccupied = occupiedUnits == totalUnits;
+                            if (isFullyOccupied) {
+                              fullyOccupiedProperties++;
+                            }
+                          }
+                        }
+
+                        final occupancyRate = totalProperties > 0
+                            ? (fullyOccupiedProperties / totalProperties * 100)
+                                  .round()
+                            : 0;
+
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: RichText(
+                                    text: TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: 'You have ',
+                                          style: context.bodyMedium.copyWith(
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text:
+                                              '$fullyOccupiedProperties Fully Occupied',
+                                          style: context.titleMedium.copyWith(
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: ' properties out of ',
+                                          style: context.bodyMedium.copyWith(
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '$totalProperties Total',
+                                          style: context.titleMedium.copyWith(
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: ' properties',
+                                          style: context.bodyMedium.copyWith(
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Occupancy Progress Bar
+                            Container(
+                              height: 20,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: Colors.grey.shade200,
+                              ),
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    flex: occupancyRate,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            Color(0xFF7869E6),
+                                            Color(0xFF4F287D),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Flexible(
+                                    flex: 100 - occupancyRate,
+                                    child: const SizedBox(),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        '$occupancyRate% fully occupied',
+                                        style: context.bodySmall.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(
+                                        Icons.home_filled,
+                                        color: Color(0xFFFCD34D),
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    '${100 - occupancyRate}% not fully occupied',
+                                    style: context.bodySmall.copyWith(
+                                      color: AppTheme.textLight,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
                     ),
                   ),
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Occupancy Progress Bar
-            Container(
-              height: 20,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                color: Colors.grey.shade200,
-              ),
-              child: Row(
-                children: [
-                  Flexible(
-                    flex: occupancyRate, 
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF7869E6),
-                            Color(0xFF4F287D),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Flexible(
-                    flex: 100 - occupancyRate,
-                    child: const SizedBox(),
-                  ),
-                ],
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        '$occupancyRate% fully occupied',
-                        style: context.bodySmall.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.home_filled,
-                        color: Color(0xFFFCD34D),
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '${100 - occupancyRate}% not fully occupied',
-                    style: context.bodySmall.copyWith(
-                      color: AppTheme.textLight,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      }),
-    ),
-  ),
-),
                 const SizedBox(height: 16),
 
                 // Key Stats Cards
@@ -319,18 +327,24 @@ FadeInUp(
                   child: Row(
                     children: [
                       Expanded(
-                        child: Obx(() => StatCard(
-                          title: 'Total Properties',
-                          value: '${_propertyController.propertyCount}',
-                          icon: Icons.home_outlined,
-                          color: AppTheme.infoColor,
-                        )),
+                        child: Obx(
+                          () => StatCard(
+                            title: 'Total Properties',
+                            value: '${_propertyController.propertyCount}',
+                            icon: Icons.home_outlined,
+                            color: AppTheme.infoColor,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Obx(() {
-                          final totalEarnings = _paymentController.getTotalCollectedPayments();
-                          final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                          final totalEarnings = _paymentController
+                              .getTotalCollectedPayments();
+                          final formatter = NumberFormat.currency(
+                            symbol: '\$',
+                            decimalDigits: 0,
+                          );
                           return StatCard(
                             title: 'Total Earnings',
                             value: formatter.format(totalEarnings),
@@ -355,13 +369,18 @@ FadeInUp(
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const PaymentSummaryPage(),
+                                builder: (context) =>
+                                    const PaymentSummaryPage(),
                               ),
                             );
                           },
                           child: Obx(() {
-                            final dueRent = _paymentController.getTotalPendingPayments();
-                            final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                            final dueRent = _paymentController
+                                .getTotalPendingPayments();
+                            final formatter = NumberFormat.currency(
+                              symbol: '\$',
+                              decimalDigits: 0,
+                            );
                             return StatCard(
                               title: 'Due Rent',
                               value: formatter.format(dueRent),
@@ -378,13 +397,18 @@ FadeInUp(
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const PaymentSummaryPage(),
+                                builder: (context) =>
+                                    const PaymentSummaryPage(),
                               ),
                             );
                           },
                           child: Obx(() {
-                            final overdueRent = _paymentController.getTotalOverduePayments();
-                            final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                            final overdueRent = _paymentController
+                                .getTotalOverduePayments();
+                            final formatter = NumberFormat.currency(
+                              symbol: '\$',
+                              decimalDigits: 0,
+                            );
                             return StatCard(
                               title: 'Overdue Rent',
                               value: formatter.format(overdueRent),
@@ -399,7 +423,7 @@ FadeInUp(
                 ),
 
                 const SizedBox(height: 8),
-                
+
                 // View All Payments Button
                 Align(
                   alignment: Alignment.centerRight,
@@ -450,9 +474,8 @@ FadeInUp(
                                 ),
                                 indicatorSize: TabBarIndicatorSize
                                     .tab, // indicator fills tab width
-                                indicatorColor:
-                                    Colors.transparent,
-                                    dividerColor: Colors.transparent,
+                                indicatorColor: Colors.transparent,
+                                dividerColor: Colors.transparent,
                                 labelColor: Colors.white,
                                 unselectedLabelColor: AppTheme.textSecondary,
                                 tabs: const [
@@ -476,9 +499,13 @@ FadeInUp(
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: Obx(() {
-                            final totalEarnings = _paymentController.getTotalCollectedPayments();
-                            final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
-                            
+                            final totalEarnings = _paymentController
+                                .getTotalCollectedPayments();
+                            final formatter = NumberFormat.currency(
+                              symbol: '\$',
+                              decimalDigits: 0,
+                            );
+
                             return Row(
                               children: [
                                 const Icon(
@@ -494,7 +521,10 @@ FadeInUp(
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Text('You have earned', style: context.bodyMedium),
+                                Text(
+                                  'You have earned',
+                                  style: context.bodyMedium,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   formatter.format(totalEarnings),
@@ -513,10 +543,15 @@ FadeInUp(
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: Obx(() {
-                            final dueRent = _paymentController.getTotalPendingPayments();
-                            final overdueRent = _paymentController.getTotalOverduePayments();
-                            final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
-                            
+                            final dueRent = _paymentController
+                                .getTotalPendingPayments();
+                            final overdueRent = _paymentController
+                                .getTotalOverduePayments();
+                            final formatter = NumberFormat.currency(
+                              symbol: '\$',
+                              decimalDigits: 0,
+                            );
+
                             return Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -560,10 +595,17 @@ FadeInUp(
                           child: Padding(
                             padding: const EdgeInsets.only(right: 16.0),
                             child: Obx(() {
-                              final paymentChartData = _paymentController.getChartData(
-                                months: _selectedTimeFrame == 0 ? 3 : _selectedTimeFrame == 1 ? 6 : 12,
+                              final paymentChartData = _paymentController
+                                  .getChartData(
+                                    months: _selectedTimeFrame == 0
+                                        ? 3
+                                        : _selectedTimeFrame == 1
+                                        ? 6
+                                        : 12,
+                                  );
+                              return LineChart(
+                                _createLineChartData(paymentChartData),
                               );
-                              return LineChart(_createLineChartData(paymentChartData));
                             }),
                           ),
                         ),
@@ -619,12 +661,17 @@ FadeInUp(
                       padding: const EdgeInsets.all(16.0),
                       child: Obx(() {
                         // Get counts from controllers
-                        final rentalApplications = _paymentController.rentalApplicationCount;
-                        final tenantRequests = _tenantController.tenantCount > 0 ? 
-                            _tenantController.tenantCount ~/ 2 : 0; // Placeholder logic
-                        final expiringLeases = _tenantController.getTenantsWithExpiringLeases().length;
-                        final overdueProperties = _paymentController.getOverduePropertiesCount();
-                        
+                        final rentalApplications =
+                            _paymentController.rentalApplicationCount;
+                        final tenantRequests = _tenantController.tenantCount > 0
+                            ? _tenantController.tenantCount ~/ 2
+                            : 0; // Placeholder logic
+                        final expiringLeases = _tenantController
+                            .getTenantsWithExpiringLeases()
+                            .length;
+                        final overdueProperties = _paymentController
+                            .getOverduePropertiesCount();
+
                         return Column(
                           children: [
                             _buildStatusItem(
@@ -669,6 +716,14 @@ FadeInUp(
 
                 const SizedBox(height: 24),
 
+                // My Mandates Section
+                FadeInUp(
+                  duration: const Duration(milliseconds: 1050),
+                  child: _buildMyMandatesCard(),
+                ),
+
+                const SizedBox(height: 24),
+
                 // Quick Actions
                 FadeInUp(
                   duration: const Duration(milliseconds: 1100),
@@ -688,7 +743,8 @@ FadeInUp(
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const AddPropertyPage(),
+                                    builder: (context) =>
+                                        const AddPropertyPage(),
                                   ),
                                 ),
                               ),
@@ -710,7 +766,8 @@ FadeInUp(
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const BulkUploadPage(),
+                                    builder: (context) =>
+                                        const BulkUploadPage(),
                                   ),
                                 ),
                               ),
@@ -826,6 +883,293 @@ FadeInUp(
     );
   }
 
+  Widget _buildMyMandatesCard() {
+    return CustomCard(
+      title: 'My Mandates',
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Obx(() {
+          if (_mandateController.isLoading) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20.0),
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
+          if (_mandateController.mandates.isEmpty) {
+            return Column(
+              children: [
+                Icon(
+                  Icons.account_balance_wallet_outlined,
+                  size: 48,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'No mandates created yet',
+                  style: context.bodyMedium.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Navigate to create mandate page
+                      // You can implement navigation to a list of properties/tenants
+                      // to select for mandate creation
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Create Your First Mandate',
+                      style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+
+          // Show mandate cards
+          final activeMandates = _mandateController.getActiveMandates();
+          final pendingMandates = _mandateController.getPendingMandates();
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Stats Row
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMandateStatCard(
+                      'Active',
+                      activeMandates.length.toString(),
+                      Colors.green,
+                      Colors.green.shade50,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildMandateStatCard(
+                      'Pending',
+                      pendingMandates.length.toString(),
+                      Colors.orange,
+                      Colors.orange.shade50,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildMandateStatCard(
+                      'Total',
+                      _mandateController.mandateCount.toString(),
+                      Colors.blue,
+                      Colors.blue.shade50,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Recent Mandates List (show up to 3)
+              if (_mandateController.mandates.isNotEmpty) ...[
+                Text(
+                  'Recent Mandates',
+                  style: context.titleSmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...(_mandateController.mandates.take(3).map((mandate) {
+                  return _buildMandateListItem(mandate);
+                })),
+
+                const SizedBox(height: 12),
+
+                // View All Button
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      // Navigate to mandate list page
+                      // You'll create this page next
+                    },
+                    child: const Text('View All Mandates'),
+                  ),
+                ),
+              ],
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildMandateStatCard(
+    String title,
+    String count,
+    Color color,
+    Color bgColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Text(
+            count,
+            style: context.titleLarge.copyWith(
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: context.bodySmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMandateListItem(mandate) {
+    final statusColor = _getMandateStatusColor(mandate.mmsStatus);
+
+    return GestureDetector(
+      onTap: () {
+        if (mandate.id != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MandateStatusPage(mandateId: mandate.id!),
+            ),
+          );
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.account_balance_wallet,
+                color: statusColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    mandate.tenantAccountHolderName,
+                    style: context.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '\$${mandate.rentAmount} × ${mandate.noOfInstallments} payments',
+                    style: context.bodySmall.copyWith(
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                mandate.mmsStatus ?? 'PENDING',
+                style: context.bodySmall.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                // Navigate to mandate details/view status page
+                if (mandate.id != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          MandateStatusPage(mandateId: mandate.id!),
+                    ),
+                  );
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(
+                  Icons.visibility,
+                  color: AppTheme.primaryColor,
+                  size: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getMandateStatusColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'accepted':
+        return Colors.green;
+      case 'pending':
+        return Colors.orange;
+      case 'rejected':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   Widget _buildStatusItem({
     required IconData icon,
     required Color iconColor,
@@ -913,19 +1257,23 @@ FadeInUp(
                 color: AppTheme.textSecondary,
                 fontSize: 10,
               );
-              
+
               // Get month name based on current date minus months
               final now = DateTime.now();
-              final month = now.month - (6 - value.toInt()); // Adjust according to your data points
+              final month =
+                  now.month -
+                  (6 - value.toInt()); // Adjust according to your data points
               String text;
-              
+
               if (month <= 0) {
                 // Handle previous year months
-                text = DateFormat('MMM').format(DateTime(now.year - 1, month + 12, 1));
+                text = DateFormat(
+                  'MMM',
+                ).format(DateTime(now.year - 1, month + 12, 1));
               } else {
                 text = DateFormat('MMM').format(DateTime(now.year, month, 1));
               }
-              
+
               return Text(text, style: style);
             },
           ),
