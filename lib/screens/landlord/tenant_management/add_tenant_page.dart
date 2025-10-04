@@ -506,11 +506,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
                     ),
                     child: Ink(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: AppTheme.primaryGradient,
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
+                        gradient:  AppTheme.primaryGradient,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Container(

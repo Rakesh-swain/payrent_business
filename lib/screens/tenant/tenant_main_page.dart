@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:get/get.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/controllers/theme_controller.dart';
 import 'package:payrent_business/screens/tenant/tenant_dashboard_page.dart';
-import 'package:payrent_business/screens/tenant/tenant_properties_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_payments_page.dart';
-import 'package:payrent_business/screens/tenant/tenant_maintenance_page.dart';
-import 'package:payrent_business/screens/tenant/tenant_profile_page.dart';
+import 'package:payrent_business/screens/tenant/tenant_properties_page.dart';
+import 'package:payrent_business/screens/tenant/maintenance_request/maintenance_request_page.dart';
+import 'package:payrent_business/screens/profile/user_profile_page.dart';
+import 'package:payrent_business/widgets/modern_bottom_nav.dart';
 
 class TenantMainPage extends StatefulWidget {
   const TenantMainPage({super.key});
@@ -21,8 +24,8 @@ class _TenantMainPageState extends State<TenantMainPage> {
     const TenantDashboardPage(),
     const TenantPropertiesPage(),
     const TenantPaymentsPage(),
-    const TenantMaintenancePage(),
-    const TenantProfilePage(),
+    const MaintenanceRequestPage(),
+    const UserProfilePage(isLandlord: false),
   ];
 
   final List<String> _titles = [
@@ -35,67 +38,68 @@ class _TenantMainPageState extends State<TenantMainPage> {
   
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: AppTheme.primaryColor,
-          unselectedItemColor: Colors.grey,
-          selectedLabelStyle: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+    return GetBuilder<ThemeController>(
+      builder: (themeController) {
+        final isDark = themeController.isDarkMode;
+        
+        return Scaffold(
+          backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,
+          body: Stack(
+            children: [
+              // Main content with animated page transitions
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.1, 0),
+                      end: Offset.zero,
+                    ).animate(CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    )),
+                    child: FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Container(
+                  key: ValueKey<int>(_selectedIndex),
+                  child: _pages[_selectedIndex],
+                ),
+              ),
+              
+              // Modern bottom navigation overlay
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: ModernBottomNav(
+                  currentIndex: _selectedIndex,
+                  items: TenantBottomNavItems.items,
+                  onTap: (index) {
+                    setState(() {
+                      _selectedIndex = index;
+                    });
+                  },
+                ).animate()
+                  .slideY(
+                    begin: 1,
+                    end: 0,
+                    duration: 600.ms,
+                    delay: 300.ms,
+                    curve: Curves.easeOutCubic,
+                  )
+                  .fadeIn(
+                    duration: 500.ms,
+                    delay: 300.ms,
+                  ),
+              ),
+            ],
           ),
-          unselectedLabelStyle: GoogleFonts.poppins(
-            fontSize: 12,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
-              activeIcon: Icon(Icons.dashboard),
-              label: 'Dashboard',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Properties',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.payment_outlined),
-              activeIcon: Icon(Icons.payment),
-              label: 'Payments',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.build_outlined),
-              activeIcon: Icon(Icons.build),
-              label: 'Maintenance',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
-          elevation: 0,
-        ),
-      ),
+        );
+      },
     );
   }
 }

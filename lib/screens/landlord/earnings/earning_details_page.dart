@@ -233,11 +233,7 @@ class _EarningsDetailPageState extends State<EarningsDetailPage> with SingleTick
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: AppTheme.primaryGradient,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient:  AppTheme.primaryGradient,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
