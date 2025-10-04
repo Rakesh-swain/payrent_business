@@ -99,6 +99,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
         ],
       ),
       body: SingleChildScrollView(
+        physics: BouncingScrollPhysics(),
         padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,7 +183,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                           ],
                         )
                       : Text(
-                          'Update Status from API',
+                          'Update Status',
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,

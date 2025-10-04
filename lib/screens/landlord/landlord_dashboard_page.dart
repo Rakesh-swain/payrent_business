@@ -12,6 +12,7 @@ import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/controllers/mandate_controller.dart';
 import 'package:payrent_business/screens/landlord/earnings/earning_details_page.dart';
+import 'package:payrent_business/screens/landlord/mandate/mandate_list_page.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_summary_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/bulk_upload_page.dart';
@@ -1001,8 +1002,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
-                      // Navigate to mandate list page
-                      // You'll create this page next
+                     Get.to(MandateListPage());
                     },
                     child: const Text('View All Mandates'),
                   ),
