@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/mandate_controller.dart';
+import 'package:payrent_business/extensions/context_extension.dart';
 import 'package:payrent_business/models/mandate_model.dart';
 import 'mandate_status_page.dart';
 

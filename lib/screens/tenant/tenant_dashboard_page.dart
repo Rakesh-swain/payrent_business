@@ -128,12 +128,16 @@ class _TenantDashboardPageState extends State<TenantDashboardPage> {
                             size: 24,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'Good ${_getGreeting()}, $_tenantName!',
-                            style: GoogleFonts.poppins(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary,
+                          Expanded(
+                            child: Text(
+                              'Good ${_getGreeting()}, $_tenantName!',
+                              style: GoogleFonts.poppins(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimary,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 2,
                             ),
                           ),
                         ],

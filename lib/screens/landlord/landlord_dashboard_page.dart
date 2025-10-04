@@ -11,6 +11,7 @@ import 'package:payrent_business/controllers/property_controller.dart';
 import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/controllers/mandate_controller.dart';
+import 'package:payrent_business/extensions/context_extension.dart';
 import 'package:payrent_business/screens/landlord/earnings/earning_details_page.dart';
 import 'package:payrent_business/screens/landlord/mandate/mandate_list_page.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_summary_page.dart';
@@ -151,19 +152,31 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                         size: 24,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Good Morning,',
-                        style: context.bodyLarge.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Obx(
-                        () => Text(
-                          _profileController.name.value,
-                          style: context.bodyLarge.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Good Morning,',
+                                style: context.bodyLarge.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Obx(
+                                () => Text(
+                                  _profileController.name.value,
+                                  style: context.bodyLarge.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -289,26 +302,36 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        '$occupancyRate% fully occupied',
-                                        style: context.bodySmall.copyWith(
-                                          fontWeight: FontWeight.w600,
+                                  Flexible(
+                                    child: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            '$occupancyRate% fully occupied',
+                                            style: context.bodySmall.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Icon(
-                                        Icons.home_filled,
-                                        color: Color(0xFFFCD34D),
-                                        size: 16,
-                                      ),
-                                    ],
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.home_filled,
+                                          color: Color(0xFFFCD34D),
+                                          size: 16,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  Text(
-                                    '${100 - occupancyRate}% not fully occupied',
-                                    style: context.bodySmall.copyWith(
-                                      color: AppTheme.textLight,
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      '${100 - occupancyRate}% not fully occupied',
+                                      style: context.bodySmall.copyWith(
+                                        color: AppTheme.textLight,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.end,
                                     ),
                                   ),
                                 ],
@@ -515,22 +538,28 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                                   size: 20,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'Great!',
-                                  style: context.titleSmall.copyWith(
-                                    color: AppTheme.successColor,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'You have earned',
-                                  style: context.bodyMedium,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  formatter.format(totalEarnings),
-                                  style: context.titleMedium.copyWith(
-                                    color: AppTheme.successColor,
+                                Expanded(
+                                  child: Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 4,
+                                    children: [
+                                      Text(
+                                        'Great!',
+                                        style: context.titleSmall.copyWith(
+                                          color: AppTheme.successColor,
+                                        ),
+                                      ),
+                                      Text(
+                                        'You have earned',
+                                        style: context.bodyMedium,
+                                      ),
+                                      Text(
+                                        formatter.format(totalEarnings),
+                                        style: context.titleMedium.copyWith(
+                                          color: AppTheme.successColor,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
