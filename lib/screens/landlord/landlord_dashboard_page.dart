@@ -322,35 +322,64 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                 ),
                 const SizedBox(height: 16),
 
-                // Key Stats Cards
+                // Total Balance - Hero Card with Gradient
                 FadeInUp(
                   duration: const Duration(milliseconds: 700),
+                  child: Obx(() {
+                    final totalEarnings = _paymentController.getTotalCollectedPayments();
+                    final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                    
+                    return StatCard(
+                      title: 'Total Balance',
+                      value: formatter.format(totalEarnings),
+                      icon: Icons.account_balance_wallet,
+                      isGradient: true,
+                      subtitle: '+12% from last month',
+                    );
+                  }),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Key Stats Cards - Color Coded
+                FadeInUp(
+                  duration: const Duration(milliseconds: 750),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Obx(
-                          () => StatCard(
-                            title: 'Total Properties',
-                            value: '${_propertyController.propertyCount}',
-                            icon: Icons.home_outlined,
-                            color: AppTheme.infoColor,
-                          ),
-                        ),
+                        child: Obx(() {
+                          final totalEarnings = _paymentController.getTotalCollectedPayments();
+                          final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                          
+                          return StatCard(
+                            title: 'Income',
+                            value: formatter.format(totalEarnings),
+                            icon: Icons.trending_up,
+                            color: AppTheme.accentGreen,
+                          );
+                        }),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Obx(() {
-                          final totalEarnings = _paymentController
-                              .getTotalCollectedPayments();
-                          final formatter = NumberFormat.currency(
-                            symbol: '\$',
-                            decimalDigits: 0,
-                          );
-                          return StatCard(
-                            title: 'Total Earnings',
-                            value: formatter.format(totalEarnings),
-                            icon: Icons.attach_money_outlined,
-                            color: AppTheme.successColor,
+                          final dueRent = _paymentController.getTotalPendingPayments();
+                          final formatter = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+                          
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const PaymentSummaryPage(),
+                                ),
+                              );
+                            },
+                            child: StatCard(
+                              title: 'Pending',
+                              value: formatter.format(dueRent),
+                              icon: Icons.schedule,
+                              color: AppTheme.accentOrange,
+                            ),
                           );
                         }),
                       ),
@@ -365,30 +394,13 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                   child: Row(
                     children: [
                       Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const PaymentSummaryPage(),
-                              ),
-                            );
-                          },
-                          child: Obx(() {
-                            final dueRent = _paymentController
-                                .getTotalPendingPayments();
-                            final formatter = NumberFormat.currency(
-                              symbol: '\$',
-                              decimalDigits: 0,
-                            );
-                            return StatCard(
-                              title: 'Due Rent',
-                              value: formatter.format(dueRent),
-                              icon: Icons.calendar_today_outlined,
-                              color: AppTheme.warningColor,
-                            );
-                          }),
+                        child: Obx(
+                          () => StatCard(
+                            title: 'Properties',
+                            value: '${_propertyController.propertyCount}',
+                            icon: Icons.home,
+                            color: AppTheme.infoColor,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),

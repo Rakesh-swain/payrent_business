@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
@@ -83,22 +84,28 @@ class _TenantDashboardPageState extends State<TenantDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Get.isDarkMode;
+    
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: isDark ? AppTheme.backgroundDark : AppTheme.backgroundLight,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           'Dashboard',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.inter(
             fontSize: 24,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : AppTheme.textPrimary,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined, size: 28),
+            icon: Icon(
+              Icons.notifications_outlined, 
+              size: 28,
+              color: isDark ? Colors.white70 : AppTheme.textPrimary,
+            ),
             onPressed: () {
               // Handle notifications
             },
@@ -153,43 +160,72 @@ class _TenantDashboardPageState extends State<TenantDashboardPage> {
                     ),
                     const SizedBox(height: 24),
                     
-                    // Stat Cards
+                    // Total Balance Hero Card
+                    FadeInUp(
+                      duration: const Duration(milliseconds: 600),
+                      delay: const Duration(milliseconds: 200),
+                      child: StatCard(
+                        title: 'Total Rent',
+                        value: currencyFormat.format(_dashboardStats['totalRentAmount']),
+                        subtitle: 'Monthly Payment',
+                        icon: Icons.account_balance_wallet_outlined,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF6C63FF), Color(0xFF5A52D5)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Stats Grid
                     FadeInUp(
                       duration: const Duration(milliseconds: 700),
-                      delay: const Duration(milliseconds: 200),
-                      child: GridView.count(
-                        crossAxisCount: 2,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 1.5,
+                      delay: const Duration(milliseconds: 300),
+                      child: Row(
                         children: [
-                          StatCard(
-                            title: 'Total Rent',
-                            value: currencyFormat.format(_dashboardStats['totalRentAmount']),
-                            icon: Icons.account_balance_wallet_outlined,
-                            color: AppTheme.primaryColor,
+                          Expanded(
+                            child: StatCard(
+                              title: 'Paid',
+                              value: currencyFormat.format(_dashboardStats['amountPaid']),
+                              icon: Icons.check_circle_outline,
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF10B981), Color(0xFF059669)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
                           ),
-                          StatCard(
-                            title: 'Amount Paid',
-                            value: currencyFormat.format(_dashboardStats['amountPaid']),
-                            icon: Icons.check_circle_outline,
-                            color: const Color(0xFF10B981),
-                          ),
-                          StatCard(
-                            title: 'Amount Due',
-                            value: currencyFormat.format(_dashboardStats['amountDue']),
-                            icon: Icons.pending_outlined,
-                            color: const Color(0xFFF59E0B),
-                          ),
-                          StatCard(
-                            title: 'Overdue',
-                            value: currencyFormat.format(_dashboardStats['overdueAmount']),
-                            icon: Icons.warning_amber_rounded,
-                            color: const Color(0xFFEF4444),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: StatCard(
+                              title: 'Due',
+                              value: currencyFormat.format(_dashboardStats['amountDue']),
+                              icon: Icons.pending_outlined,
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
                           ),
                         ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FadeInUp(
+                      duration: const Duration(milliseconds: 700),
+                      delay: const Duration(milliseconds: 400),
+                      child: StatCard(
+                        title: 'Overdue Amount',
+                        value: currencyFormat.format(_dashboardStats['overdueAmount']),
+                        subtitle: 'Requires immediate attention',
+                        icon: Icons.warning_amber_rounded,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 32),

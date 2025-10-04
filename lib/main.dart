@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/screens/landlord/landlord_main_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
@@ -27,15 +28,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       title: 'PayRent Business',
-      theme: ThemeData(
-        primaryColor: const Color(0xFF2D5FFF),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2D5FFF),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Poppins',
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
       initialBinding: ControllerBindings(),
       onInit: (){
         Get.put(UserProfileController());
