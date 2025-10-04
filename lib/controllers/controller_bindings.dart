@@ -7,6 +7,7 @@ import '../controllers/property_controller.dart';
 import '../controllers/tenant_controller.dart';
 import '../controllers/payment_controller.dart';
 import '../controllers/mandate_controller.dart';
+import '../controllers/theme_controller.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
@@ -18,6 +19,9 @@ class ControllerBindings implements Bindings {
     Get.lazyPut<AuthService>(() => AuthService(), fenix: true);
     Get.lazyPut<FirestoreService>(() => FirestoreService(), fenix: true);
     Get.lazyPut<StorageService>(() => StorageService(), fenix: true);
+    
+    // Initialize theme controller (needs to be available globally)
+    Get.put<ThemeController>(ThemeController(), permanent: true);
     
     // Initialize core controllers
     Get.lazyPut<AuthController>(() => AuthController(), fenix: true);
