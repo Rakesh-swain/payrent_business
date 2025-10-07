@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 
 class AddPropertyPage extends StatefulWidget {
@@ -185,7 +186,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoadingIndicator())
           : Form(
               key: _formKey,
               child: SingleChildScrollView(
@@ -471,7 +472,11 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                             ),
                           ),
                           child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const SizedBox(
+                                height: 28,
+                                width: 28,
+                                child: AppLoadingIndicator(size: 28),
+                              )
                             : Text(
                                 'Save Property',
                                 style: GoogleFonts.poppins(

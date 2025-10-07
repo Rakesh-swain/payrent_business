@@ -12,6 +12,7 @@ import '../../../models/property_model.dart';
 import '../../../models/account_information_model.dart';
 import 'installments_bottomsheet.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class NewCreateMandatePage extends StatefulWidget {
   final PropertyUnitModel unit;
@@ -320,7 +321,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                       elevation: 2,
                     ),
                     child: _isLoading
-                        ? CircularProgressIndicator(color: Colors.white)
+                        ? const SizedBox(
+                            height: 28,
+                            width: 28,
+                            child: AppLoadingIndicator(size: 28),
+                          )
                         : Text(
                             'Create Mandate',
                             style: GoogleFonts.poppins(

@@ -9,6 +9,7 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:payrent_business/controllers/phone_auth_controller.dart';
 import 'package:payrent_business/screens/auth/otp_page.dart';
 import 'package:payrent_business/services/tenant_auth_service.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -1168,12 +1169,9 @@ Future<void> _simulateLogin() async {
                   child: Center(
                     child: isLoading
                       ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
+                          height: 28,
+                          width: 28,
+                          child: AppLoadingIndicator(size: 28),
                         )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,

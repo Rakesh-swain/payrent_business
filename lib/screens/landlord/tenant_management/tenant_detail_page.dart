@@ -13,6 +13,7 @@ import 'package:payrent_business/controllers/auth_controller.dart';
 import 'package:payrent_business/models/tenant_model.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/edit_tenant_page.dart';
 import 'package:percent_indicator/linear_percent_indicator.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class TenantDetailPage extends StatefulWidget {
   final String tenantId;
@@ -238,7 +239,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
           elevation: 0,
           title: Text('Tenant Details', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
         ),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: AppLoadingIndicator()),
       );
     }
     

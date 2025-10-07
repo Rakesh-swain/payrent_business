@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class OtpVerificationPage extends StatefulWidget {
   final bool islogin;
@@ -477,12 +478,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
                                     ),
                                     child: phoneAuthController.isLoading.value
                                         ? const SizedBox(
-                                            width: 14,
-                                            height: 14,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Color(0xFF4F287D),
-                                            ),
+                                            width: 20,
+                                            height: 20,
+                                            child: AppLoadingIndicator(size: 20),
                                           )
                                         : Text(
                                             "Resend OTP",
@@ -556,12 +554,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> with CodeAuto
                             child: Center(
                               child: phoneAuthController.isLoading.value
                                   ? const SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
+                                      height: 28,
+                                      width: 28,
+                                      child: AppLoadingIndicator(size: 28),
                                     )
                                   : Row(
                                       mainAxisAlignment: MainAxisAlignment.center,

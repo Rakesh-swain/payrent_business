@@ -7,6 +7,7 @@ import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/services/tenant_auth_service.dart';
 import 'package:payrent_business/screens/tenant/tenant_property_detail_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class TenantPropertiesPage extends StatefulWidget {
   const TenantPropertiesPage({super.key});
@@ -90,7 +91,7 @@ class _TenantPropertiesPageState extends State<TenantPropertiesPage> {
         color: AppTheme.primaryColor,
         onRefresh: _loadProperties,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: AppLoadingIndicator())
             : _assignedProperties.isEmpty
                 ? Center(
                     child: Column(

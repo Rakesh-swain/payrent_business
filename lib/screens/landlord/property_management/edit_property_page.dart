@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class EditPropertyPage extends StatefulWidget {
   final String propertyId;
@@ -149,7 +150,7 @@ class _EditPropertyPageState extends State<EditPropertyPage> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoadingIndicator())
           : Form(
               key: _formKey,
               child: SingleChildScrollView(
@@ -388,13 +389,10 @@ class _EditPropertyPageState extends State<EditPropertyPage> {
                           ),
                         ),
                         child: _isLoading
-                          ? SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
+                          ? const SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: AppLoadingIndicator(size: 28),
                             )
                           : Text(
                               'Save Changes',

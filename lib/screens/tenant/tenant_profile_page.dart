@@ -8,6 +8,7 @@ import 'package:payrent_business/services/tenant_auth_service.dart';
 import 'package:payrent_business/widgets/logout_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class TenantProfilePage extends StatefulWidget {
   const TenantProfilePage({super.key});
@@ -190,7 +191,7 @@ class _TenantProfilePageState extends State<TenantProfilePage> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoadingIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               physics: const BouncingScrollPhysics(),
@@ -407,12 +408,9 @@ class _TenantProfilePageState extends State<TenantProfilePage> {
                               ),
                               child: _isSaving
                                   ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
+                                      height: 26,
+                                      width: 26,
+                                      child: AppLoadingIndicator(size: 26),
                                     )
                                   : Text(
                                       'Save Changes',

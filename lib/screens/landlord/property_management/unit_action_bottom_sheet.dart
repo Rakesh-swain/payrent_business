@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class UnitActionBottomSheet extends StatefulWidget {
   final String propertyId;
@@ -668,12 +669,9 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 ),
                 child: _isLoading
                     ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                        width: 26,
+                        height: 26,
+                        child: const AppLoadingIndicator(size: 26),
                       )
                     : Text('Save Changes', style: TextStyle(color: Colors.white)),
               ),
@@ -905,12 +903,9 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 ),
                 child: _isLoading
                     ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                        width: 26,
+                        height: 26,
+                        child: const AppLoadingIndicator(size: 26),
                       )
                     : Text('Assign Tenant',style: TextStyle(color: Colors.white),),
               ),

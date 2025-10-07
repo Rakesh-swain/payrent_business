@@ -7,6 +7,7 @@ import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/models/account_information_model.dart';
 import 'package:payrent_business/services/branch_service.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class AddTenantPage extends StatefulWidget {
   final String? propertyId; // Retained for potential future use
@@ -506,7 +507,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
                     ),
                     child: Ink(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient:  LinearGradient(
                           colors: AppTheme.primaryGradient,
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
@@ -519,12 +520,9 @@ class _AddTenantPageState extends State<AddTenantPage> {
                         alignment: Alignment.center,
                         child: _isSaving
                             ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
+                                width: 28,
+                                height: 28,
+                                child: AppLoadingIndicator(size: 28),
                               )
                             : Text(
                                 'Add Tenant',

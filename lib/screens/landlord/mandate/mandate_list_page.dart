@@ -5,6 +5,7 @@ import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/mandate_controller.dart';
 import 'package:payrent_business/models/mandate_model.dart';
 import 'mandate_status_page.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class MandateListPage extends StatelessWidget {
   final MandateController _mandateController = Get.find<MandateController>();
@@ -137,7 +138,7 @@ class MandateListPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Obx(() {
           if (_mandateController.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: AppLoadingIndicator());
           }
 
           final mandates = _mandateController.mandates;

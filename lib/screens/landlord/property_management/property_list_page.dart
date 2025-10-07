@@ -13,6 +13,7 @@ import 'package:payrent_business/screens/landlord/property_management/edit_prope
 import 'package:payrent_business/screens/landlord/property_management/property_detail_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_details_page.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class PropertyListPage extends StatefulWidget {
   const PropertyListPage({Key? key}) : super(key: key);
@@ -655,7 +656,7 @@ Future<void> deleteProperty({
           // Property List
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: AppLoadingIndicator())
                 : _errorMessage != null
                 ? _buildErrorView()
                 : _filteredProperties.isEmpty

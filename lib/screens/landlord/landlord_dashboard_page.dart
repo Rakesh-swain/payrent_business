@@ -21,6 +21,7 @@ import 'package:payrent_business/screens/landlord/mandate/mandate_status_page.da
 import 'package:payrent_business/widgets/action_button.dart';
 import 'package:payrent_business/widgets/custom_card.dart';
 import 'package:payrent_business/widgets/stat_card.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class LandlordDashboardPage extends StatefulWidget {
   const LandlordDashboardPage({super.key});
@@ -131,7 +132,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
         },
         child: Obx(() {
           if (_profileController.isLoading.value) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: AppLoadingIndicator());
           }
 
           return SingleChildScrollView(
@@ -894,7 +895,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(20.0),
-                child: CircularProgressIndicator(),
+                child: AppLoadingIndicator(),
               ),
             );
           }

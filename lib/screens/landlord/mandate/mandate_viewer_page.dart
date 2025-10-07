@@ -8,6 +8,7 @@ import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
 import 'package:payrent_business/models/account_information_model.dart';
 import 'package:payrent_business/models/mandate_model.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class MandatePreviewPage extends StatefulWidget {
   final PropertyUnitModel unit;
@@ -183,13 +184,10 @@ class _MandatePreviewPageState extends State<MandatePreviewPage> {
                           ? Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                  ),
+                                const SizedBox(
+                                  width: 26,
+                                  height: 26,
+                                  child: AppLoadingIndicator(size: 26),
                                 ),
                                 SizedBox(width: 12),
                                 Text('Creating Mandate...'),

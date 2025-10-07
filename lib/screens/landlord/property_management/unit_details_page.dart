@@ -11,6 +11,7 @@ import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_list_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class UnitDetailsPage extends StatefulWidget {
   final String propertyId;
@@ -177,7 +178,7 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
         elevation: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoadingIndicator())
           : _errorMessage != null
               ? _buildErrorView()
               : _buildContent(),

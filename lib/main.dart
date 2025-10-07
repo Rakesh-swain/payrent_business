@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/config/theme_controller.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/screens/landlord/landlord_main_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
@@ -13,11 +15,13 @@ import 'dart:async';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/services.dart';
 import 'package:payrent_business/screens/auth/intro_page.dart';
+import 'package:payrent_business/widgets/layout/app_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  runApp(MyApp());
+  Get.put<ThemeController>(ThemeController(), permanent: true);
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -25,25 +29,27 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(
-      title: 'PayRent Business',
-      theme: ThemeData(
-        primaryColor: const Color(0xFF2D5FFF),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2D5FFF),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Poppins',
-      ),
-      initialBinding: ControllerBindings(),
-      onInit: (){
-        Get.put(UserProfileController());
+    return GetBuilder<ThemeController>(
+      builder: (themeController) {
+        return GetMaterialApp(
+          title: 'PayRent Business',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeController.themeMode,
+          initialBinding: ControllerBindings(),
+          onInit: () {
+            Get.put(UserProfileController());
+          },
+          builder: (context, child) {
+            if (child == null) return const SizedBox.shrink();
+            return AppShell(child: child);
+          },
+          home: FirebaseInitializer.initializeApp(
+            child: const SplashPage(),
+          ),
+          debugShowCheckedModeBanner: false,
+        );
       },
-      home: FirebaseInitializer.initializeApp(
-        child: const SplashPage(),
-      ),
-      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -159,16 +165,24 @@ print(userType);
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
+      backgroundColor: Colors.transparent,
+      body: Builder(
+        builder: (context) {
+          final theme = Theme.of(context);
+          final colorScheme = theme.colorScheme;
+          final decorations = theme.extension<AppDecorations>();
+
+          return Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF7869E6),
-              const Color(0xFF4F287D),
-            ],
-          ),
+            gradient: decorations?.gradients.primary ??
+                LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colorScheme.primary,
+                    colorScheme.secondary,
+                  ],
+                ),
         ),
         child: Stack(
           children: [
@@ -192,19 +206,25 @@ print(userType);
                     child: AnimatedBuilder(
                       animation: _pulseAnimation,
                       builder: (context, child) {
+                        final colorScheme = Theme.of(context).colorScheme;
                         return Transform.scale(
                           scale: _pulseAnimation.value,
                           child: Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.white.withOpacity(0.15),
+                              gradient: LinearGradient(
+                                colors: [
+                                  colorScheme.onPrimary.withOpacity(0.15),
+                                  colorScheme.onPrimary.withOpacity(0.05),
+                                ],
+                              ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.white.withOpacity(0.1),
-                                  blurRadius: 20,
-                                  spreadRadius: 5,
-                                )
+                                  color: colorScheme.onPrimary.withOpacity(0.12),
+                                  blurRadius: 24,
+                                  spreadRadius: 6,
+                                ),
                               ],
                             ),
                             child: Row(
@@ -216,23 +236,21 @@ print(userType);
                                   width: 41,
                                 ),
                                 const SizedBox(width: 10),
-                                const Text(
+                                Text(
                                   'PayRent',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w700,
-                                    fontFamily: 'Roboto',
-                                    color: Colors.white,
-                                    fontStyle: FontStyle.italic,
-                                    letterSpacing: 1,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black26,
-                                        blurRadius: 5,
-                                        offset: Offset(0, 2),
-                                      )
-                                    ],
-                                  ),
+                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                        fontStyle: FontStyle.italic,
+                                        letterSpacing: 1.2,
+                                        shadows: const [
+                                          Shadow(
+                                            color: Colors.black26,
+                                            blurRadius: 8,
+                                            offset: Offset(0, 3),
+                                          ),
+                                        ],
+                                      ),
                                 ),
                               ],
                             ),
@@ -247,17 +265,16 @@ print(userType);
                   AnimatedOpacity(
                     opacity: _showTagline ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 800),
-                    child: FadeIn(
-                      duration: const Duration(milliseconds: 800),
-                      child: const Text(
-                        "Your Rent Payment, Simplified",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
+                  child: FadeIn(
+                    duration: const Duration(milliseconds: 800),
+                    child: Text(
+                      "Your Rent Payment, Simplified",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.6,
+                          ),
+                    ),
                     ),
                   ),
                 ],
@@ -272,23 +289,29 @@ print(userType);
               child: AnimatedOpacity(
                 opacity: _showTagline ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 800),
-                child: const Text(
+                child: Text(
                   "v1.0.0",
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: theme.textTheme.labelSmall?.copyWith(
                     color: Colors.white70,
-                    fontSize: 12,
+                    letterSpacing: 1.2,
                   ),
                 ),
               ),
             ),
           ],
         ),
+          );
+        },
       ),
     );
   }
   
   Widget _buildBackgroundElements() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final decorations = theme.extension<AppDecorations>();
+
     return Stack(
       children: [
         // Animated particles/dots
@@ -306,7 +329,15 @@ print(userType);
               height: 140,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                gradient: decorations?.gradients.secondary ??
+                    LinearGradient(
+                      colors: [
+                        colorScheme.secondary.withOpacity(0.3),
+                        colorScheme.primary.withOpacity(0.15),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
               ),
             ),
           ),
@@ -323,7 +354,15 @@ print(userType);
               height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                gradient: decorations?.gradients.primary ??
+                    LinearGradient(
+                      colors: [
+                        colorScheme.primary.withOpacity(0.28),
+                        colorScheme.tertiary.withOpacity(0.2),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
               ),
             ),
           ),
@@ -333,13 +372,13 @@ print(userType);
         Positioned(
           top: 100,
           left: 30,
-          child: _buildAccentCircle(30, 300),
+          child: _buildAccentCircle(30, 300, colorScheme.secondary.withOpacity(0.25)),
         ),
         
         Positioned(
           bottom: 150,
           right: 40,
-          child: _buildAccentCircle(20, 500),
+          child: _buildAccentCircle(20, 500, colorScheme.tertiary.withOpacity(0.22)),
         ),
         
         // Light ray effect at the center
@@ -352,7 +391,7 @@ print(userType);
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    Colors.white.withOpacity(0.1),
+                    colorScheme.onPrimary.withOpacity(0.16),
                     Colors.transparent,
                   ],
                   stops: const [0.1, 0.7],
@@ -365,7 +404,7 @@ print(userType);
     );
   }
   
-  Widget _buildAccentCircle(double size, int delayMillis) {
+  Widget _buildAccentCircle(double size, int delayMillis, Color color) {
     return FadeIn(
       delay: Duration(milliseconds: delayMillis),
       duration: const Duration(milliseconds: 800),
@@ -374,13 +413,14 @@ print(userType);
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.2),
+          color: color,
         ),
       ),
     );
   }
   
   List<Widget> _buildParticles(int count) {
+    final colorScheme = Theme.of(context).colorScheme;
     return List.generate(
       count,
       (index) {
@@ -388,7 +428,9 @@ print(userType);
         final double left = (index * 17) % MediaQuery.of(context).size.width;
         final double top = (index * 23) % MediaQuery.of(context).size.height;
         final int delay = 100 + (index * 50);
-        
+
+        final baseOpacity = 0.3 + ((index % 6) / 12);
+
         return Positioned(
           left: left,
           top: top,
@@ -400,13 +442,13 @@ print(userType);
               height: size,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.4 + ((index % 6) / 10)),
+                color: colorScheme.onPrimary.withOpacity(baseOpacity),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.white.withOpacity(0.2),
-                    blurRadius: 5,
+                    color: colorScheme.onPrimary.withOpacity(baseOpacity * 0.6),
+                    blurRadius: 6,
                     spreadRadius: 1,
-                  )
+                  ),
                 ],
               ),
             ),
