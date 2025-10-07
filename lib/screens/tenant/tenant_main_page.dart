@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:payrent_business/config/theme.dart';
+import 'package:get/get.dart';
+import 'package:payrent_business/controllers/theme_controller.dart';
+import 'package:payrent_business/widgets/modern_navigation_bar.dart';
 import 'package:payrent_business/screens/tenant/tenant_dashboard_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_properties_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_payments_page.dart';
@@ -25,77 +26,50 @@ class _TenantMainPageState extends State<TenantMainPage> {
     const TenantProfilePage(),
   ];
 
-  final List<String> _titles = [
-    'Dashboard',
-    'Properties',
-    'Payments',
-    'Maintenance',
-    'Profile',
-  ];
+  final List<ModernNavigationBarItem> _navItems = NavigationItemsExtension.tenantItems;
+  
+  void _onNavigationItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
   
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
+    return GetBuilder<ThemeController>(
+      builder: (themeController) {
+        return Scaffold(
+          backgroundColor: themeController.backgroundColor,
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.0, 0.03),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  )),
+                  child: child,
+                ),
+              );
+            },
+            child: Container(
+              key: ValueKey(_selectedIndex),
+              child: _pages[_selectedIndex],
             ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: AppTheme.primaryColor,
-          unselectedItemColor: Colors.grey,
-          selectedLabelStyle: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
           ),
-          unselectedLabelStyle: GoogleFonts.poppins(
-            fontSize: 12,
+          bottomNavigationBar: ModernNavigationBar(
+            items: _navItems,
+            currentIndex: _selectedIndex,
+            onTap: _onNavigationItemTapped,
+            showLabels: true,
           ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
-              activeIcon: Icon(Icons.dashboard),
-              label: 'Dashboard',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Properties',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.payment_outlined),
-              activeIcon: Icon(Icons.payment),
-              label: 'Payments',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.build_outlined),
-              activeIcon: Icon(Icons.build),
-              label: 'Maintenance',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
-          elevation: 0,
-        ),
-      ),
+        );
+      },
     );
   }
 }
