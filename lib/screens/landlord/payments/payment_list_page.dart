@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/payment_controller.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_detail_page.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class PaymentListPage extends StatefulWidget {
   const PaymentListPage({super.key});
@@ -255,7 +256,7 @@ class _PaymentListPageState extends State<PaymentListPage>
     return Obx(() {
       if (_paymentController.isLoading.value) {
         return const Center(
-          child: CircularProgressIndicator(),
+          child: AppLoadingIndicator(),
         );
       } else if (_paymentController.errorMessage.isNotEmpty) {
         return Center(

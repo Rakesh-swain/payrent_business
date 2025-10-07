@@ -9,6 +9,7 @@ import 'package:payrent_business/controllers/property_controller.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/add_tenant_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/edit_tenant_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/tenant_detail_page.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class TenantListPage extends StatefulWidget {
   const TenantListPage({super.key});
@@ -355,7 +356,7 @@ class _TenantListPageState extends State<TenantListPage> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoadingIndicator())
           : RefreshIndicator(
               onRefresh: _refreshData,
               child: Column(

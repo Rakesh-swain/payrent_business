@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class MaintenanceRequestPage extends StatefulWidget {
   const MaintenanceRequestPage({super.key});
@@ -166,7 +167,7 @@ class _MaintenanceRequestPageState extends State<MaintenanceRequestPage> {
           // Requests List
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: AppLoadingIndicator())
                 : _filteredRequests.isEmpty
                     ? _buildEmptyState()
                     : ListView.builder(

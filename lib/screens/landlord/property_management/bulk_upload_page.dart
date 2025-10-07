@@ -14,6 +14,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class BulkUploadPage extends StatefulWidget {
   const BulkUploadPage({super.key});
@@ -574,12 +575,9 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
+                                  width: 24,
+                                  height: 24,
+                                  child: AppLoadingIndicator(size: 24),
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
@@ -750,7 +748,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
               ),
               child: _isLoading 
                   ? const Center(
-                      child: CircularProgressIndicator(),
+                      child: AppLoadingIndicator(),
                     )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,

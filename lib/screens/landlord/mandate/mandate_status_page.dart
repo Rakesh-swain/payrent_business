@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../config/theme.dart';
 import '../../../controllers/mandate_controller.dart';
 import '../../../models/mandate_model.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class MandateStatusPage extends StatefulWidget {
   final String mandateId;
@@ -86,12 +87,9 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
             onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
             icon: _isUpdatingStatus
                 ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                    ),
+                    width: 24,
+                    height: 24,
+                    child: const AppLoadingIndicator(size: 24),
                   )
                 : Icon(Icons.refresh, color: AppTheme.primaryColor),
             tooltip: 'Update Status',
@@ -164,13 +162,10 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                       ? Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
+                            const SizedBox(
+                              width: 26,
+                              height: 26,
+                              child: AppLoadingIndicator(size: 26),
                             ),
                             SizedBox(width: 12),
                             Text(

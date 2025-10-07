@@ -16,6 +16,7 @@ import 'package:payrent_business/models/account_information_model.dart';
 import 'package:payrent_business/services/branch_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class ProfileSignupPage extends StatefulWidget {
   final bool isPhoneRequired;
@@ -937,12 +938,9 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                                 onPressed: _isProcessingOCR ? null : _showImageSourceDialog,
                                 icon: _isProcessingOCR 
                                     ? SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
+                                        width: 22,
+                                        height: 22,
+                                        child: const AppLoadingIndicator(size: 22),
                                       )
                                     : Icon(Icons.camera_alt, size: 16),
                                 label: Text(

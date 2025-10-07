@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/config/theme_controller.dart';
 import 'package:payrent_business/screens/auth/login_page.dart';
 import 'dart:io';
 
@@ -11,6 +12,8 @@ import 'package:percent_indicator/linear_percent_indicator.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/controllers/auth_controller.dart';
 import 'package:payrent_business/services/storage_service.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
+import 'package:payrent_business/widgets/common/app_surface.dart';
 
 class UserProfilePage extends StatefulWidget {
   final bool isLandlord;
@@ -28,6 +31,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   // Controllers
   final UserProfileController _userProfileController = Get.find<UserProfileController>();
   final AuthController _authController = Get.find<AuthController>();
+  final ThemeController _themeController = Get.find<ThemeController>();
   
   // User data
   Map<String, dynamic> _userData = {};
@@ -187,19 +191,163 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     int completed = _completionStatus.values.where((value) => value).length;
     return completed / _completionStatus.length;
   }
+
+  void _openAppearanceSheet() {
+    final theme = Theme.of(context);
+    final decorations = theme.extension<AppDecorations>();
+    final mode = _themeController.themeMode;
+
+    final options = <({String label, IconData icon, ThemeMode mode, String description})>[
+      (
+        label: 'Follow System',
+        icon: Icons.brightness_auto,
+        mode: ThemeMode.system,
+        description: 'Match your device setting automatically.',
+      ),
+      (
+        label: 'Light Mode',
+        icon: Icons.wb_sunny_outlined,
+        mode: ThemeMode.light,
+        description: 'Bright, clean surfaces with vibrant accents.',
+      ),
+      (
+        label: 'Dark Mode',
+        icon: Icons.nightlight_round,
+        mode: ThemeMode.dark,
+        description: 'Deep gradients with glowing highlights.',
+      ),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (modalContext) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            MediaQuery.of(modalContext).viewPadding.bottom + 24,
+          ),
+          child: AppSurface(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            radius: 32,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Appearance',
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.of(modalContext).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Choose how PayRent adapts to your environment.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 24),
+                ...options.map((option) {
+                  final selected = option.mode == mode;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: AppSurface(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                      radius: 24,
+                      isInteractive: true,
+                      gradient: selected
+                          ? decorations?.gradients.primary
+                          : decorations?.gradients.surface,
+                      onTap: () async {
+                        await _themeController.setThemeMode(option.mode);
+                        if (mounted) Navigator.of(modalContext).pop();
+                      },
+                      child: Row(
+                        children: [
+                          Icon(
+                            option.icon,
+                            size: 24,
+                            color: selected
+                                ? theme.colorScheme.onPrimary
+                                : theme.colorScheme.onSurface.withOpacity(0.8),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      option.label,
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: selected
+                                            ? theme.colorScheme.onPrimary
+                                            : theme.colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    if (selected)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 8),
+                                        child: Icon(
+                                          Icons.check_circle,
+                                          size: 18,
+                                          color: theme.colorScheme.onPrimary,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  option.description,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: selected
+                                        ? theme.colorScheme.onPrimary.withOpacity(0.9)
+                                        : theme.colorScheme.onSurface.withOpacity(0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
   
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: Colors.transparent,
+      extendBody: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title:  Text('My Profile',style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-              )),
+        title: Text(
+          'My Profile',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            onPressed: _openAppearanceSheet,
+            tooltip: 'Appearance',
+          ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {
@@ -215,14 +363,10 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
             // Profile Header
             FadeInDown(
               duration: const Duration(milliseconds: 500),
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: AppTheme.cardShadow,
-                ),
+              child: AppSurface(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.all(24),
+                radius: 32,
                 child: Column(
                   children: [
                     Row(
@@ -247,10 +391,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                                           shape: BoxShape.circle,
                                         ),
                                         child: const Center(
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          ),
+                                          child: AppLoadingIndicator(size: 32),
                                         ),
                                       ),
                                     ),

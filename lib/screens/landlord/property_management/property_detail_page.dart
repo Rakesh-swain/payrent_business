@@ -21,6 +21,7 @@ import 'package:payrent_business/screens/landlord/mandate/new_create_mandate_pag
 import 'package:payrent_business/screens/landlord/property_management/edit_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/tenant_detail_page.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class PropertyDetailsPage extends StatefulWidget {
   final String propertyId;
@@ -258,7 +259,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
     return Scaffold(
       backgroundColor: Color(0xFFF8F9FB),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoadingIndicator())
           : _errorMessage != null
           ? _buildErrorView()
           : _buildContent(),

@@ -8,6 +8,7 @@ import 'package:payrent_business/models/property_model.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/bulk_upload_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_list_page.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class ManagePropertiesPage extends StatefulWidget {
   const ManagePropertiesPage({super.key});
@@ -468,12 +469,9 @@ class _ManagePropertiesPageState extends State<ManagePropertiesPage> {
             ),
             child: isLoading
                 ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                    ),
+                    width: 22,
+                    height: 22,
+                    child: const AppLoadingIndicator(size: 22),
                   )
                 : Icon(
                     icon,

@@ -12,6 +12,7 @@ import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_detail_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_detail_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/tenant_detail_page.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class PaymentSummaryPage extends StatefulWidget {
   const PaymentSummaryPage({super.key});
@@ -484,7 +485,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
       if (_propertyController.isLoading.value ||
           _paymentController.isLoading.value ||
           _assignmentsLoading) {
-        return const Center(child: CircularProgressIndicator());
+        return const Center(child: AppLoadingIndicator());
       } else if (_propertyController.errorMessage.isNotEmpty) {
         return Center(
           child: Column(
@@ -538,7 +539,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                 if (!snapshot.hasData) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Center(child: CircularProgressIndicator()),
+                  child: const Center(child: AppLoadingIndicator()),
                   );
                 }
                 return FadeInUp(
@@ -558,7 +559,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
       if (_tenantController.isLoading.value ||
           _paymentController.isLoading.value ||
           _assignmentsLoading) {
-        return const Center(child: CircularProgressIndicator());
+        return const Center(child: AppLoadingIndicator());
       } else if (_tenantController.errorMessage.isNotEmpty) {
         return Center(
           child: Column(

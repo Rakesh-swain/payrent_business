@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class PaymentDetailPage extends StatefulWidget {
   final String paymentId;
@@ -89,14 +90,12 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
           title: const Text('Payment Details'),
         ),
         body: const Center(
-          child: CircularProgressIndicator(),
+          child: AppLoadingIndicator(),
         ),
       );
     }

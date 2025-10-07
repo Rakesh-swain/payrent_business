@@ -7,6 +7,7 @@ import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/models/account_information_model.dart';
 import 'package:payrent_business/services/branch_service.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class EditTenantPage extends StatefulWidget {
   final String tenantId;
@@ -158,7 +159,7 @@ class _EditTenantPageState extends State<EditTenantPage> {
           elevation: 0,
           title: Text('Edit Tenant', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w500)),
         ),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: AppLoadingIndicator()),
       );
     }
 
@@ -173,9 +174,9 @@ class _EditTenantPageState extends State<EditTenantPage> {
             onPressed: _isSaving ? null : _saveTenant,
             child: _isSaving
                 ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    width: 24,
+                    height: 24,
+                    child: AppLoadingIndicator(size: 24),
                   )
                 : Text(
                     'Save',
@@ -339,7 +340,11 @@ class _EditTenantPageState extends State<EditTenantPage> {
                       elevation: 2,
                     ),
                     child: _isSaving
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? const SizedBox(
+                            height: 30,
+                            width: 30,
+                            child: AppLoadingIndicator(size: 30),
+                          )
                         : Text(
                             'Update Tenant',
                             style: GoogleFonts.poppins(

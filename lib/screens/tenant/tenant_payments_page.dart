@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/services/tenant_auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class TenantPaymentsPage extends StatefulWidget {
   const TenantPaymentsPage({super.key});
@@ -132,7 +133,7 @@ class _TenantPaymentsPageState extends State<TenantPaymentsPage> {
             // Payment List
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? const Center(child: AppLoadingIndicator())
                   : _filteredPayments.isEmpty
                       ? Center(
                           child: Column(

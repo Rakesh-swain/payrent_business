@@ -6,6 +6,7 @@ import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/services/tenant_auth_service.dart';
 import 'package:payrent_business/widgets/stat_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:payrent_business/widgets/common/app_loading_indicator.dart';
 
 class TenantDashboardPage extends StatefulWidget {
   const TenantDashboardPage({super.key});
@@ -110,7 +111,7 @@ class _TenantDashboardPageState extends State<TenantDashboardPage> {
         color: AppTheme.primaryColor,
         onRefresh: _loadDashboardData,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: AppLoadingIndicator())
             : SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.all(16),
