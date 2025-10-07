@@ -7,6 +7,7 @@ import '../controllers/property_controller.dart';
 import '../controllers/tenant_controller.dart';
 import '../controllers/payment_controller.dart';
 import '../controllers/mandate_controller.dart';
+import '../controllers/theme_controller.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
@@ -21,6 +22,7 @@ class ControllerBindings implements Bindings {
     
     // Initialize core controllers
     Get.lazyPut<AuthController>(() => AuthController(), fenix: true);
+    Get.put<ThemeController>(ThemeController(), permanent: true);
     
     // Initialize auth controllers
     Get.lazyPut<PhoneAuthController>(() => PhoneAuthController(), fenix: true);

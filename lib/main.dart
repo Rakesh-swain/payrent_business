@@ -4,6 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
+import 'package:payrent_business/controllers/theme_controller.dart';
+import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/screens/landlord/landlord_main_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,25 +27,28 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(
-      title: 'PayRent Business',
-      theme: ThemeData(
-        primaryColor: const Color(0xFF2D5FFF),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2D5FFF),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Poppins',
-      ),
-      initialBinding: ControllerBindings(),
-      onInit: (){
-        Get.put(UserProfileController());
+    return GetBuilder<ThemeController>(
+      init: ThemeController(),
+      builder: (themeController) {
+        return GetMaterialApp(
+          title: 'PayRent Business',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeController.isDarkMode 
+              ? ThemeMode.dark 
+              : ThemeMode.light,
+          initialBinding: ControllerBindings(),
+          onInit: (){
+            Get.put(UserProfileController());
+          },
+          home: FirebaseInitializer.initializeApp(
+            child: const SplashPage(),
+          ),
+          debugShowCheckedModeBanner: false,
+          // Smooth theme transitions
+          transitionDuration: ThemeController.transitionDuration,
+        );
       },
-      home: FirebaseInitializer.initializeApp(
-        child: const SplashPage(),
-      ),
-      debugShowCheckedModeBanner: false,
     );
   }
 }
