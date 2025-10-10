@@ -36,8 +36,8 @@ class _EditTenantPageState extends State<EditTenantPage> {
   IdType _selectedIdType = IdType.civilId;
   String _selectedBankBic = '';
   String _selectedBranchCode = '';
-  List<String> _availableBankBics = [];
-  List<BranchInfo> _availableBranches = [];
+ List<BranchInfo> _allBranches = [];
+ BranchInfo? _selectedBranch;
 
   // State
   bool _isLoading = true;
@@ -47,7 +47,7 @@ class _EditTenantPageState extends State<EditTenantPage> {
   @override
   void initState() {
     super.initState();
-    _availableBankBics = BranchService.getAllBankBics();
+    _allBranches = BranchService.getAllBranchList();
     _fetchData();
   }
 
@@ -105,12 +105,12 @@ class _EditTenantPageState extends State<EditTenantPage> {
     }
 
     _selectedBankBic = data['db_bank_bic'] ?? '';
-    _selectedBranchCode = data['db_branch_code'] ?? '';
-
+    _selectedBranchCode = data['db_branch_code'] ??'001';
+print(_selectedBranchCode);
     if (_selectedBankBic.isNotEmpty) {
-      _availableBranches = BranchService.getBranchesForBank(_selectedBankBic);
+      _allBranches = BranchService.getAllBranchList();
       // Ensure selected branch exists in available list
-      final exists = _availableBranches.any((b) => b.branchCode == _selectedBranchCode);
+      final exists = _allBranches.any((b) => b.branchCode == _selectedBranchCode);
       if (!exists) _selectedBranchCode = '';
     }
   }
@@ -288,9 +288,6 @@ class _EditTenantPageState extends State<EditTenantPage> {
                       if (value == null || value.trim().isEmpty) {
                         return 'Account number is required';
                       }
-                      if (!RegExp(r'^\\d{6,}\$').hasMatch(value.trim())) {
-                        return 'Enter a valid account number';
-                      }
                       return null;
                     },
                   ),
@@ -313,7 +310,7 @@ class _EditTenantPageState extends State<EditTenantPage> {
                   const SizedBox(height: 16),
                   _buildBankDropdown(),
                   const SizedBox(height: 16),
-                  _buildBranchDropdown(),
+                  // _buildBranchDisplay(),
 
                   if (_selectedBranchCode.isNotEmpty && _selectedBankBic.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -509,10 +506,10 @@ class _EditTenantPageState extends State<EditTenantPage> {
           value: null,
           child: Text('Select a bank'),
         ),
-        ..._availableBankBics.map((String bankBic) {
+        ..._allBranches.map((BranchInfo branch) {
           return DropdownMenuItem<String>(
-            value: bankBic,
-            child: Text(bankBic, style: GoogleFonts.poppins(fontSize: 14)),
+            value: branch.bankBic,
+            child: Text(branch.branchName, style: GoogleFonts.poppins(fontSize: 14)),
           );
         }).toList(),
       ],
@@ -525,11 +522,11 @@ class _EditTenantPageState extends State<EditTenantPage> {
       onChanged: (String? newValue) {
         setState(() {
           _selectedBankBic = newValue ?? '';
-          _selectedBranchCode = '';
+          _selectedBranchCode = '001';
           if (newValue != null && newValue.isNotEmpty) {
-            _availableBranches = BranchService.getBranchesForBank(newValue);
+            _allBranches = BranchService.getAllBranchList().where((b) => b.bankBic == newValue).toList();
           } else {
-            _availableBranches.clear();
+            _allBranches.clear();
           }
         });
       },
@@ -537,62 +534,47 @@ class _EditTenantPageState extends State<EditTenantPage> {
     );
   }
 
-  Widget _buildBranchDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _selectedBranchCode.isEmpty ? null : _selectedBranchCode,
-      decoration: InputDecoration(
-        labelText: 'Branch *',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      ),
-      items: [
-        const DropdownMenuItem<String>(
-          value: null,
-          child: Text('Select a branch'),
-        ),
-        ..._availableBranches.map((BranchInfo branch) {
-          return DropdownMenuItem<String>(
-            value: branch.branchCode,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(branch.branchName, style: GoogleFonts.poppins(fontSize: 14)),
-                const SizedBox(width: 8),
-                Text('(${branch.branchCode})', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
-              ],
-            ),
-          );
-        }).toList(),
-      ],
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please select a branch';
-        }
-        return null;
-      },
-      onChanged: _selectedBankBic.isEmpty
-          ? null
-          : (String? newValue) {
-              setState(() {
-                _selectedBranchCode = newValue ?? '';
-              });
-            },
-      style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
-    );
-  }
+//  Widget _buildBranchDisplay() {
+//   // Find selected branch info
+//   print(_selectedBranchCode);
+//   final selectedBranch = _allBranches.firstWhere(
+//     (b) => b.branchCode == _selectedBranchCode,
+//     orElse: () => BranchInfo(
+//       branchName: '',
+//       branchCode: _selectedBranchCode,
+//       bankBic: '',
+//       branchDescription: '',
+//     ),
+//   );
+
+//   return Container(
+//     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+//     decoration: BoxDecoration(
+//       color: Colors.grey.shade100,
+//       border: Border.all(color: Colors.grey.shade300),
+//       borderRadius: BorderRadius.circular(12),
+//     ),
+//     child: Row(
+//       mainAxisSize: MainAxisSize.min,
+//       children: [
+//         Text(
+//          _selectedBranchCode,
+//           style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+//         ),
+//         const SizedBox(width: 8),
+//         Text(
+//           '(${selectedBranch.branchCode})',
+//           style: GoogleFonts.poppins(
+//             fontSize: 12,
+//             color: AppTheme.textSecondary,
+//           ),
+//         ),
+//       ],
+//     ),
+//   );
+// }
+
+
 
   Widget _buildSelectedBranchInfo() {
     final branchInfo = BranchService.getBranchInfo(_selectedBankBic, _selectedBranchCode);

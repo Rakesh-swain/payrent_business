@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'PayRent Business',
+      title: 'PayRent',
       theme: ThemeData(
         primaryColor: const Color(0xFF2D5FFF),
         colorScheme: ColorScheme.fromSeed(

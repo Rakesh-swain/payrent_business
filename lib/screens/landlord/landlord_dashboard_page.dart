@@ -11,11 +11,14 @@ import 'package:payrent_business/controllers/property_controller.dart';
 import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/controllers/mandate_controller.dart';
+import 'package:payrent_business/models/payment_chart_data.dart';
 import 'package:payrent_business/screens/landlord/earnings/earning_details_page.dart';
+import 'package:payrent_business/screens/landlord/mandate/mandate_collection_page.dart';
 import 'package:payrent_business/screens/landlord/mandate/mandate_list_page.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_summary_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/bulk_upload_page.dart';
+import 'package:payrent_business/screens/landlord/property_management/property_list_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/add_tenant_page.dart';
 import 'package:payrent_business/screens/landlord/mandate/mandate_status_page.dart';
 import 'package:payrent_business/widgets/action_button.dart';
@@ -32,8 +35,9 @@ class LandlordDashboardPage extends StatefulWidget {
 class _LandlordDashboardPageState extends State<LandlordDashboardPage>
     with SingleTickerProviderStateMixin {
   late TabController _chartTabController;
-  int _selectedChartPeriod = 1; // 0: 1 month, 1: 3 months, 2: 6 months
-  int _selectedTimeFrame = 1; // 0: 3 months, 1: 6 months, 2: 1 year
+  int months = 3; // Default to 6 months
+  int _selectedChartPeriod = 0; // 0: 1 month, 1: 3 months, 2: 6 months
+  int _selectedTimeFrame = 0; // 0: 3 months, 1: 6 months, 2: 1 year
 
   // Get controllers for Firebase data
   final AuthController _authController = Get.find<AuthController>();
@@ -63,6 +67,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
         _propertyController.fetchProperties(),
         _tenantController.fetchTenants(),
         _paymentController.fetchPayments(),
+        _mandateController.fetchMandates(),
       ]);
 
       print('Dashboard data loaded successfully');
@@ -329,30 +334,92 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                     children: [
                       Expanded(
                         child: Obx(
-                          () => StatCard(
-                            title: 'Total Properties',
-                            value: '${_propertyController.propertyCount}',
-                            icon: Icons.home_outlined,
-                            color: AppTheme.infoColor,
+                          () => GestureDetector(
+                            onTap: () {
+                              Get.to(PropertyListPage());
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: AppTheme.cardShadow,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.infoColor.withOpacity(
+                                            0.1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.home_outlined,
+                                          color: AppTheme.infoColor,
+                                          size: 18,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Total Properties',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _propertyController.propertyCount
+                                        .toString(),
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Obx(() {
-                          final totalEarnings = _paymentController
-                              .getTotalCollectedPayments();
-                          final formatter = NumberFormat.currency(
-                            symbol: '\$',
-                            decimalDigits: 0,
-                          );
-                          return StatCard(
-                            title: 'Total Earnings',
-                            value: formatter.format(totalEarnings),
-                            icon: Icons.attach_money_outlined,
-                            color: AppTheme.successColor,
-                          );
-                        }),
+                        child: FutureBuilder<double>(
+                          future: _paymentController.getTotalPayments(
+                            filter: 'total_earnings_this_month',
+                          ),
+                          builder: (context, snapshot) {
+                            final total = snapshot.data ?? 0;
+                            return GestureDetector(
+                              onTap: () {
+                                Get.to(
+                                  PaymentListPage(
+                                    type: 'total earning this month',
+                                  ),
+                                );
+                              },
+                              child: StatCard(
+                                title: 'Total Earnings This Month',
+                                value: total.toStringAsFixed(0),
+                                icon: Icons.payment,
+                                color: AppTheme.successColor,
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -365,64 +432,84 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                   child: Row(
                     children: [
                       Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const PaymentSummaryPage(),
+                        child: FutureBuilder<double>(
+                          future: _paymentController.getTotalPayments(
+                            filter: 'due_rent_today',
+                          ),
+                          builder: (context, snapshot) {
+                            final total = snapshot.data ?? 0;
+                            return GestureDetector(
+                              onTap: () {
+                                Get.to(PaymentListPage(type: 'due rent today'));
+                              },
+                              child: StatCard(
+                                title: 'Due Rent Today',
+                                value: total.toStringAsFixed(0),
+                                icon: Icons.calendar_today_outlined,
+                                color: AppTheme.warningColor,
                               ),
                             );
                           },
-                          child: Obx(() {
-                            final dueRent = _paymentController
-                                .getTotalPendingPayments();
-                            final formatter = NumberFormat.currency(
-                              symbol: '\$',
-                              decimalDigits: 0,
-                            );
-                            return StatCard(
-                              title: 'Due Rent',
-                              value: formatter.format(dueRent),
-                              icon: Icons.calendar_today_outlined,
-                              color: AppTheme.warningColor,
-                            );
-                          }),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const PaymentSummaryPage(),
+                        child: FutureBuilder<double>(
+                          future: _paymentController.getTotalPayments(
+                            filter: 'overdue',
+                          ),
+                          builder: (context, snapshot) {
+                            final total = snapshot.data ?? 0;
+                            return GestureDetector(
+                              onTap: () {
+                                Get.to(PaymentListPage(type: 'overdue'));
+                              },
+                              child: StatCard(
+                                title: 'Overdue Rent',
+                                value: total.toStringAsFixed(0),
+                                icon: Icons.warning_amber_outlined,
+                                color: AppTheme.errorColor,
                               ),
                             );
                           },
-                          child: Obx(() {
-                            final overdueRent = _paymentController
-                                .getTotalOverduePayments();
-                            final formatter = NumberFormat.currency(
-                              symbol: '\$',
-                              decimalDigits: 0,
-                            );
-                            return StatCard(
-                              title: 'Overdue Rent',
-                              value: formatter.format(overdueRent),
-                              icon: Icons.warning_amber_outlined,
-                              color: AppTheme.errorColor,
-                            );
-                          }),
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
 
+                FadeInUp(
+                  duration: const Duration(milliseconds: 800),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: FutureBuilder<double>(
+                          future: _paymentController.getTotalPayments(
+                            filter: 'collected_today',
+                          ),
+                          builder: (context, snapshot) {
+                            final total = snapshot.data ?? 0;
+                            return GestureDetector(
+                              onTap: () {
+                                Get.to(
+                                  PaymentListPage(type: 'collection today'),
+                                );
+                              },
+                              child: StatCard(
+                                title: 'Collection Today',
+                                value: total.toStringAsFixed(0),
+                                icon: Icons.today,
+                                color: Colors.green,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Expanded(child: Container()),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 8),
 
                 // View All Payments Button
@@ -456,119 +543,55 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                     title: 'Track your Earnings',
                     child: Column(
                       children: [
-                        // Period Selection Tabs
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 5, 16, 0),
-                          child: Container(
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: TabBar(
-                                controller: _chartTabController,
-                                indicator: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  color: AppTheme.primaryColor,
-                                ),
-                                indicatorSize: TabBarIndicatorSize
-                                    .tab, // indicator fills tab width
-                                indicatorColor: Colors.transparent,
-                                dividerColor: Colors.transparent,
-                                labelColor: Colors.white,
-                                unselectedLabelColor: AppTheme.textSecondary,
-                                tabs: const [
-                                  Tab(text: '1 month'),
-                                  Tab(text: '3 months'),
-                                  Tab(text: '6 months'),
-                                ],
-                                onTap: (index) {
-                                  setState(() {
-                                    _selectedChartPeriod = index;
-                                  });
-                                },
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 15),
 
                         // Stats Summary
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Obx(() {
-                            final totalEarnings = _paymentController
-                                .getTotalCollectedPayments();
-                            final formatter = NumberFormat.currency(
-                              symbol: '\$',
-                              decimalDigits: 0,
-                            );
-
-                            return Row(
-                              children: [
-                                const Icon(
-                                  Icons.celebration_outlined,
-                                  color: AppTheme.successColor,
-                                  size: 20,
+                          child: FutureBuilder<double>(
+                            future: _paymentController
+                                .getTotalCollectedPaymentsForMonths(
+                                  _selectedTimeFrame,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Great!',
-                                  style: context.titleSmall.copyWith(
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) return const SizedBox();
+
+                              final totalEarnings = snapshot.data!;
+                              final formatter = NumberFormat.currency(
+                                symbol: 'OMR',
+                                decimalDigits: 0,
+                              );
+
+                              return Row(
+                                children: [
+                                  const Icon(
+                                    Icons.celebration_outlined,
                                     color: AppTheme.successColor,
+                                    size: 20,
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'You have earned',
-                                  style: context.bodyMedium,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  formatter.format(totalEarnings),
-                                  style: context.titleMedium.copyWith(
-                                    color: AppTheme.successColor,
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Great!',
+                                    style: context.titleSmall.copyWith(
+                                      color: AppTheme.successColor,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            );
-                          }),
-                        ),
-
-                        const SizedBox(height: 8),
-
-                        // Due Rent Info
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Obx(() {
-                            final dueRent = _paymentController
-                                .getTotalPendingPayments();
-                            final overdueRent = _paymentController
-                                .getTotalOverduePayments();
-                            final formatter = NumberFormat.currency(
-                              symbol: '\$',
-                              decimalDigits: 0,
-                            );
-
-                            return Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                _buildRentInfoItem(
-                                  label: 'Total Due Rent',
-                                  value: formatter.format(dueRent),
-                                  valueColor: AppTheme.warningColor,
-                                ),
-                                _buildRentInfoItem(
-                                  label: 'Overdue Rent',
-                                  value: formatter.format(overdueRent),
-                                  valueColor: AppTheme.errorColor,
-                                ),
-                              ],
-                            );
-                          }),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'You have credited',
+                                    style: context.bodyMedium,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    formatter.format(totalEarnings),
+                                    style: context.titleMedium.copyWith(
+                                      color: AppTheme.successColor,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                         ),
 
                         const SizedBox(height: 24),
@@ -595,126 +618,334 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                           height: 200,
                           child: Padding(
                             padding: const EdgeInsets.only(right: 16.0),
-                            child: Obx(() {
-                              final paymentChartData = _paymentController
-                                  .getChartData(
-                                    months: _selectedTimeFrame == 0
-                                        ? 3
-                                        : _selectedTimeFrame == 1
-                                        ? 6
-                                        : 12,
+                            child: StreamBuilder<List<PaymentChartData>>(
+                              stream: _paymentController.getPaymentChartData(
+                                months: months,
+                              ),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) {
+                                  return Container();
+                                }
+
+                                final chartData = snapshot.data!;
+                                if (chartData.isEmpty) {
+                                  return const Center(
+                                    child: Text('No payments found.'),
                                   );
-                              return LineChart(
-                                _createLineChartData(paymentChartData),
-                              );
-                            }),
-                          ),
-                        ),
+                                }
+                                // Calculate maxY dynamically based on highest total
+                                final maxAmount = chartData.isNotEmpty
+                                    ? chartData
+                                          .map((e) => e.total)
+                                          .reduce((a, b) => a > b ? a : b)
+                                    : 50000;
 
-                        // Chart Legend
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _buildLegendItem(
-                                color: AppTheme.primaryColor,
-                                label: 'Total Income',
-                              ),
-                              const SizedBox(width: 24),
-                              _buildLegendItem(
-                                color: AppTheme.accentColor,
-                                label: 'Net Income',
-                              ),
-                            ],
-                          ),
-                        ),
+                                // Dynamic maxY calculation
+                                final dynamicMaxY = maxAmount < 1000
+                                    ? ((maxAmount / 100).ceil() * 100)
+                                          .toDouble() // Round to nearest 100
+                                    : maxAmount < 10000
+                                    ? ((maxAmount / 1000).ceil() * 1000)
+                                          .toDouble() // Round to nearest 1000
+                                    : ((maxAmount / 10000).ceil() * 10000)
+                                          .toDouble(); // Round to nearest 10000
 
-                        // Link to view all
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Padding(
-                            padding: const EdgeInsets.only(
-                              right: 16.0,
-                              bottom: 16.0,
-                            ),
-                            child: TextButton(
-                              onPressed: () {
-                                Get.to(() => EarningsDetailPage());
+                                // Dynamic interval based on the range
+                                final interval = dynamicMaxY / 5;
+
+                                // Dynamic left side reserved size based on max value
+                                final leftReservedSize = dynamicMaxY >= 100000
+                                    ? 60.0
+                                    : dynamicMaxY >= 10000
+                                    ? 50.0
+                                    : 40.0;
+
+                                return LineChart(
+                                  LineChartData(
+                                    minY: 0,
+                                    maxY: dynamicMaxY,
+
+                                    // Grid styling
+                                    gridData: FlGridData(
+                                      show: true,
+                                      drawVerticalLine: false,
+                                      horizontalInterval: interval,
+                                      getDrawingHorizontalLine: (value) {
+                                        return FlLine(
+                                          color: Colors.grey.withOpacity(0.2),
+                                          strokeWidth: 1,
+                                          dashArray: [5, 5],
+                                        );
+                                      },
+                                    ),
+
+                                    // Border styling - only show left and bottom
+                                    borderData: FlBorderData(
+                                      show: true,
+                                      border: Border(
+                                        left: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1,
+                                        ),
+                                        bottom: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1,
+                                        ),
+                                        right: BorderSide.none,
+                                        top: BorderSide.none,
+                                      ),
+                                    ),
+
+                                    // Title styling - only show left and bottom
+                                    titlesData: FlTitlesData(
+                                      show: true,
+                                      rightTitles: AxisTitles(
+                                        sideTitles: SideTitles(
+                                          showTitles: false,
+                                        ),
+                                      ),
+                                      topTitles: AxisTitles(
+                                        sideTitles: SideTitles(
+                                          showTitles: false,
+                                        ),
+                                      ),
+                                      leftTitles: AxisTitles(
+                                        sideTitles: SideTitles(
+                                          showTitles: true,
+                                          reservedSize: leftReservedSize,
+                                          interval: interval,
+                                          getTitlesWidget: (value, meta) {
+                                            if (value == 0) {
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                  right: 8,
+                                                ),
+                                                child: Text(
+                                                  '0',
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade600,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  textAlign: TextAlign.right,
+                                                ),
+                                              );
+                                            }
+
+                                            // Format based on amount size
+                                            String label;
+                                            if (dynamicMaxY >= 100000) {
+                                              label =
+                                                  '${(value / 100000).toStringAsFixed(1)}L';
+                                            } else if (dynamicMaxY >= 10000) {
+                                              label =
+                                                  '${(value / 1000).toStringAsFixed(0)}k';
+                                            } else if (dynamicMaxY >= 1000) {
+                                              label =
+                                                  '${(value / 1000).toStringAsFixed(1)}k';
+                                            } else {
+                                              label =
+                                                  '${value.toStringAsFixed(0)}';
+                                            }
+
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                right: 8,
+                                              ),
+                                              child: Text(
+                                                label,
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade600,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                                textAlign: TextAlign.right,
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      bottomTitles: AxisTitles(
+                                        sideTitles: SideTitles(
+                                          showTitles: true,
+                                          reservedSize: 32,
+                                          interval: 1,
+                                          getTitlesWidget: (value, meta) {
+                                            if (value.toInt() >= 0 &&
+                                                value.toInt() <
+                                                    chartData.length) {
+                                              final data =
+                                                  chartData[value.toInt()];
+                                              // Show abbreviated month names (e.g., Jan, Feb, Mar)
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 8,
+                                                ),
+                                                child: Text(
+                                                  data.month.substring(
+                                                    0,
+                                                    3,
+                                                  ), // First 3 letters of month
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade600,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                            return const SizedBox();
+                                          },
+                                        ),
+                                      ),
+                                    ),
+
+                                    lineBarsData: [
+                                      LineChartBarData(
+                                        spots: chartData.asMap().entries.map((
+                                          entry,
+                                        ) {
+                                          return FlSpot(
+                                            entry.key.toDouble(),
+                                            entry.value.total,
+                                          );
+                                        }).toList(),
+                                        isCurved: true,
+                                        curveSmoothness: 0.3,
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            AppTheme.primaryColor,
+                                            AppTheme.accentColor,
+                                          ],
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                        ),
+                                        barWidth: 3.5,
+                                        isStrokeCapRound: true,
+                                        dotData: FlDotData(
+                                          show: true,
+                                          getDotPainter:
+                                              (spot, percent, barData, index) {
+                                                return FlDotCirclePainter(
+                                                  radius: 5,
+                                                  color: Colors.white,
+                                                  strokeWidth: 2.5,
+                                                  strokeColor:
+                                                      AppTheme.primaryColor,
+                                                );
+                                              },
+                                        ),
+                                        belowBarData: BarAreaData(
+                                          show: true,
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              AppTheme.primaryColor.withOpacity(
+                                                0.3,
+                                              ),
+                                              AppTheme.primaryColor.withOpacity(
+                                                0.15,
+                                              ),
+                                              AppTheme.accentColor.withOpacity(
+                                                0.05,
+                                              ),
+                                            ],
+                                            begin: Alignment.topCenter,
+                                            end: Alignment.bottomCenter,
+                                            stops: [0.0, 0.5, 1.0],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
                               },
-                              child: const Text('Let\'s view all'),
                             ),
                           ),
                         ),
+
+                        SizedBox(height: 16),
                       ],
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 24),
-
+                // Link to view all
+                // Align(
+                //   alignment: Alignment.centerRight,
+                //   child: Padding(
+                //     padding: const EdgeInsets.only(
+                //       right: 16.0,
+                //       bottom: 16.0,
+                //     ),
+                //     child: TextButton(
+                //       onPressed: () {
+                //         Get.to(() => EarningsDetailPage());
+                //       },
+                //       child: const Text('Let\'s view all'),
+                //     ),
+                //   ),
+                // ),
                 // Property Status Summary
-                FadeInUp(
-                  duration: const Duration(milliseconds: 1000),
-                  child: CustomCard(
-                    title: 'Property Status',
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Obx(() {
-                        // Get counts from controllers
-                        final rentalApplications =
-                            _paymentController.rentalApplicationCount;
-                        final tenantRequests = _tenantController.tenantCount > 0
-                            ? _tenantController.tenantCount ~/ 2
-                            : 0; // Placeholder logic
-                        final expiringLeases = _tenantController
-                            .getTenantsWithExpiringLeases()
-                            .length;
-                        final overdueProperties = _paymentController
-                            .getOverduePropertiesCount();
+                // FadeInUp(
+                //   duration: const Duration(milliseconds: 1000),
+                //   child: CustomCard(
+                //     title: 'Property Status',
+                //     child: Padding(
+                //       padding: const EdgeInsets.all(16.0),
+                //       child: Obx(() {
+                //         // Get counts from controllers
+                //         final rentalApplications =
+                //             _paymentController.rentalApplicationCount;
+                //         final tenantRequests = _tenantController.tenantCount > 0
+                //             ? _tenantController.tenantCount ~/ 2
+                //             : 0; // Placeholder logic
+                //         final expiringLeases = _tenantController
+                //             .getTenantsWithExpiringLeases()
+                //             .length;
+                //         final overdueProperties = _paymentController
+                //             .getOverduePropertiesCount();
 
-                        return Column(
-                          children: [
-                            _buildStatusItem(
-                              icon: Icons.file_copy_outlined,
-                              iconColor: Colors.blue,
-                              iconBgColor: Colors.blue.shade50,
-                              title: 'Rental Applications',
-                              count: '$rentalApplications',
-                              onTap: () {},
-                            ),
-                            _buildStatusItem(
-                              icon: Icons.person_outline_rounded,
-                              iconColor: Colors.purple,
-                              iconBgColor: Colors.purple.shade50,
-                              title: 'Tenant\'s Requests',
-                              count: '$tenantRequests',
-                              onTap: () {},
-                            ),
-                            _buildStatusItem(
-                              icon: Icons.description_outlined,
-                              iconColor: Colors.amber,
-                              iconBgColor: Colors.amber.shade50,
-                              title: 'Expiring Leases',
-                              count: '$expiringLeases',
-                              onTap: () {},
-                            ),
-                            _buildStatusItem(
-                              icon: Icons.warning_amber_outlined,
-                              iconColor: Colors.red,
-                              iconBgColor: Colors.red.shade50,
-                              title: 'Overdue Properties',
-                              count: '$overdueProperties',
-                              onTap: () {},
-                              showDivider: false,
-                            ),
-                          ],
-                        );
-                      }),
-                    ),
-                  ),
-                ),
-
+                //         return Column(
+                //           children: [
+                //             _buildStatusItem(
+                //               icon: Icons.file_copy_outlined,
+                //               iconColor: Colors.blue,
+                //               iconBgColor: Colors.blue.shade50,
+                //               title: 'Rental Applications',
+                //               count: '$rentalApplications',
+                //               onTap: () {},
+                //             ),
+                //             _buildStatusItem(
+                //               icon: Icons.person_outline_rounded,
+                //               iconColor: Colors.purple,
+                //               iconBgColor: Colors.purple.shade50,
+                //               title: 'Tenant\'s Requests',
+                //               count: '$tenantRequests',
+                //               onTap: () {},
+                //             ),
+                //             _buildStatusItem(
+                //               icon: Icons.description_outlined,
+                //               iconColor: Colors.amber,
+                //               iconBgColor: Colors.amber.shade50,
+                //               title: 'Expiring Leases',
+                //               count: '$expiringLeases',
+                //               onTap: () {},
+                //             ),
+                //             _buildStatusItem(
+                //               icon: Icons.warning_amber_outlined,
+                //               iconColor: Colors.red,
+                //               iconBgColor: Colors.red.shade50,
+                //               title: 'Overdue Properties',
+                //               count: '$overdueProperties',
+                //               onTap: () {},
+                //               showDivider: false,
+                //             ),
+                //           ],
+                //         );
+                //       }),
+                //     ),
+                //   ),
+                // ),
                 const SizedBox(height: 24),
 
                 // My Mandates Section
@@ -826,6 +1057,11 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
       onTap: () {
         setState(() {
           _selectedTimeFrame = index;
+          months = _selectedTimeFrame == 0
+              ? 3
+              : _selectedTimeFrame == 1
+              ? 6
+              : 12;
         });
       },
       borderRadius: BorderRadius.circular(20),
@@ -915,28 +1151,29 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                   ),
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // Navigate to create mandate page
-                      // You can implement navigation to a list of properties/tenants
-                      // to select for mandate creation
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: Text(
-                      'Create Your First Mandate',
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                ),
+                SizedBox(width: double.infinity),
+                // SizedBox(
+                //   width: double.infinity,
+                //   child: ElevatedButton(
+                //     onPressed: () {
+                //       // Navigate to create mandate page
+                //       // You can implement navigation to a list of properties/tenants
+                //       // to select for mandate creation
+                //     },
+                //     style: ElevatedButton.styleFrom(
+                //       backgroundColor: AppTheme.primaryColor,
+                //       foregroundColor: Colors.white,
+                //       padding: const EdgeInsets.symmetric(vertical: 12),
+                //       shape: RoundedRectangleBorder(
+                //         borderRadius: BorderRadius.circular(8),
+                //       ),
+                //     ),
+                //     child: Text(
+                //       'Create Your First Mandate',
+                //       style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                //     ),
+                //   ),
+                // ),
               ],
             );
           }
@@ -1002,7 +1239,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
-                     Get.to(MandateListPage());
+                      Get.to(MandateListPage());
                     },
                     child: const Text('View All Mandates'),
                   ),
@@ -1100,7 +1337,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    '\$${mandate.rentAmount} × ${mandate.noOfInstallments} payments',
+                    '\OMR${mandate.rentAmount} × ${mandate.noOfInstallments} payments',
                     style: context.bodySmall.copyWith(
                       color: AppTheme.textSecondary,
                     ),
@@ -1235,15 +1472,42 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
     );
   }
 
-  LineChartData _createLineChartData(Map<String, List<FlSpot>> chartData) {
+  LineChartData _createLineChartDataForLastMonths(
+    List<PaymentChartData> data,
+    int months,
+  ) {
+    final now = DateTime.now();
+
+    // Generate last `months` month labels
+    final List<String> monthLabels = List.generate(months, (i) {
+      final date = DateTime(now.year, now.month - (months - 1 - i), 1);
+      return DateFormat('MMM').format(date);
+    });
+
+    // Map month labels to totals
+    final Map<String, double> monthTotals = {
+      for (var label in monthLabels) label: 0.0,
+    };
+
+    for (var item in data) {
+      if (monthTotals.containsKey(item.month)) {
+        monthTotals[item.month] = item.total;
+      }
+    }
+
+    // Convert to FlSpot
+    final List<FlSpot> spots = [];
+    for (int i = 0; i < monthLabels.length; i++) {
+      spots.add(FlSpot(i.toDouble(), monthTotals[monthLabels[i]]!));
+    }
+
     return LineChartData(
       gridData: FlGridData(
         show: true,
         drawVerticalLine: false,
         horizontalInterval: 10,
-        getDrawingHorizontalLine: (value) {
-          return FlLine(color: AppTheme.dividerColor, strokeWidth: 1);
-        },
+        getDrawingHorizontalLine: (value) =>
+            FlLine(color: AppTheme.dividerColor, strokeWidth: 1),
       ),
       titlesData: FlTitlesData(
         show: true,
@@ -1255,26 +1519,13 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
             getTitlesWidget: (value, meta) {
               const style = TextStyle(
                 color: AppTheme.textSecondary,
-                fontSize: 10,
+                fontSize: 12,
               );
-
-              // Get month name based on current date minus months
-              final now = DateTime.now();
-              final month =
-                  now.month -
-                  (6 - value.toInt()); // Adjust according to your data points
-              String text;
-
-              if (month <= 0) {
-                // Handle previous year months
-                text = DateFormat(
-                  'MMM',
-                ).format(DateTime(now.year - 1, month + 12, 1));
-              } else {
-                text = DateFormat('MMM').format(DateTime(now.year, month, 1));
+              final index = value.toInt();
+              if (index >= 0 && index < monthLabels.length) {
+                return Text(monthLabels[index], style: style);
               }
-
-              return Text(text, style: style);
+              return const Text('');
             },
           ),
         ),
@@ -1283,9 +1534,6 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
             showTitles: true,
             interval: 10,
             getTitlesWidget: (value, meta) {
-              if (value == 0) {
-                return Container();
-              }
               return Text(
                 '${value.toInt()}K',
                 style: const TextStyle(
@@ -1300,7 +1548,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
       ),
       borderData: FlBorderData(show: false),
       minX: 0,
-      maxX: 6,
+      maxX: (months - 1).toDouble(),
       minY: 0,
       maxY: 50,
       lineTouchData: LineTouchData(
@@ -1309,11 +1557,9 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
           getTooltipItems: (List<LineBarSpot> spots) {
             return spots.map((spot) {
               return LineTooltipItem(
-                '\$${spot.y.toInt()}K',
+                '${spot.y.toInt()}',
                 GoogleFonts.poppins(
-                  color: spot.barIndex == 0
-                      ? AppTheme.primaryColor
-                      : AppTheme.accentColor,
+                  color: AppTheme.primaryColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
@@ -1324,7 +1570,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
       ),
       lineBarsData: [
         LineChartBarData(
-          spots: chartData['totalIncome'] ?? const [],
+          spots: spots,
           isCurved: true,
           color: AppTheme.primaryColor,
           barWidth: 3,
@@ -1333,18 +1579,6 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
           belowBarData: BarAreaData(
             show: true,
             color: AppTheme.primaryColor.withOpacity(0.15),
-          ),
-        ),
-        LineChartBarData(
-          spots: chartData['netIncome'] ?? const [],
-          isCurved: true,
-          color: AppTheme.accentColor,
-          barWidth: 3,
-          isStrokeCapRound: true,
-          dotData: FlDotData(show: false),
-          belowBarData: BarAreaData(
-            show: true,
-            color: AppTheme.accentColor.withOpacity(0.15),
           ),
         ),
       ],

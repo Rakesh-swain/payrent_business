@@ -9,6 +9,7 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:csv/csv.dart';
 import 'package:path/path.dart' as path;
 import 'package:payrent_business/controllers/bulk_upload_controller.dart';
+import 'package:payrent_business/controllers/tenant_controller.dart';
 import 'package:payrent_business/screens/landlord/property_management/template_viewer_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -40,7 +41,7 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
   List<Map<String, dynamic>> _previewData = [];
   List<Map<String, dynamic>> _originalData = []; // For tracking changes
   BulkUploadController bulkUploadController = Get.put(BulkUploadController());
-
+  TenantController tenantController = Get.put(TenantController());
   
   // Upload results
   int _successCount = 0;
@@ -312,9 +313,13 @@ class _BulkUploadPageState extends State<BulkUploadPage> {
       if (_uploadType == 'properties') {
         await bulkUploadController.uploadProperties(_previewData);
       } else if (_uploadType == 'tenants') {
-        await bulkUploadController.uploadTenants(_previewData);
+        await bulkUploadController.uploadTenants(_previewData).then((v) async {
+          await tenantController.fetchTenants();
+        });
       } else { // Both
-        await bulkUploadController.uploadBoth(_previewData);
+        await bulkUploadController.uploadBoth(_previewData).then((v) async {
+          await tenantController.fetchTenants();
+        });
       }
       
       setState(() {

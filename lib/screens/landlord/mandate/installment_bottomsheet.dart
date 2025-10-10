@@ -60,7 +60,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '$installments $frequency payments of \$${amount.toStringAsFixed(2)}',
+                    '$installments $frequency payments of OMR${amount.toStringAsFixed(2)}',
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -110,7 +110,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '\$${(amount * installments).toStringAsFixed(2)}',
+                      'OMR${(amount * installments).toStringAsFixed(2)}',
                       style: GoogleFonts.poppins(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
@@ -260,7 +260,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
           
           // Amount
           Text(
-            '\$${amount.toStringAsFixed(2)}',
+            'OMR${amount.toStringAsFixed(2)}',
             style: GoogleFonts.poppins(
               fontSize: 16,
               fontWeight: FontWeight.w600,

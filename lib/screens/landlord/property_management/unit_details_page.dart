@@ -161,7 +161,6 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
           onComplete: () {
             Get.back();
             Get.back();
-            Get.back();
           },
         );
       },
@@ -376,9 +375,9 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                   _buildInfoRow('Unit Type', widget.unit.unitType),
                   _buildInfoRow('Bedrooms', widget.unit.bedrooms.toString()),
                   _buildInfoRow('Bathrooms', widget.unit.bathrooms.toString()),
-                  _buildInfoRow('Monthly Rent', '\$${widget.unit.rent.toStringAsFixed(2)}'),
+                  _buildInfoRow('Monthly Rent', 'OMR${widget.unit.rent.toStringAsFixed(2)}'),
                   if (widget.unit.securityDeposit != null)
-                    _buildInfoRow('Security Deposit', '\$${widget.unit.securityDeposit!.toStringAsFixed(2)}'),
+                    _buildInfoRow('Security Deposit', 'OMR${widget.unit.securityDeposit!.toStringAsFixed(2)}'),
                   if (widget.unit.squareFeet != null)
                     _buildInfoRow('Square Feet', '${widget.unit.squareFeet} sq ft'),
                   if (widget.unit.notes != null && widget.unit.notes!.isNotEmpty)
@@ -398,8 +397,8 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
               icon: Icons.attach_money,
               content: Column(
                 children: [
-                  _buildInfoRow('Rent Amount', '\$${widget.unit.rent.toStringAsFixed(2)}'),
-                  _buildInfoRow('Annual Income', '\$${(widget.unit.rent * 12).toStringAsFixed(2)}'),
+                  _buildInfoRow('Rent Amount', '\OMR${widget.unit.rent.toStringAsFixed(2)}'),
+                  _buildInfoRow('Annual Income', '\OMR${(widget.unit.rent * 12).toStringAsFixed(2)}'),
                   if (_tenant != null) ...[
                     _buildInfoRow(
                       'Occupancy Status',
@@ -409,7 +408,7 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                     if (_leaseInfo != null) ...[
                       _buildInfoRow(
                         'Security Deposit',
-                        '\$${(_leaseInfo?['securityDeposit'] ?? 0).toStringAsFixed(2)}',
+                        '\OMR${(_leaseInfo?['securityDeposit'] ?? 0).toStringAsFixed(2)}',
                       ),
                       _buildInfoRow(
                         'Lease Start',
@@ -630,13 +629,13 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                     _formatTimestamp(tenantData['leaseEndDate']),
                   ),
                   _buildInfoRow(
-                    'Monthly Rent',
-                    '\$${(tenantData['rentAmount'] ?? 0).toStringAsFixed(2)}',
+                    'Rent',
+                    'OMR${(tenantData['rentAmount'] ?? 0).toStringAsFixed(2)}',
                   ),
                   if (tenantData['securityDeposit'] != null)
                     _buildInfoRow(
                       'Security Deposit',
-                      '\$${tenantData['securityDeposit'].toStringAsFixed(2)}',
+                      'OMR${tenantData['securityDeposit'].toStringAsFixed(2)}',
                     ),
                   _buildInfoRow(
                     'Rent Due Day',
@@ -689,10 +688,7 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                     label: 'Remove Tenant',
                     color: Colors.red,
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('To remove tenant, return to property details')),
-                      );
-                      Navigator.pop(context);
+                     
                     },
                   ),
                 ],

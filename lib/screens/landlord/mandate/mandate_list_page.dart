@@ -75,7 +75,7 @@ class MandateListPage extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    '\$${mandate.rentAmount} × ${mandate.noOfInstallments} payments',
+                    'OMR${mandate.rentAmount} × ${mandate.noOfInstallments} payments',
                     style: context.bodySmall?.copyWith(
                       color: AppTheme.textSecondary,
                     ),

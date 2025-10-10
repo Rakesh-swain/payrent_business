@@ -7,7 +7,10 @@ import 'package:animate_do/animate_do.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/models/account_information_model.dart';
 import 'package:payrent_business/models/property_model.dart';
+import 'package:payrent_business/screens/landlord/mandate/mandate_status_page.dart';
+import 'package:payrent_business/screens/landlord/mandate/new_create_mandate_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/edit_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_detail_page.dart';
@@ -42,7 +45,7 @@ class _PropertyListPageState extends State<PropertyListPage>
   Set<String> _expandedProperties = {};
 
   final TextEditingController _searchController = TextEditingController();
-
+  String userId = FirebaseAuth.instance.currentUser?.uid ?? '';
   @override
   void initState() {
     super.initState();
@@ -97,24 +100,24 @@ class _PropertyListPageState extends State<PropertyListPage>
       });
     }
   }
-Future<void> deleteProperty({
-  required String propertyId,
-}) async {
-  try {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .collection('properties')
-        .doc(propertyId)
-        .delete();
 
-    print('Property $propertyId deleted successfully.');
-  } catch (e) {
-    print('Error deleting property: $e');
-    rethrow;
+  Future<void> deleteProperty({required String propertyId}) async {
+    try {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('properties')
+          .doc(propertyId)
+          .delete();
+
+      print('Property $propertyId deleted successfully.');
+    } catch (e) {
+      print('Error deleting property: $e');
+      rethrow;
+    }
   }
-}
+
   void _applyFiltersAndSort() {
     // Start with all properties
     List<DocumentSnapshot> result = List.from(_allProperties);
@@ -278,7 +281,12 @@ Future<void> deleteProperty({
                 color: Colors.blue,
                 onTap: () {
                   Navigator.pop(context);
-                  Get.to(EditPropertyPage(property: propertyModel, propertyId: propertyModel.id!));
+                  Get.to(
+                    EditPropertyPage(
+                      property: propertyModel,
+                      propertyId: propertyModel.id!,
+                    ),
+                  );
                 },
               ),
               _buildActionButton(
@@ -325,6 +333,7 @@ Future<void> deleteProperty({
           onComplete: () {
             // Refresh property data after unit action
             _fetchProperties();
+            Get.back();
           },
         );
       },
@@ -397,7 +406,7 @@ Future<void> deleteProperty({
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
-                deleteProperty(propertyId: property.id).then((_){
+                deleteProperty(propertyId: property.id).then((_) {
                   _fetchProperties();
                 });
               },
@@ -407,6 +416,96 @@ Future<void> deleteProperty({
           ],
         );
       },
+    );
+  }
+
+  Widget _buildMandateButton(
+    PropertyUnitModel unit,
+    DocumentSnapshot tenantDoc,
+    AccountInformation? landlordAccountInfo,
+    List<QueryDocumentSnapshot> mandates,
+    String propertyId,
+  ) {
+    final tenantData = tenantDoc.data() as Map<String, dynamic>;
+    final tenantId = tenantDoc.id;
+
+    // Check if mandate exists
+    final mandateExists = mandates.any((mandate) {
+      final data = mandate.data() as Map<String, dynamic>;
+      return data['tenantId'] == tenantId && data['unitId'] == unit.unitId;
+    });
+
+    final landlordHasAccountInfo = landlordAccountInfo != null;
+    final tenantHasAccountInfo =
+        tenantData['db_account_holder_name'] != null &&
+        tenantData['db_account_number'] != null &&
+        tenantData['db_bank_bic'] != null &&
+        tenantData['db_branch_code'] != null;
+
+    final canCreateMandate = landlordHasAccountInfo && tenantHasAccountInfo;
+
+    if (mandateExists) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle, size: 16, color: Colors.green),
+            const SizedBox(width: 4),
+            Text(
+              'Mandate Created',
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.green,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ElevatedButton.icon(
+      onPressed: canCreateMandate
+          ? () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NewCreateMandatePage(
+                    unit: unit,
+                    tenantDoc: tenantDoc,
+                    landlordAccountInfo: landlordAccountInfo!,
+                    propertyId: propertyId,
+                  ),
+                ),
+              );
+            }
+          : () {
+              String msg = !landlordHasAccountInfo
+                  ? 'Please complete your account information in settings.'
+                  : 'Tenant account information is incomplete.';
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(msg), backgroundColor: Colors.orange),
+              );
+            },
+      icon: const Icon(Icons.account_balance, size: 16),
+      label: const Text('Create Mandate'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: canCreateMandate ? AppTheme.primaryColor : Colors.grey,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        textStyle: GoogleFonts.poppins(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 
@@ -828,7 +927,7 @@ Future<void> deleteProperty({
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-               Get.to(AddPropertyPage());
+              Get.to(AddPropertyPage());
             },
             icon: const Icon(Icons.add),
             label: const Text('Add Property'),
@@ -885,7 +984,7 @@ Future<void> deleteProperty({
     for (var unit in property.units) {
       totalRent += unit.rent;
     }
-    final averageRent = totalUnits > 0 ? totalRent / totalUnits : 0;
+    final averageRent = totalRent;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1082,14 +1181,14 @@ Future<void> deleteProperty({
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Avg. Rent',
+                                      'Total Rent',
                                       style: GoogleFonts.poppins(
                                         fontSize: 12,
                                         color: Colors.grey.shade600,
                                       ),
                                     ),
                                     Text(
-                                      '\$${averageRent.toStringAsFixed(0)}/mo',
+                                      '\OMR${averageRent.toStringAsFixed(0)}/mo',
                                       style: GoogleFonts.poppins(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -1141,37 +1240,37 @@ Future<void> deleteProperty({
                               // Show Units Button (only for multi-unit properties)
                               // if (property.isMultiUnit ||
                               //     property.units.length > 1)
-                                ElevatedButton.icon(
-                                  onPressed: () =>
-                                      _togglePropertyExpansion(propertyId),
-                                  icon: Icon(
-                                    isExpanded
-                                        ? Icons.keyboard_arrow_up
-                                        : Icons.keyboard_arrow_down,
-                                    size: 18,
-                                  ),
-                                  label: Text(
-                                    isExpanded ? 'Hide Units' : 'Show Units',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primaryColor
-                                        .withOpacity(0.1),
-                                    foregroundColor: AppTheme.primaryColor,
-                                    elevation: 0,
-                                    shadowColor: Colors.transparent,
-                                    padding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
+                              ElevatedButton.icon(
+                                onPressed: () =>
+                                    _togglePropertyExpansion(propertyId),
+                                icon: Icon(
+                                  isExpanded
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
+                                  size: 18,
+                                ),
+                                label: Text(
+                                  isExpanded ? 'Hide Units' : 'Show Units',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor
+                                      .withOpacity(0.1),
+                                  foregroundColor: AppTheme.primaryColor,
+                                  elevation: 0,
+                                  shadowColor: Colors.transparent,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ],
@@ -1239,6 +1338,8 @@ Future<void> deleteProperty({
 
   Widget _buildUnitCard(String propertyId, PropertyUnitModel unit) {
     final isOccupied = unit.tenantId != null;
+    final userId = FirebaseAuth.instance.currentUser!.uid;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -1248,7 +1349,6 @@ Future<void> deleteProperty({
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
             blurRadius: 5,
-            spreadRadius: 0,
             offset: const Offset(0, 2),
           ),
         ],
@@ -1272,16 +1372,19 @@ Future<void> deleteProperty({
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Color(0xFFF0EEFE),
+                        color: const Color(0xFFF0EEFE),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Color(0xFFE0D6FD), width: 1),
+                        border: Border.all(
+                          color: const Color(0xFFE0D6FD),
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         'Unit ${unit.unitNumber}',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF7C3AED), // Deep purple
+                          color: const Color(0xFF7C3AED),
                         ),
                       ),
                     ),
@@ -1313,7 +1416,6 @@ Future<void> deleteProperty({
                           color: isOccupied
                               ? Colors.green.withOpacity(0.3)
                               : Colors.orange.withOpacity(0.3),
-                          width: 1,
                         ),
                       ),
                       child: Text(
@@ -1326,7 +1428,7 @@ Future<void> deleteProperty({
                       ),
                     ),
 
-                    // Three Dot Menu
+                    // Menu Button
                     IconButton(
                       icon: Icon(
                         Icons.more_vert,
@@ -1336,7 +1438,7 @@ Future<void> deleteProperty({
                       onPressed: () =>
                           _showUnitOptions(context, propertyId, unit),
                       padding: EdgeInsets.zero,
-                      constraints: BoxConstraints(),
+                      constraints: const BoxConstraints(),
                       splashRadius: 24,
                     ),
                   ],
@@ -1346,7 +1448,6 @@ Future<void> deleteProperty({
                 // Unit Details
                 Row(
                   children: [
-                    // Bedrooms & Bathrooms
                     Expanded(
                       child: Row(
                         children: [
@@ -1355,7 +1456,7 @@ Future<void> deleteProperty({
                             size: 16,
                             color: Colors.grey[600],
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
                             '${unit.bedrooms} bed',
                             style: GoogleFonts.poppins(
@@ -1363,13 +1464,13 @@ Future<void> deleteProperty({
                               color: Colors.grey[700],
                             ),
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Icon(
                             Icons.bathtub_outlined,
                             size: 16,
                             color: Colors.grey[600],
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
                             '${unit.bathrooms} bath',
                             style: GoogleFonts.poppins(
@@ -1380,8 +1481,6 @@ Future<void> deleteProperty({
                         ],
                       ),
                     ),
-
-                    // Rent
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -1391,26 +1490,195 @@ Future<void> deleteProperty({
                         color: AppTheme.primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(30),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.attach_money,
-                            size: 14,
-                            color: AppTheme.primaryColor,
-                          ),
-                          Text(
-                            '${unit.rent.toStringAsFixed(0)}/mo',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        'OMR${unit.rent.toStringAsFixed(0)}/mo',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryColor,
+                        ),
                       ),
                     ),
                   ],
                 ),
+
+                // 🔹 Mandate Section
+                if (isOccupied) ...[
+                  const SizedBox(height: 16),
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(userId)
+                        .get(),
+                    builder: (context, userSnapshot) {
+                      if (userSnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const CircularProgressIndicator(strokeWidth: 2);
+                      }
+
+                      AccountInformation? landlordAccountInfo;
+                      if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                        final userData =
+                            userSnapshot.data!.data() as Map<String, dynamic>;
+                        if (userData['cr_account_holder_name'] != null) {
+                          landlordAccountInfo = AccountInformation.fromMap(
+                            userData,
+                          );
+                        }
+                      }
+
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(userId)
+                            .collection('mandates')
+                            .where('propertyId', isEqualTo: propertyId)
+                            .where('unitId', isEqualTo: unit.unitId)
+                            .snapshots(),
+                        builder: (context, mandateSnapshot) {
+                          if (mandateSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const CircularProgressIndicator(
+                              strokeWidth: 2,
+                            );
+                          }
+
+                          final mandates = mandateSnapshot.data?.docs ?? [];
+                          // No mandate → show Create Mandate button
+                          if (mandates.isEmpty) {
+                            final tenantId = unit.tenantId;
+                            if (tenantId == null) {
+                              return const Text(
+                                'No tenant assigned for this unit.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            }
+                            return FutureBuilder<DocumentSnapshot>(
+                              future: FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(userId)
+                                  .collection('tenants')
+                                  .doc(tenantId)
+                                  .get(),
+                              builder: (context, tenantSnapshot) {
+                                if (tenantSnapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const SizedBox();
+                                }
+                                if (!tenantSnapshot.hasData ||
+                                    !tenantSnapshot.data!.exists) {
+                                  return const Text(
+                                    'Tenant information not found. Please assign tenant to create mandate.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.red,
+                                    ),
+                                  );
+                                }
+                                // ✅ Pass landlordAccountInfo, mandates, and propertyId
+                                return _buildMandateButton(
+                                  unit,
+                                  tenantSnapshot.data!,
+                                  landlordAccountInfo,
+                                  mandates,
+                                  propertyId,
+                                );
+                              },
+                            );
+                          }
+
+                          // Mandate exists → show based on status
+                          final mandateData =
+                              mandates.first.data() as Map<String, dynamic>;
+                          final status = mandateData['mmsStatus'].toString().toLowerCase();
+                          print(status);
+
+                          if (status == 'success' || status == 'pending') {
+                            return Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.orange.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'This mandate request is pending.\nAwaiting confirmation of mandate request.',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.orange[800],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: 10),
+                                ElevatedButton(
+                                  onPressed: () => Get.to(
+                                    () => MandateStatusPage(
+                                      mandateId: mandates.first.id,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                  ),
+                                  child: const Text(
+                                    'Check Mandate Status',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          } else if (status == 'accepted') {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.green.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle,
+                                    size: 16,
+                                    color: Colors.green,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Mandate creation successful',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.green[800],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return const SizedBox();
+                        },
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
           ),

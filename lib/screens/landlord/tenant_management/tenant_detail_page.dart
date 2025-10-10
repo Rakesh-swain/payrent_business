@@ -421,7 +421,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                 Expanded(
                   child: _buildHeaderStat(
                     'Total Rent',
-                    '\$${totalRent.toStringAsFixed(0)}',
+                    'OMR${totalRent.toStringAsFixed(0)}',
                     Icons.attach_money_outlined,
                   ),
                 ),
@@ -663,7 +663,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                     Text('Rent Amount', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
                     const SizedBox(height: 4),
                     Text(
-                      '\$${(propertyData['rentAmount'] ?? 0).toStringAsFixed(0)}',
+                      'OMR${(propertyData['rentAmount'] ?? 0).toStringAsFixed(0)}',
                       style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
                     ),
                   ],
@@ -691,7 +691,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                       Text('Security Deposit', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
                       const SizedBox(height: 4),
                       Text(
-                        '\$${propertyData['securityDeposit'].toStringAsFixed(0)}',
+                        'OMR${propertyData['securityDeposit'].toStringAsFixed(0)}',
                         style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                     ],
@@ -861,7 +861,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                 ),
               ),
               Text(
-                '\$${NumberFormat('#,##0.00').format(totalAmount)}',
+                'OMR${NumberFormat('#,##0.00').format(totalAmount)}',
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -986,7 +986,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '\$${NumberFormat('#,##0.00').format(payment['amount'])}',
+                '\OMR${NumberFormat('#,##0.00').format(payment['amount'])}',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,

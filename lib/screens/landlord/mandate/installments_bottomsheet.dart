@@ -56,7 +56,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '$installments ${frequency.toLowerCase()} payments of \$${amount.toStringAsFixed(2)} each',
+                  '$installments ${frequency.toLowerCase()} payments of OMR${amount.toStringAsFixed(2)} each',
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: Colors.grey[600],
@@ -74,7 +74,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
                 Expanded(
                   child: _buildSummaryCard(
                     'Total Amount',
-                    '\$${(amount * installments).toStringAsFixed(2)}',
+                    'OMR${(amount * installments).toStringAsFixed(2)}',
                     Colors.green,
                     Icons.attach_money,
                   ),
@@ -83,7 +83,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
                 Expanded(
                   child: _buildSummaryCard(
                     'Per Payment',
-                    '\$${amount.toStringAsFixed(2)}',
+                    'OMR${amount.toStringAsFixed(2)}',
                     Colors.blue,
                     Icons.payment,
                   ),
@@ -153,7 +153,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  '\$${amount.toStringAsFixed(2)}',
+                                  'OMR${amount.toStringAsFixed(2)}',
                                   style: GoogleFonts.poppins(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -313,26 +313,47 @@ class InstallmentsBottomSheet extends StatelessWidget {
     );
   }
 
-  DateTime _calculatePaymentDate(int index) {
-    switch (frequency.toLowerCase()) {
-      case 'daily':
-        return startDate.add(Duration(days: index));
-      case 'weekly':
-        return startDate.add(Duration(days: index * 7));
-      case 'monthly':
-        return DateTime(
-          startDate.year,
-          startDate.month + index,
-          startDate.day,
-        );
-      case 'yearly':
-        return DateTime(
-          startDate.year + index,
-          startDate.month,
-          startDate.day,
-        );
-      default:
-        return startDate.add(Duration(days: index * 7));
-    }
+  DateTime _calculatePaymentDate(int index) { 
+  switch (frequency.toLowerCase()) {
+    case 'daily':
+      return startDate.add(Duration(days: index));
+
+    case 'weekly':
+      return startDate.add(Duration(days: index * 7));
+
+    case 'monthly':
+      return DateTime(
+        startDate.year,
+        startDate.month + index,
+        startDate.day,
+      );
+
+    case 'quarterly': // every 3 months
+      return DateTime(
+        startDate.year,
+        startDate.month + (index * 4),
+        startDate.day,
+      );
+
+    case 'half-yearly': // every 6 months
+    case 'half yearly': // also handle space version
+      return DateTime(
+        startDate.year,
+        startDate.month + (index * 6),
+        startDate.day,
+      );
+
+    case 'yearly':
+      return DateTime(
+        startDate.year + index,
+        startDate.month,
+        startDate.day,
+      );
+
+    default:
+      // Default to weekly if unknown frequency
+      return startDate.add(Duration(days: index * 7));
   }
+}
+
 }

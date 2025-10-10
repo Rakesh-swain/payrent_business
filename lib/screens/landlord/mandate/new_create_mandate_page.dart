@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import 'package:payrent_business/widgets/dialog.dart';
 import 'package:uuid/uuid.dart';
 import '../../../config/theme.dart';
 import '../../../controllers/mandate_controller.dart';
@@ -37,60 +38,124 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
   
   // Form controllers
   final _formKey = GlobalKey<FormState>();
-  final _installmentsController = TextEditingController();
   final _amountController = TextEditingController();
   
   // State variables
-  String _selectedFrequency = 'Weekly';
+  String _selectedFrequency = 'Monthly';
   DateTime _startDate = DateTime.now();
-  DateTime _endDate = DateTime.now();
-  int _numberOfInstallments = 3; // Default to 3
+  DateTime _endDate = DateTime.now().add(Duration(days: 365)); // Default 1 year
+  int _numberOfInstallments = 0;
   int _paymentAmount = 0;
   bool _isLoading = false;
   
-  final List<String> _frequencies = ['Daily', 'Weekly', 'Monthly', 'Yearly'];
-  final Map<String, int> _maxInstallments = {
-    'Daily': 999,
-    'Weekly': 999, 
-    'Monthly': 999,
-    'Yearly': 999,
-  };
+  final List<String> _frequencies = [
+    'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'
+  ];
 
   @override
   void initState() {
     super.initState();
     _paymentAmount = widget.unit.rent;
     _amountController.text = _paymentAmount.toString();
-    _installmentsController.text = _numberOfInstallments.toString();
-    _calculateEndDate();
+    _fetchLeaseDates();
+    _calculateNumberOfInstallments();
+    print(widget.tenantDoc.data());
   }
 
   @override
   void dispose() {
-    _installmentsController.dispose();
     _amountController.dispose();
     super.dispose();
   }
+  Future<void> _fetchLeaseDates() async {
+  try {
+    final tenantId = widget.tenantDoc.id;
+    final propertyId = widget.propertyId;
+    final unitId = widget.unit.unitId;
 
-  /// Calculate end date based on start date, number of installments and frequency
-  void _calculateEndDate() {
-    _endDate = _mandateController.calculateEndDate(_startDate, _numberOfInstallments, _selectedFrequency);
-    if (mounted) setState(() {});
+    final unitSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(FirebaseAuth.instance.currentUser!.uid)
+        .collection('tenants')
+        .doc(tenantId)
+        .collection('properties')
+        .where('propertyId', isEqualTo: propertyId,)
+        .where('unitId', isEqualTo: unitId)
+        .limit(1)
+        .get();
+
+    if (unitSnapshot.docs.isNotEmpty) {
+      final unitData = unitSnapshot.docs.first.data();
+
+      final leaseStart = unitData['leaseStartDate'];
+      final leaseEnd = unitData['leaseEndate'];
+
+      setState(() {
+        _startDate = (leaseStart is Timestamp)
+            ? leaseStart.toDate()
+            : DateTime.tryParse(leaseStart.toString()) ?? DateTime.now();
+
+        _endDate = (leaseEnd is Timestamp)
+            ? leaseEnd.toDate()
+            : DateTime.tryParse(leaseEnd.toString()) ??
+                _startDate.add(const Duration(days: 365));
+        print(_startDate);
+        print(_endDate);
+      });
+
+      _calculateNumberOfInstallments();
+    } else {
+      debugPrint('No unit found with ID: $unitId');
+    }
+  } catch (e) {
+    debugPrint('Error fetching lease dates: $e');
+  }
+}
+
+
+  /// Calculate number of installments based on start date, end date and frequency
+  void _calculateNumberOfInstallments() {
+    if (_endDate.isBefore(_startDate) || _endDate.isAtSameMomentAs(_startDate)) {
+      setState(() {
+        _numberOfInstallments = 0;
+      });
+      return;
+    }
+
+    int installments = 0;
+    DateTime currentDate = _startDate;
+
+    while (currentDate.isBefore(_endDate) || currentDate.isAtSameMomentAs(_endDate)) {
+      installments++;
+      
+      // Calculate next payment date based on frequency
+      switch (_selectedFrequency) {
+        case 'Monthly':
+          currentDate = DateTime(currentDate.year, currentDate.month + 1, currentDate.day);
+          break;
+        case 'Quarterly':
+          currentDate = DateTime(currentDate.year, currentDate.month + 3, currentDate.day);
+          break;
+        case 'Half-Yearly':
+          currentDate = DateTime(currentDate.year, currentDate.month + 6, currentDate.day);
+          break;
+        case 'Yearly':
+          currentDate = DateTime(currentDate.year + 1, currentDate.month, currentDate.day);
+          break;
+      }
+      
+      // Safety check to prevent infinite loops
+      if (installments > 999) break;
+    }
+
+    setState(() {
+      _numberOfInstallments = installments;
+    });
   }
 
   /// Validate the form
   bool _validateForm() {
     if (!_formKey.currentState!.validate()) {
-      return false;
-    }
-
-    if (_numberOfInstallments <= 0) {
-      Get.snackbar('Error', 'Number of installments must be greater than 0');
-      return false;
-    }
-
-    if (_numberOfInstallments > 999) {
-      Get.snackbar('Error', 'Maximum installments allowed is 999');
       return false;
     }
 
@@ -101,6 +166,21 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
 
     if (_startDate.isBefore(DateTime.now().subtract(Duration(days: 1)))) {
       Get.snackbar('Error', 'Start date cannot be in the past');
+      return false;
+    }
+
+    if (_endDate.isBefore(_startDate) || _endDate.isAtSameMomentAs(_startDate)) {
+      Get.snackbar('Error', 'End date must be after start date');
+      return false;
+    }
+
+    if (_numberOfInstallments <= 0) {
+      Get.snackbar('Error', 'No payments calculated. Please adjust your dates.');
+      return false;
+    }
+
+    if (_numberOfInstallments > 999) {
+      Get.snackbar('Error', 'Maximum installments allowed is 999. Please adjust your dates or frequency.');
       return false;
     }
 
@@ -130,40 +210,29 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
         unitId: widget.unit.unitId,
         landlordAccountHolderName: widget.landlordAccountInfo.accountHolderName,
         landlordAccountNumber: widget.landlordAccountInfo.accountNumber,
-        landlordIdType: 'CivilId', // As per API requirements
-        landlordIdNumber: '1584032', // As per API requirements
+        landlordIdType: 'CivilId',
+        landlordIdNumber: '1584032',
         landlordBankBic: widget.landlordAccountInfo.bankBic,
         landlordBranchCode: widget.landlordAccountInfo.branchCode,
         tenantAccountHolderName: tenantData['db_account_holder_name'] ?? '',
         tenantAccountNumber: tenantData['db_account_number'] ?? '',
-        tenantIdType: 'CivilId', // As per API requirements
-        tenantIdNumber: tenantData['db_civil_id'] ?? '120861567', // Fallback as per requirements
-        tenantBankBic: tenantData['db_bank_bic'] ?? 'BSHROMRU', // Fallback as per requirements
-        tenantBranchCode: tenantData['db_branch_code'] ?? '001', // Fallback as per requirements
+        tenantIdType: 'CivilId',
+        tenantIdNumber: tenantData['db_civil_id'] ?? '120861567',
+        tenantBankBic: tenantData['db_bank_bic'] ?? 'BSHROMRU',
+        tenantBranchCode: tenantData['db_branch_code'] ?? '001',
         rentAmount: _paymentAmount,
         startDate: _startDate,
         noOfInstallments: _numberOfInstallments,
         paymentFrequency: _selectedFrequency,
+        context: context
       );
 
-      if (mandate != null) {
-        Get.back(); // Go back to previous page
-        Get.snackbar(
-          'Success',
-          'Mandate created successfully!',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
-      }
+      
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to create mandate: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      setState(() {
+        _isLoading = false;
+      });
+      CustomDialogs.showErrorDialog(context, e.toString());
     } finally {
       setState(() {
         _isLoading = false;
@@ -263,14 +332,6 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
 
               SizedBox(height: 16),
 
-              // Number of Installments Card
-              FadeInUp(
-                duration: Duration(milliseconds: 550),
-                child: _buildInstallmentsCard(),
-              ),
-
-              SizedBox(height: 16),
-
               // Start Date Card
               FadeInUp(
                 duration: Duration(milliseconds: 600),
@@ -279,26 +340,26 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
 
               SizedBox(height: 16),
 
-              // Calculated End Date (Read-only)
+              // End Date Card
               FadeInUp(
                 duration: Duration(milliseconds: 700),
-                child: _buildCalculatedEndDateCard(),
+                child: _buildEndDateCard(),
               ),
 
               SizedBox(height: 16),
 
-              // Summary Card
-              FadeInUp(
-                duration: Duration(milliseconds: 800),
-                child: _buildSummaryCard(),
-              ),
-
-              SizedBox(height: 24),
-
               // Account Information
               FadeInUp(
-                duration: Duration(milliseconds: 900),
+                duration: Duration(milliseconds: 800),
                 child: _buildAccountInfoCard(),
+              ),
+
+              SizedBox(height: 16),
+
+              // Payment Summary Card (Moved to last)
+              FadeInUp(
+                duration: Duration(milliseconds: 900),
+                child: _buildPaymentSummaryCard(),
               ),
 
               SizedBox(height: 32),
@@ -380,7 +441,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                   ),
                 ),
                 Text(
-                  '\$${widget.unit.rent.toStringAsFixed(2)}',
+                  'OMR${widget.unit.rent.toStringAsFixed(2)}',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -395,7 +456,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 labelText: 'Amount per Payment',
-                prefixText: '\$ ',
+                prefixText: 'OMR ',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -469,8 +530,8 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                   onTap: () {
                     setState(() {
                       _selectedFrequency = frequency;
+                      _calculateNumberOfInstallments();
                     });
-                    _calculateEndDate();
                   },
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -498,179 +559,6 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     );
   }
 
-  Widget _buildInstallmentsCard() {
-    final totalAmount = _paymentAmount * _numberOfInstallments;
-    
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: () => _showInstallmentsBottomSheet(),
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: [Colors.purple.withOpacity(0.1), Colors.blue.withOpacity(0.1)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.purple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(Icons.receipt_long, color: Colors.purple, size: 20),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Payment Summary',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Spacer(),
-                  Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-                ],
-              ),
-              SizedBox(height: 16),
-              // Installments input field
-              TextFormField(
-                controller: _installmentsController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Number of ${_selectedFrequency} Payments (max 999)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.purple, width: 2),
-                  ),
-                  helperText: 'End date will be calculated automatically',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter number of installments';
-                  }
-                  final installments = int.tryParse(value);
-                  if (installments == null || installments <= 0) {
-                    return 'Please enter a valid number';
-                  }
-                  if (installments > 999) {
-                    return 'Maximum 999 installments allowed';
-                  }
-                  return null;
-                },
-                onChanged: (value) {
-                  final installments = int.tryParse(value);
-                  if (installments != null && installments > 0 && installments <= 999) {
-                    setState(() {
-                      _numberOfInstallments = installments;
-                      _calculateEndDate();
-                    });
-                  }
-                },
-              ),
-              SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Installments',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Text(
-                          '$_numberOfInstallments payments',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.purple,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Amount',
-                          style: GoogleFonts.poppins(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        Text(
-                          '\$${totalAmount.toStringAsFixed(2)}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.green,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '\$${_paymentAmount.toStringAsFixed(2)} per payment × $_numberOfInstallments payments',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Tap to view installment breakdown',
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildStartDateCard() {
     return Card(
       elevation: 2,
@@ -689,10 +577,10 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                   Container(
                     padding: EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
+                      color: Colors.blue.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.calendar_today, color: Colors.orange, size: 20),
+                    child: Icon(Icons.calendar_today, color: Colors.blue, size: 20),
                   ),
                   SizedBox(width: 12),
                   Text(
@@ -700,7 +588,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.orange,
+                      color: Colors.blue,
                     ),
                   ),
                   Spacer(),
@@ -731,155 +619,62 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     );
   }
 
-  Widget _buildCalculatedEndDateCard() {
+  Widget _buildEndDateCard() {
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey[50],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.purple.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: () => _selectEndDate(),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.event_available, color: Colors.purple, size: 20),
                   ),
-                  child: Icon(Icons.event_available, color: Colors.purple, size: 20),
-                ),
-                SizedBox(width: 12),
-                Text(
-                  'End Date',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.purple,
-                  ),
-                ),
-                Spacer(),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Auto',
+                  SizedBox(width: 12),
+                  Text(
+                    'End Date',
                     style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey[700],
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.purple,
                     ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: 16),
-            Text(
-              DateFormat('EEEE, MMM d, yyyy').format(_endDate),
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+                  Spacer(),
+                  Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                ],
               ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Based on ${_numberOfInstallments} ${_selectedFrequency.toLowerCase()} payments',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey[600],
-                fontStyle: FontStyle.italic,
+              SizedBox(height: 16),
+              Text(
+                DateFormat('EEEE, MMM d, yyyy').format(_endDate),
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryCard() {
-    final totalAmount = _paymentAmount * _numberOfInstallments;
-    final duration = _endDate.difference(_startDate).inDays;
-
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [Colors.green.withOpacity(0.1), Colors.blue.withOpacity(0.1)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.summarize, color: Colors.green, size: 20),
+              SizedBox(height: 4),
+              Text(
+                'Tap to change date',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
                 ),
-                SizedBox(width: 12),
-                Text(
-                  'Mandate Summary',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 16),
-            _buildSummaryRow('Frequency', _selectedFrequency),
-            _buildSummaryRow('Total Installments', '${_numberOfInstallments} payments'),
-            _buildSummaryRow('Amount per Payment', '\$${_paymentAmount.toStringAsFixed(2)}'),
-            _buildSummaryRow('Total Amount', '\$${totalAmount.toStringAsFixed(2)}'),
-            _buildSummaryRow('Duration', '${duration} days'),
-          ],
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryRow(String label, String value) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -967,31 +762,6 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
               widget.landlordAccountInfo.branchCode,
               Colors.green,
             ),
-            
-            SizedBox(height: 16),
-            
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${_selectedFrequency} payments will be automatically collected',
-                      style: GoogleFonts.poppins(
-                        fontSize: 12,
-                        color: Colors.blue[700],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -1060,7 +830,199 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     );
   }
 
+  Widget _buildPaymentSummaryCard() {
+    final totalAmount = _paymentAmount * _numberOfInstallments;
+    final duration = _endDate.difference(_startDate).inDays;
+    
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.1),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: _numberOfInstallments > 0 ? () => _showInstallmentsBottomSheet() : null,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [Colors.purple.withOpacity(0.1), Colors.blue.withOpacity(0.1)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.receipt_long, color: Colors.purple, size: 20),
+                  ),
+                  SizedBox(width: 12),
+                  Text(
+                    'Payment Summary',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Spacer(),
+                  if (_numberOfInstallments > 0)
+                    Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                ],
+              ),
+              SizedBox(height: 16),
+              
+              if (_numberOfInstallments > 0) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total Payments',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          Text(
+                            '$_numberOfInstallments payments',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.purple,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total Amount',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          Text(
+                            'OMR${totalAmount.toStringAsFixed(2)}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+                _buildSummaryRow('Frequency', _selectedFrequency),
+                _buildSummaryRow('Amount per Payment', 'OMR${_paymentAmount.toStringAsFixed(2)}'),
+                _buildSummaryRow('Duration', '${duration} days'),
+                SizedBox(height: 12),
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.blue, size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '$_numberOfInstallments ${_selectedFrequency.toLowerCase()} payments will be automatically collected',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Tap to view installment breakdown',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ] else ...[
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Please select start and end dates to calculate payments',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.orange[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              color: Colors.grey[600],
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showInstallmentsBottomSheet() {
+    if (_numberOfInstallments <= 0) return;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1076,18 +1038,43 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     );
   }
 
+ 
+
   Future<void> _selectStartDate() async {
+    print(_startDate);
+    print(DateTime.now());
     final date = await showDatePicker(
       context: context,
       initialDate: _startDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(Duration(days: 365 * 2)),
+      firstDate: _startDate,
+      lastDate: DateTime.now().add(Duration(days: 365 * 5)),
     );
 
     if (date != null) {
       setState(() {
         _startDate = date;
-        _calculateEndDate();
+        // If end date is before new start date, adjust it
+        if (_endDate.isBefore(_startDate)) {
+          _endDate = _startDate.add(Duration(days: 365));
+        }
+        _calculateNumberOfInstallments();
+      });
+    }
+  }
+
+  Future<void> _selectEndDate() async {
+    print(_endDate);
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _endDate.isBefore(_startDate) ? _startDate.add(Duration(days: 1)) : _endDate,
+      firstDate: _startDate.add(Duration(days: 1)),
+      lastDate: DateTime.now().add(Duration(days: 365 * 10)),
+    );
+
+    if (date != null) {
+      setState(() {
+        _endDate = date;
+        _calculateNumberOfInstallments();
       });
     }
   }

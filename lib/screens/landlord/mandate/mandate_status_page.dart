@@ -30,33 +30,53 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
     _loadMandate();
   }
 
-  void _loadMandate() {
-    _mandate = _mandateController.getMandateById(widget.mandateId);
-    if (mounted) setState(() {});
+  void _loadMandate() async {
+    _mandate = await _mandateController.getMandateById(widget.mandateId);
+   setState(() {});
   }
 
   Future<void> _updateMandateStatus() async {
-    if (_mandate == null) return;
+  if (_mandate == null) return;
 
-    setState(() {
-      _isUpdatingStatus = true;
-    });
+  setState(() {
+    _isUpdatingStatus = true;
+  });
 
-    final success = await _mandateController.updateMandateStatus(widget.mandateId);
+  try {
+    final success = await _mandateController.updateMandateStatus(
+      widget.mandateId,
+      _mandate!.tenantId,
+      _mandate!.propertyId,  
+      _mandate!.unitId,
+      _mandate!.referenceNumber!,
+      _mandate!.mmsId!,
+      _mandate!.paymentFrequency,
+      _mandate!.rentAmount,
+      _mandate!.startDate,
+      _mandate!.noOfInstallments,
+      );
     
     if (success) {
-      // Reload mandate data to get updated status
       _loadMandate();
+      // Optionally show success message
+      Get.snackbar('Success', 'Mandate status updated successfully');
+    } else {
+      Get.snackbar('Error', 'Failed to update mandate status');
     }
-
-    setState(() {
-      _isUpdatingStatus = false;
-    });
+  } catch (e) {
+    Get.snackbar('Error', 'An error occurred: $e');
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isUpdatingStatus = false;
+      });
+    }
   }
+}
 
   @override
   Widget build(BuildContext context) {
-    if (_mandate == null) {
+    if (_mandate == null) { 
       return Scaffold(
         appBar: AppBar(
           title: Text(
@@ -82,7 +102,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          IconButton(
+          _mandate!.mmsStatus!.toLowerCase() == "accepted"?Container(height: 1,): IconButton(
             onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
             icon: _isUpdatingStatus
                 ? SizedBox(
@@ -142,59 +162,108 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
               child: _buildAccountInfoCard(),
             ),
 
-            SizedBox(height: 32),
+            SizedBox(height: 20),
 
             // Update Status Button
-            FadeInUp(
-              duration: Duration(milliseconds: 800),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 2,
-                  ),
-                  child: _isUpdatingStatus
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Updating Status...',
-                              style: GoogleFonts.poppins(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Text(
-                          'Update Status',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
-              ),
-            ),
+            // FadeInUp(
+            //   duration: Duration(milliseconds: 800),
+            //   child: SizedBox(
+            //     width: double.infinity,
+            //     child: ElevatedButton(
+            //       onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
+            //       style: ElevatedButton.styleFrom(
+            //         backgroundColor: AppTheme.primaryColor,
+            //         foregroundColor: Colors.white,
+            //         padding: EdgeInsets.symmetric(vertical: 16),
+            //         shape: RoundedRectangleBorder(
+            //           borderRadius: BorderRadius.circular(12),
+            //         ),
+            //         elevation: 2,
+            //       ),
+            //       child: _isUpdatingStatus
+            //           ? Row(
+            //               mainAxisSize: MainAxisSize.min,
+            //               children: [
+            //                 SizedBox(
+            //                   width: 20,
+            //                   height: 20,
+            //                   child: CircularProgressIndicator(
+            //                     strokeWidth: 2,
+            //                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            //                   ),
+            //                 ),
+            //                 SizedBox(width: 12),
+            //                 Text(
+            //                   'Updating Status...',
+            //                   style: GoogleFonts.poppins(
+            //                     fontSize: 16,
+            //                     fontWeight: FontWeight.w600,
+            //                   ),
+            //                 ),
+            //               ],
+            //             )
+            //           : Text(
+            //               'Update Status',
+            //               style: GoogleFonts.poppins(
+            //                 fontSize: 16,
+            //                 fontWeight: FontWeight.w600,
+            //               ),
+            //             ),
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),
+       bottomNavigationBar: _mandate!.mmsStatus!.toLowerCase() == "accepted"?Container(height: 1,):SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: ElevatedButton(
+            onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 3,
+            ),
+            child: _isUpdatingStatus
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Updating Status...',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    'Update Status',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    ),
     );
   }
 
@@ -286,7 +355,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    _mandate!.mmsStatus ?? 'PENDING',
+                    (_mandate!.mmsStatus ?? '').toLowerCase() == "success" ? "Pending" : (_mandate!.mmsStatus!.toUpperCase() ?? 'Unknown'),
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontSize: 12,
@@ -305,7 +374,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
   Widget _buildStatusCard() {
     final statusColor = _getStatusColor(_mandate!.mmsStatus);
     final statusIcon = _getStatusIcon(_mandate!.mmsStatus);
-    final statusMessage = _getStatusMessage(_mandate!.mmsStatus);
+    final statusMessage = _getStatusMessage(_mandate!.mmsStatus!.toLowerCase() == "success"?"pending":_mandate!.mmsStatus);
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.1),
@@ -350,7 +419,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                   Row(
                     children: [
                       Text(
-                        _mandate!.mmsStatus ?? 'PENDING',
+                        _mandate!.status.toLowerCase() == "success"?"Pending":_mandate!.status.toUpperCase(),
                         style: GoogleFonts.poppins(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -424,14 +493,14 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
               ],
             ),
             SizedBox(height: 16),
-            _buildDetailRow('Frequency', 'Weekly'),
+            _buildDetailRow('Frequency', _mandate!.paymentFrequency),
             _buildDetailRow('Start Date', DateFormat('MMM d, yyyy').format(_mandate!.startDate)),
             _buildDetailRow('End Date', _mandate!.endDate != null 
                 ? DateFormat('MMM d, yyyy').format(_mandate!.endDate!) 
                 : 'N/A'),
             _buildDetailRow('Total Installments', '${_mandate!.noOfInstallments}'),
-            _buildDetailRow('Amount per Payment', '\$${_mandate!.rentAmount.toStringAsFixed(2)}'),
-            _buildDetailRow('Total Amount', '\$${(_mandate!.rentAmount * _mandate!.noOfInstallments).toStringAsFixed(2)}'),
+            _buildDetailRow('Amount per Payment', 'OMR ${_mandate!.rentAmount.toStringAsFixed(2)}'),
+            _buildDetailRow('Total Amount', 'OMR ${(_mandate!.rentAmount * _mandate!.noOfInstallments).toStringAsFixed(2)}'),
             _buildDetailRow('Created', DateFormat('MMM d, yyyy').format(_mandate!.createdAt)),
           ],
         ),
@@ -513,13 +582,25 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          '\$${_mandate!.rentAmount}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue,
-                          ),
+                        Row(
+                          children: [
+                            Text(
+                              'OMR ',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            Text(
+                              '${_mandate!.rentAmount}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
                         ),
                         Text(
                           'Each',
@@ -541,7 +622,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          'Weekly',
+                        _mandate!.paymentFrequency,
                           style: GoogleFonts.poppins(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -762,7 +843,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
       case 'rejected':
         return 'Your mandate has been rejected. Please contact support or create a new mandate with correct information.';
       default:
-        return 'Status is currently unknown. Please update the status to get the latest information.';
+        return 'Status is currently Pending. Please update the status to get the latest information.';
     }
   }
 }

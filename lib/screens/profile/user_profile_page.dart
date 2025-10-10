@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -74,37 +76,61 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   
   // Fetch user data from Firestore
   Future<void> _fetchUserData() async {
-    try {
-      await _userProfileController.getUserProfile();
-      
-      setState(() {
-        _userData['name'] = _userProfileController.name.value;
-        _userData['email'] = _userProfileController.email.value;
-        _userData['phone'] = _userProfileController.phone.value;
-        _userData['businessName'] = _userProfileController.businessName.value;
-        _userData['accountType'] = _userProfileController.userType.value.capitalizeFirst;
-        _userData['address'] = _userProfileController.address.value;
-        // If profile image URL exists, update it
-        if (_userProfileController.profileImageUrl.value.isNotEmpty) {
-          _userData['profileImage'] = _userProfileController.profileImageUrl.value;
-        }
-      });
-      
-      // Update completion status based on data
-      _updateCompletionStatus();
-      
-    } catch (e) {
-      print('Error fetching user data: $e');
-      // Show an error snackbar
-      Get.snackbar(
-        'Error',
-        'Failed to load profile data',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppTheme.errorColor.withOpacity(0.1),
-        colorText: AppTheme.errorColor,
-      );
-    }
+  try {
+    await _userProfileController.getUserProfile();
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
+    // Fetch counts from subcollections
+    final propertiesSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('properties')
+        .get();
+
+    final tenantsSnapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('tenants')
+        .get();
+
+    final propertyCount = propertiesSnapshot.size;
+    final tenantCount = tenantsSnapshot.size;
+
+    // Update state
+    setState(() {
+      _userData['name'] = _userProfileController.name.value;
+      _userData['email'] = _userProfileController.email.value;
+      _userData['phone'] = _userProfileController.phone.value;
+      _userData['businessName'] = _userProfileController.businessName.value;
+      _userData['accountType'] =
+          _userProfileController.userType.value.capitalizeFirst;
+      _userData['address'] = _userProfileController.address.value;
+      _userData['properties'] = propertyCount;
+      _userData['tenants'] = tenantCount;
+
+      // If profile image URL exists, update it
+      if (_userProfileController.profileImageUrl.value.isNotEmpty) {
+        _userData['profileImage'] =
+            _userProfileController.profileImageUrl.value;
+      }
+    });
+
+    // Update completion status based on data
+    _updateCompletionStatus();
+  } catch (e) {
+    print('Error fetching user data: $e');
+    // Show an error snackbar
+    Get.snackbar(
+      'Error',
+      'Failed to load profile data',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: AppTheme.errorColor.withOpacity(0.1),
+      colorText: AppTheme.errorColor,
+    );
   }
+}
+
   
   // Update completion status based on user data
   void _updateCompletionStatus() {

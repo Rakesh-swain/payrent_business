@@ -259,7 +259,7 @@ class _EarningsDetailPageState extends State<EarningsDetailPage> with SingleTick
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '\$${NumberFormat("#,##0").format(_earningsData['totalEarnings'])}',
+                              'OMR${NumberFormat("#,##0").format(_earningsData['totalEarnings'])}',
                               style: GoogleFonts.poppins(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w700,
@@ -306,17 +306,17 @@ class _EarningsDetailPageState extends State<EarningsDetailPage> with SingleTick
                       children: [
                         _buildFinancialStat(
                           label: 'Net Income',
-                          value: '\$${NumberFormat("#,##0").format(_earningsData['netIncome'])}',
+                          value: 'OMR${NumberFormat("#,##0").format(_earningsData['netIncome'])}',
                           color: Colors.white,
                         ),
                         _buildFinancialStat(
                           label: 'Expenses',
-                          value: '\$${NumberFormat("#,##0").format(_earningsData['expenses'])}',
+                          value: 'OMR${NumberFormat("#,##0").format(_earningsData['expenses'])}',
                           color: Colors.white,
                         ),
                         _buildFinancialStat(
                           label: 'Pending',
-                          value: '\$${NumberFormat("#,##0").format(_earningsData['pendingPayments'])}',
+                          value: 'OMR${NumberFormat("#,##0").format(_earningsData['pendingPayments'])}',
                           color: Colors.white,
                         ),
                       ],
@@ -457,7 +457,7 @@ class _EarningsDetailPageState extends State<EarningsDetailPage> with SingleTick
                                 ),
                                 children: <TextSpan>[
                                   TextSpan(
-                                    text: '\$${rod.toY.toInt()}',
+                                    text: 'OMR${rod.toY.toInt()}',
                                     style: GoogleFonts.poppins(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,
@@ -498,8 +498,8 @@ class _EarningsDetailPageState extends State<EarningsDetailPage> with SingleTick
                                 }
                                 return  Text(
                                     value >= 1000
-                                        ? '\$${(value / 1000).toStringAsFixed(0)}k'
-                                        : '\$${value.toInt()}',
+                                        ? 'OMR${(value / 1000).toStringAsFixed(0)}k'
+                                        : 'OMR${value.toInt()}',
                                     style: GoogleFonts.poppins(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w500,
@@ -827,8 +827,8 @@ class _EarningsDetailPageState extends State<EarningsDetailPage> with SingleTick
                                 }
                                 return  Text(
                                     value >= 1000
-                                        ? '\$${(value / 1000).toStringAsFixed(0)}k'
-                                        : '\$${value.toInt()}',
+                                        ? 'OMR${(value / 1000).toStringAsFixed(0)}k'
+                                        : 'OMR${value.toInt()}',
                                     style: GoogleFonts.poppins(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w500,
@@ -1103,7 +1103,7 @@ class _EarningsDetailPageState extends State<EarningsDetailPage> with SingleTick
                 ),
               ),
               Text(
-                '\$${NumberFormat("#,##0").format(property['income'])}',
+                'OMR${NumberFormat("#,##0").format(property['income'])}',
                 style: GoogleFonts.poppins(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -1230,7 +1230,7 @@ class _EarningsDetailPageState extends State<EarningsDetailPage> with SingleTick
             ),
           ),
           Text(
-            '${isIncome ? '+' : '-'}\$${NumberFormat("#,##0.00").format(transaction['amount'])}',
+            '${isIncome ? '+' : '-'}OMR${NumberFormat("#,##0.00").format(transaction['amount'])}',
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -1261,7 +1261,7 @@ class _EarningsDetailPageState extends State<EarningsDetailPage> with SingleTick
               ),
             ),
             Text(
-              '\$${NumberFormat("#,##0").format(amount)}',
+              'OMR${NumberFormat("#,##0").format(amount)}',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

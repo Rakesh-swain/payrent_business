@@ -392,28 +392,28 @@ class _TenantListPageState extends State<TenantListPage> {
                           },
                         ),
 
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 10),
 
                         // Filter Chips
-                        Row(
-                          children: [
-                            _buildFilterChip('All', 'all'),
-                            const SizedBox(width: 8),
-                            _buildFilterChip('Active', 'active'),
-                            const SizedBox(width: 8),
-                            _buildFilterChip('Inactive', 'inactive'),
-                            const Spacer(),
-                            Obx(
-                              () => Text(
-                                '${_getFilteredTenants().length} tenant${_getFilteredTenants().length != 1 ? 's' : ''}',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                        // Row(
+                        //   children: [
+                        //     _buildFilterChip('All', 'all'),
+                        //     const SizedBox(width: 8),
+                        //     _buildFilterChip('Active', 'active'),
+                        //     const SizedBox(width: 8),
+                        //     _buildFilterChip('Inactive', 'inactive'),
+                        //     const Spacer(),
+                        //     Obx(
+                        //       () => Text(
+                        //         '${_getFilteredTenants().length} tenant${_getFilteredTenants().length != 1 ? 's' : ''}',
+                        //         style: GoogleFonts.poppins(
+                        //           fontSize: 12,
+                        //           color: AppTheme.textSecondary,
+                        //         ),
+                        //       ),
+                        //     ),
+                        //   ],
+                        // ),
                       ],
                     ),
                   ),
@@ -422,7 +422,6 @@ class _TenantListPageState extends State<TenantListPage> {
                   Expanded(
                     child: Obx(() {
                       final filteredTenants = _getFilteredTenants();
-
                       if (filteredTenants.isEmpty) {
                         return Center(
                           child: Column(
@@ -538,7 +537,8 @@ class _TenantListPageState extends State<TenantListPage> {
                                           backgroundColor: AppTheme.primaryColor
                                               .withOpacity(0.1),
                                           child: Text(
-                                            '${data['firstName']?.toString().substring(0, 1).toUpperCase() ?? ''}${data['lastName']?.toString().substring(0, 1).toUpperCase() ?? ''}',
+                                            '${(data['firstName']?.isNotEmpty ?? false) ? data['firstName'][0].toUpperCase() : ''}'
+                                            '${(data['lastName']?.isNotEmpty ?? false) ? data['lastName'][0].toUpperCase() : ''}',
                                             style: GoogleFonts.poppins(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w600,

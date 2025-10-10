@@ -479,15 +479,15 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
             icon: Icons.attach_money,
             content: Column(
               children: [
-                _buildInfoRow('Payment Frequency', _getPaymentFrequency()),
+                // _buildInfoRow('Payment Frequency', _getPaymentFrequency()),
                 _buildInfoRow(
                   'Total Rent Amount',
-                  '\$${_calculateTotalRent().toStringAsFixed(2)}',
+                  'OMR${_calculateTotalRent().toStringAsFixed(0)}',
                 ),
-                _buildInfoRow(
-                  'Average Unit Rent',
-                  '\$${_calculateAverageRent().toStringAsFixed(2)}',
-                ),
+                // _buildInfoRow(
+                //   'Average Unit Rent',
+                //   'OMR${_calculateAverageRent().toStringAsFixed(0)}',
+                // ),
                 _buildInfoRow(
                   'Occupancy Rate',
                   '${_calculateOccupancyRate().toStringAsFixed(0)}%',
@@ -678,7 +678,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                   ),
                   _buildUnitDetailItem(
                     'Rent Amount',
-                    '\$${unit.rent}/mo',
+                  'OMR${unit.rent}/mo',
                     isHighlighted: true,
                   ),
                 ],
@@ -751,7 +751,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                     ),
                   ],
                 ),
-                _buildMandateButton(unit, tenantDoc!),
+                _buildMandateButton(unit, tenantDoc),
                 SizedBox(height: 12),
                 _buildLeaseInfo(tenantData),
               ] else ...[
@@ -1365,7 +1365,12 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
     final mandateExists = _mandates.any((mandate) {
       final mandateData = mandate.data() as Map<String, dynamic>;
       return mandateData['tenantId'] == tenantId &&
-          mandateData['unitId'] == unit.unitId;
+          mandateData['unitId'] == unit.unitId && (mandateData['status'].toString().toLowerCase() == 'pending' || mandateData['status'].toString().toLowerCase() == 'success');
+    });
+    final mandateExist = _mandates.any((mandate) {
+      final mandateData = mandate.data() as Map<String, dynamic>;
+      return mandateData['tenantId'] == tenantId &&
+          mandateData['unitId'] == unit.unitId && mandateData['status'] == 'accepted';
     });
 
     // Check if both landlord and tenant have account information
@@ -1379,29 +1384,52 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
     final canCreateMandate = landlordHasAccountInfo && tenantHasAccountInfo;
 
     if (mandateExists) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.green.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, size: 16, color: Colors.green),
-            const SizedBox(width: 4),
-            Text(
-              'Mandate Created',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.green,
-              ),
-            ),
-          ],
-        ),
-      );
+      return  Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.orange.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'This mandate request is pending.\nAwaiting confirmation of mandate request.',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.orange[800],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                );
+    }
+    else if(mandateExists){
+        return  Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.green.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'This mandate request has been accepted.',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.green[800],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                );
     }
 
     return ElevatedButton.icon(
@@ -1564,7 +1592,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
   //                     ),
   //                   ),
   //                   const SizedBox(height: 8),
-  //                   Text('Amount: \$${unit.rent}'),
+  //                   Text('Amount: OMR${unit.rent}'),
   //                   Text(
   //                     'Frequency: ${tenantData['paymentFrequency'] ?? 'Monthly'}',
   //                   ),
@@ -1700,6 +1728,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
           unit: unit,
           onComplete: () {
             _fetchProperties();
+            Get.back();
+            Get.back();
           },
         );
       },

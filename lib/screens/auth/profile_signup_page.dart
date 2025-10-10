@@ -50,8 +50,8 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
   IdType _selectedIdType = IdType.civilId;
   String _selectedBankBic = '';
   String _selectedBranchCode = '';
-  List<String> _availableBankBics = [];
-  List<BranchInfo> _availableBranches = [];
+ List<BranchInfo> _allBranches = [];
+ BranchInfo? _selectedBranch;
 
   final RegExp emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
   final RegExp phoneRegex = RegExp(r'^[0-9]{10}$');
@@ -339,13 +339,13 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
       if (foundAccountHolderName.isNotEmpty) {
         _accountHolderNameController.text = foundAccountHolderName;
       }
-      
-      if (foundBankBic.isNotEmpty && _availableBankBics.contains(foundBankBic)) {
+
+      if (foundBankBic.isNotEmpty && _allBranches.any((b) => b.bankBic == foundBankBic)) {
         _selectedBankBic = foundBankBic;
-        _availableBranches = BranchService.getBranchesForBank(foundBankBic);
+        _allBranches = [BranchService.getBranchesForBank(foundBankBic)];
         // Auto-select first branch if available
-        if (_availableBranches.isNotEmpty) {
-          _selectedBranchCode = _availableBranches.first.branchCode;
+        if (_allBranches.isNotEmpty) {
+          _selectedBranchCode = _allBranches.first.branchCode;
         }
       }
     });
@@ -528,7 +528,7 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
   @override
   void initState() {
     print(phoneAuthController.mobileNumber.value);
-    _availableBankBics = BranchService.getAllBankBics();
+    _allBranches = BranchService.getAllBranchList();
     super.initState();
   }
 
@@ -1192,7 +1192,7 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                                   setState(() {
                                     _selectedBankBic = newValue;
                                     _selectedBranchCode = '';
-                                    _availableBranches = BranchService.getBranchesForBank(newValue);
+                                    _allBranches = [BranchService.getBranchesForBank(newValue)];
                                   });
                                 }
                               },
@@ -1207,11 +1207,11 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                                   color: _hasError('bankBic') ? Colors.red : const Color(0xFF6B737A),
                                 ),
                               ),
-                              items: _availableBankBics.map((String bankBic) {
+                              items: _allBranches.map((BranchInfo branch) {
                                 return DropdownMenuItem<String>(
-                                  value: bankBic,
+                                  value: branch.bankBic,
                                   child: Text(
-                                    bankBic,
+                                    branch.bankBic,
                                     style: GoogleFonts.poppins(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
@@ -1280,7 +1280,7 @@ class _ProfileSignupPageState extends State<ProfileSignupPage> {
                                 ),
                               ),
                               isExpanded: true,
-                              items: _availableBranches.map((BranchInfo branch) {
+                              items: _allBranches.map((BranchInfo branch) {
                                 return DropdownMenuItem<String>(
                                   value: branch.branchCode,
                                   child: Row(

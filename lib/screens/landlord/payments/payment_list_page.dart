@@ -476,7 +476,7 @@ class _PaymentListPageState extends State<PaymentListPage>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '\$${amount.toStringAsFixed(0)}',
+                        'OMR${amount.toStringAsFixed(0)}',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,

@@ -266,7 +266,7 @@ class _MandatePreviewPageState extends State<MandatePreviewPage> {
             // Property & Unit Info
             _buildSummaryRow('Property Unit', 'Unit ${widget.unit.unitNumber}'),
             _buildSummaryRow('Tenant', '${tenantData['firstName']} ${tenantData['lastName']}'),
-            _buildSummaryRow('Rent Amount', '\$${widget.customAmount}/payment'),
+            _buildSummaryRow('Rent Amount', 'OMR${widget.customAmount}/payment'),
             _buildSummaryRow('Payment Frequency', widget.frequency),
             _buildSummaryRow('Start Date', DateFormat('MMM d, yyyy').format(widget.startDate)),
             _buildSummaryRow('End Date', DateFormat('MMM d, yyyy').format(widget.endDate)),
@@ -276,7 +276,7 @@ class _MandatePreviewPageState extends State<MandatePreviewPage> {
             
             _buildSummaryRow(
               'Total Collection Amount', 
-              '\$${totalAmount.toStringAsFixed(2)}',
+              'OMR${totalAmount.toStringAsFixed(2)}',
               isHighlighted: true,
             ),
           ],
@@ -480,7 +480,7 @@ class _MandatePreviewPageState extends State<MandatePreviewPage> {
                         ),
                       ),
                       Text(
-                        '\$${totalAmount.toStringAsFixed(2)}',
+                        'OMR${totalAmount.toStringAsFixed(2)}',
                         style: GoogleFonts.poppins(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,

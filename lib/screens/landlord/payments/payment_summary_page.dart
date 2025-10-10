@@ -746,17 +746,17 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                 children: [
                   _buildPropertyStatItem(
                     label: 'Total Rent',
-                    value: '\$${NumberFormat('#,##0').format(expectedTotal)}',
+                    value: 'OMR${NumberFormat('#,##0').format(expectedTotal)}',
                     color: AppTheme.textPrimary,
                   ),
                   _buildPropertyStatItem(
                     label: 'Collected',
-                    value: '\$${NumberFormat('#,##0').format(collectedRent)}',
+                    value: 'OMR${NumberFormat('#,##0').format(collectedRent)}',
                     color: AppTheme.successColor,
                   ),
                   _buildPropertyStatItem(
                     label: 'Pending',
-                    value: '\$${NumberFormat('#,##0').format(pendingRent)}',
+                    value: 'OMR${NumberFormat('#,##0').format(pendingRent)}',
                     color: AppTheme.warningColor,
                   ),
                 ],
@@ -1065,7 +1065,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '\$${NumberFormat('#,##0').format(rentAmount)}',
+                        'OMR${NumberFormat('#,##0').format(rentAmount)}',
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -1413,7 +1413,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                       Expanded(
                         child: _buildPropertyPaymentStatCard(
                           title: 'Total Rent',
-                          value: '\$${NumberFormat('#,##0').format(totalDue)}',
+                          value: 'OMR${NumberFormat('#,##0').format(totalDue)}',
                           icon: Icons.attach_money,
                           color: AppTheme.primaryColor,
                         ),
@@ -1422,7 +1422,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                       Expanded(
                         child: _buildPropertyPaymentStatCard(
                           title: 'Collected',
-                          value: '\$${NumberFormat('#,##0').format(totalPaid)}',
+                          value: 'OMR${NumberFormat('#,##0').format(totalPaid)}',
                           icon: Icons.check_circle_outline,
                           color: AppTheme.successColor,
                         ),
@@ -1436,7 +1436,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                         child: _buildPropertyPaymentStatCard(
                           title: 'Pending',
                           value:
-                              '\$${NumberFormat('#,##0').format(totalPending)}',
+                              'OMR${NumberFormat('#,##0').format(totalPending)}',
                           icon: Icons.access_time,
                           color: AppTheme.warningColor,
                         ),
@@ -1445,7 +1445,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                       Expanded(
                         child: _buildPropertyPaymentStatCard(
                           title: 'Overdue',
-                          value: '\$${NumberFormat('#,##0').format(totalLate)}',
+                          value: 'OMR${NumberFormat('#,##0').format(totalLate)}',
                           icon: Icons.warning_amber_rounded,
                           color: AppTheme.errorColor,
                         ),
@@ -1675,7 +1675,7 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
                       ),
                     ),
                     Text(
-                      '\$${NumberFormat('#,##0').format(rentAmount)}',
+                      'OMR${NumberFormat('#,##0').format(rentAmount)}',
                       style: GoogleFonts.poppins(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

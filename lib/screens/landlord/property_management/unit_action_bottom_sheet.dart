@@ -1,6 +1,7 @@
 // lib/screens/landlord/property_management/unit_action_bottom_sheet.dart
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -50,9 +51,15 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
     // Initialize controllers with unit data
     _unitNumberController = TextEditingController(text: widget.unit.unitNumber);
     _unitTypeController = TextEditingController(text: widget.unit.unitType);
-    _bedroomsController = TextEditingController(text: widget.unit.bedrooms.toString());
-    _bathroomsController = TextEditingController(text: widget.unit.bathrooms.toString());
-    _monthlyRentController = TextEditingController(text: widget.unit.rent.toString());
+    _bedroomsController = TextEditingController(
+      text: widget.unit.bedrooms.toString(),
+    );
+    _bathroomsController = TextEditingController(
+      text: widget.unit.bathrooms.toString(),
+    );
+    _monthlyRentController = TextEditingController(
+      text: widget.unit.rent.toString(),
+    );
     _securityDepositController = TextEditingController(
       text: widget.unit.securityDeposit?.toString() ?? '',
     );
@@ -100,9 +107,9 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading tenants: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading tenants: $e')));
     }
   }
 
@@ -140,8 +147,8 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
             'unitNumber': _unitNumberController.text,
             'unitType': _unitTypeController.text,
             'bedrooms': int.tryParse(_bedroomsController.text) ?? 1,
-            'bathrooms': double.tryParse(_bathroomsController.text) ?? 1.0,
-            'monthlyRent': double.tryParse(_monthlyRentController.text) ?? 0.0,
+            'bathrooms': int.tryParse(_bathroomsController.text) ?? 1,
+            'rent': int.tryParse(_monthlyRentController.text) ?? 0,
             'securityDeposit': _securityDepositController.text.isNotEmpty
                 ? double.tryParse(_securityDepositController.text)
                 : null,
@@ -157,10 +164,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           .doc(userId)
           .collection('properties')
           .doc(widget.propertyId)
-          .update({
-        'units': units,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+          .update({'units': units, 'updatedAt': FieldValue.serverTimestamp()});
 
       setState(() {
         _isLoading = false;
@@ -176,14 +180,16 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating unit: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error updating unit: $e')));
     }
   }
 
   Future<void> _assignTenant() async {
-    if (_selectedTenantId == null || _leaseStartDate == null || _leaseEndDate == null) {
+    if (_selectedTenantId == null ||
+        _leaseStartDate == null ||
+        _leaseEndDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please complete all required fields')),
       );
@@ -231,10 +237,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       // Find and update the unit with tenant ID
       for (int i = 0; i < units.length; i++) {
         if (units[i]['unitId'] == widget.unit.unitId) {
-          units[i] = {
-            ...units[i],
-            'tenantId': _selectedTenantId,
-          };
+          units[i] = {...units[i], 'tenantId': _selectedTenantId, 'rent': int.tryParse(_monthlyRentController.text) ?? 0};
           break;
         }
       }
@@ -245,10 +248,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           .doc(userId)
           .collection('properties')
           .doc(widget.propertyId)
-          .update({
-        'units': units,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+          .update({'units': units, 'updatedAt': FieldValue.serverTimestamp()});
 
       // Create a new tenant properties assignment document (new doc each time)
       await FirebaseFirestore.instance
@@ -258,20 +258,22 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           .doc(_selectedTenantId)
           .collection('properties')
           .add({
-        'propertyId': widget.propertyId,
-        'propertyName': property.name,
-        'propertyAddress': property.address,
-        'unitId': widget.unit.unitId,
-        'unitNumber': widget.unit.unitNumber,
-        'leaseStartDate': Timestamp.fromDate(_leaseStartDate!),
-        'leaseEndDate': Timestamp.fromDate(_leaseEndDate!),
-        'rentAmount': double.tryParse(_monthlyRentController.text) ?? widget.unit.rent,
-        'securityDeposit': _securityDepositController.text.isNotEmpty
-            ? double.tryParse(_securityDepositController.text)
-            : widget.unit.securityDeposit,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'propertyId': widget.propertyId,
+            'propertyName': property.name,
+            'propertyAddress': property.address,
+            'unitId': widget.unit.unitId,
+            'unitNumber': widget.unit.unitNumber,
+            'leaseStartDate': Timestamp.fromDate(_leaseStartDate!),
+            'leaseEndDate': Timestamp.fromDate(_leaseEndDate!),
+            'rentAmount':
+                double.tryParse(_monthlyRentController.text) ??
+                widget.unit.rent,
+            'securityDeposit': _securityDepositController.text.isNotEmpty
+                ? double.tryParse(_securityDepositController.text)
+                : widget.unit.securityDeposit,
+            'createdAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       // Store lease information in units subcollection
       await FirebaseFirestore.instance
@@ -284,15 +286,17 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           .collection('tenants')
           .doc(_selectedTenantId)
           .set({
-        'tenantId': _selectedTenantId,
-        'startDate': Timestamp.fromDate(_leaseStartDate!),
-        'endDate': Timestamp.fromDate(_leaseEndDate!),
-        'rentAmount': double.tryParse(_monthlyRentController.text) ?? widget.unit.rent,
-        'securityDeposit': _securityDepositController.text.isNotEmpty
-            ? double.tryParse(_securityDepositController.text)
-            : widget.unit.securityDeposit,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+            'tenantId': _selectedTenantId,
+            'startDate': Timestamp.fromDate(_leaseStartDate!),
+            'endDate': Timestamp.fromDate(_leaseEndDate!),
+            'rentAmount':
+                double.tryParse(_monthlyRentController.text) ??
+                widget.unit.rent,
+            'securityDeposit': _securityDepositController.text.isNotEmpty
+                ? double.tryParse(_securityDepositController.text)
+                : widget.unit.securityDeposit,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
 
       setState(() {
         _isLoading = false;
@@ -307,9 +311,9 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error assigning tenant: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error assigning tenant: $e')));
     }
   }
 
@@ -335,7 +339,9 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
             Row(
               children: [
                 Text(
-                  _isEditingUnit ? 'Edit Unit' : (_isAssigningTenant ? 'Assign Tenant' : 'Unit Actions'),
+                  _isEditingUnit
+                      ? 'Edit Unit'
+                      : (_isAssigningTenant ? 'Assign Tenant' : 'Unit Actions'),
                   style: GoogleFonts.poppins(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -348,24 +354,24 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 ),
               ],
             ),
-            
+
             // Divider
             Divider(height: 24),
-            
+
             if (!_isEditingUnit && !_isAssigningTenant)
               _buildUnitActionOptions()
             else if (_isEditingUnit)
               _buildUnitEditForm()
             else if (_isAssigningTenant)
               _buildTenantAssignForm(),
-              
+
             SizedBox(height: 16),
           ],
         ),
       ),
     );
   }
-  
+
   Widget _buildUnitActionOptions() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,7 +409,9 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                     style: GoogleFonts.poppins(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: widget.unit.tenantId != null ? Colors.green : Colors.orange,
+                      color: widget.unit.tenantId != null
+                          ? Colors.green
+                          : Colors.orange,
                     ),
                   ),
                 ],
@@ -420,20 +428,20 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 ],
               ),
               SizedBox(height: 12),
-              _buildInfoItem('Rent', '\$${widget.unit.rent.toStringAsFixed(2)}/mo'),
+              _buildInfoItem(
+                'Rent',
+                'OMR${widget.unit.rent.toStringAsFixed(2)}/mo',
+              ),
             ],
           ),
         ),
-        
+
         SizedBox(height: 24),
-        
+
         // Action Buttons
         Text(
           'Actions',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 12),
         _buildActionButton(
@@ -449,8 +457,12 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
         ),
         SizedBox(height: 8),
         _buildActionButton(
-          icon: widget.unit.tenantId != null ? Icons.person_off : Icons.person_add,
-          label: widget.unit.tenantId != null ? 'Change Tenant' : 'Assign Tenant',
+          icon: widget.unit.tenantId != null
+              ? Icons.person_off
+              : Icons.person_add,
+          label: widget.unit.tenantId != null
+              ? 'Change Tenant'
+              : 'Assign Tenant',
           color: widget.unit.tenantId != null ? Colors.orange : Colors.green,
           onTap: () {
             setState(() {
@@ -472,29 +484,23 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       ],
     );
   }
-  
+
   Widget _buildInfoItem(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
+          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
         ),
         Text(
           value,
-          style: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
         ),
       ],
     );
   }
-  
+
   Widget _buildActionButton({
     required IconData icon,
     required String label,
@@ -528,20 +534,17 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       ),
     );
   }
-  
+
   Widget _buildUnitEditForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Unit Details',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 16),
-        
+
         // Unit Number
         TextField(
           controller: _unitNumberController,
@@ -551,7 +554,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           ),
         ),
         SizedBox(height: 16),
-        
+
         // Unit Type
         TextField(
           controller: _unitTypeController,
@@ -561,7 +564,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           ),
         ),
         SizedBox(height: 16),
-        
+
         // Bedrooms & Bathrooms Row
         Row(
           children: [
@@ -572,7 +575,9 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Bedrooms',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -584,14 +589,16 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Bathrooms',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
           ],
         ),
         SizedBox(height: 16),
-        
+
         // Rent & Deposit Row
         Row(
           children: [
@@ -602,8 +609,10 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Monthly Rent',
-                  prefixText: '\$ ',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixText: 'OMR ',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -615,15 +624,17 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Security Deposit',
-                  prefixText: '\$ ',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixText: 'OMR ',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
           ],
         ),
         SizedBox(height: 16),
-        
+
         // Notes
         TextField(
           controller: _notesController,
@@ -635,7 +646,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           ),
         ),
         SizedBox(height: 24),
-        
+
         // Save & Cancel Buttons
         Row(
           children: [
@@ -675,7 +686,10 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                           color: Colors.white,
                         ),
                       )
-                    : Text('Save Changes', style: TextStyle(color: Colors.white)),
+                    : Text(
+                        'Save Changes',
+                        style: TextStyle(color: Colors.white),
+                      ),
               ),
             ),
           ],
@@ -683,23 +697,19 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       ],
     );
   }
-  
+
   Widget _buildTenantAssignForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Assign Tenant',
-          style: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         SizedBox(height: 16),
-        
+
         // Tenant Selection Dropdown
         DropdownButtonFormField<String>(
-
           value: _selectedTenantId,
           decoration: InputDecoration(
             labelText: 'Select Tenant',
@@ -710,7 +720,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
             final data = tenant.data() as Map<String, dynamic>;
             final name = '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}';
             final phone = data['phone'] ?? '';
-            
+
             return DropdownMenuItem<String>(
               value: tenant.id,
               child: SizedBox(
@@ -723,7 +733,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                       name,
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
                     ),
-                    SizedBox(width: 10,),
+                    SizedBox(width: 10),
                     if (phone.isNotEmpty)
                       Text(
                         "($phone)",
@@ -744,7 +754,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           },
         ),
         SizedBox(height: 16),
-        
+
         // Date Selection Row
         Row(
           children: [
@@ -758,7 +768,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                     firstDate: DateTime(2000),
                     lastDate: DateTime(2100),
                   );
-                  
+
                   if (date != null) {
                     setState(() {
                       _leaseStartDate = date;
@@ -787,9 +797,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                         _leaseStartDate != null
                             ? DateFormat('MMM d, yyyy').format(_leaseStartDate!)
                             : 'Select Date',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -803,11 +811,14 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 onTap: () async {
                   final date = await showDatePicker(
                     context: context,
-                    initialDate: _leaseEndDate ?? (_leaseStartDate?.add(Duration(days: 365)) ?? DateTime.now()),
+                    initialDate:
+                        _leaseEndDate ??
+                        (_leaseStartDate?.add(Duration(days: 365)) ??
+                            DateTime.now()),
                     firstDate: _leaseStartDate ?? DateTime.now(),
                     lastDate: DateTime(2100),
                   );
-                  
+
                   if (date != null) {
                     setState(() {
                       _leaseEndDate = date;
@@ -836,9 +847,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                         _leaseEndDate != null
                             ? DateFormat('MMM d, yyyy').format(_leaseEndDate!)
                             : 'Select Date',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -848,31 +857,31 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           ],
         ),
         SizedBox(height: 16),
-        
+
         // Rent Amount
         TextField(
           controller: _monthlyRentController,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
-            labelText: 'Monthly Rent',
-            prefixText: '\$ ',
+            labelText: 'Rent Amount',
+            prefixText: '\OMR ',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         SizedBox(height: 16),
-        
+
         // Security Deposit
         TextField(
           controller: _securityDepositController,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
             labelText: 'Security Deposit',
-            prefixText: '\$ ',
+            prefixText: '\OMR ',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
         SizedBox(height: 24),
-        
+
         // Save & Cancel Buttons
         Row(
           children: [
@@ -895,7 +904,34 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
             SizedBox(width: 16),
             Expanded(
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _assignTenant,
+                onPressed: _isLoading
+                    ? null
+                    : () async {
+                        if (_selectedTenantId == null ||
+                            _selectedTenantId!.isEmpty) {
+                              Get.snackbar('Error', 'Please select a tenant.',backgroundColor: Colors.redAccent,colorText: Colors.white);
+
+                          return;
+                        }
+
+                        if (_leaseStartDate == null) {
+                          Get.snackbar('Error', 'Please select a lease start date.',backgroundColor: Colors.redAccent,colorText: Colors.white);
+                          return;
+                        }
+
+                        if (_leaseEndDate == null) {
+                          Get.snackbar('Error', 'Please select a lease end date.',backgroundColor: Colors.redAccent,colorText: Colors.white);
+                          return;
+                        }
+
+                        if (_leaseEndDate!.isBefore(_leaseStartDate!)) {
+                          Get.snackbar('Error', 'End date cannot be before start date.',backgroundColor: Colors.redAccent,colorText: Colors.white);
+                          return;
+                        }
+
+                        // ✅ All validations passed
+                        await _assignTenant();
+                      },
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   backgroundColor: AppTheme.primaryColor,
@@ -912,7 +948,10 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                           color: Colors.white,
                         ),
                       )
-                    : Text('Assign Tenant',style: TextStyle(color: Colors.white),),
+                    : Text(
+                        'Assign Tenant',
+                        style: TextStyle(color: Colors.white),
+                      ),
               ),
             ),
           ],
@@ -920,7 +959,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       ],
     );
   }
-  
+
   void _confirmRemoveTenant() {
     showDialog(
       context: context,
@@ -946,20 +985,20 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       ),
     );
   }
-  
+
   Future<void> _removeTenant() async {
     if (widget.unit.tenantId == null) return;
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid;
       if (userId == null) {
         throw Exception('User not logged in');
       }
-      
+
       // Get current property
       final propertyDoc = await FirebaseFirestore.instance
           .collection('users')
@@ -967,14 +1006,14 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           .collection('properties')
           .doc(widget.propertyId)
           .get();
-      
+
       if (!propertyDoc.exists) {
         throw Exception('Property not found');
       }
-      
+
       final propertyData = propertyDoc.data() as Map<String, dynamic>;
       final units = List<dynamic>.from(propertyData['units'] ?? []);
-      
+
       // Find and update the unit
       for (int i = 0; i < units.length; i++) {
         if (units[i]['unitId'] == widget.unit.unitId) {
@@ -985,18 +1024,15 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           break;
         }
       }
-      
+
       // Update property
       await FirebaseFirestore.instance
           .collection('users')
           .doc(userId)
           .collection('properties')
           .doc(widget.propertyId)
-          .update({
-        'units': units,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      
+          .update({'units': units, 'updatedAt': FieldValue.serverTimestamp()});
+
       // Remove tenant assignments for this property/unit from their properties subcollection
       final propsQuery = await FirebaseFirestore.instance
           .collection('users')
@@ -1010,7 +1046,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       for (final d in propsQuery.docs) {
         await d.reference.delete();
       }
-      
+
       // Delete lease info from unit
       await FirebaseFirestore.instance
           .collection('users')
@@ -1022,24 +1058,23 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           .collection('tenants')
           .doc(widget.unit.tenantId)
           .delete();
-      
+
       setState(() {
         _isLoading = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Tenant removed successfully')),
       );
-      
+
       widget.onComplete();
-      Navigator.pop(context);
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error removing tenant: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error removing tenant: $e')));
     }
   }
 }

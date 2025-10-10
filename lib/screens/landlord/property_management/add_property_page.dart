@@ -39,14 +39,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
     'Other'
   ];
   
-  // Payment frequency dropdown
-  String _selectedPaymentFrequency = 'Monthly';
-  final List<String> _paymentFrequencies = [
-    'Weekly',
-    'Monthly',
-    'Quarterly',
-    'Yearly'
-  ];
+
   
   // Multi-unit toggle
   bool _isMultiUnit = false;
@@ -138,7 +131,6 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
         
         // Convert to Firestore data and add payment frequency
         final propertyData = property.toFirestore();
-        propertyData['paymentFrequency'] = _selectedPaymentFrequency;
         
         // Save to Firestore in users/properties collection
         await FirebaseFirestore.instance
@@ -340,39 +332,6 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please select property type';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16.0),
-                      
-                      // Payment Frequency Dropdown
-                      DropdownButtonFormField<String>(
-                        value: _selectedPaymentFrequency,
-                        decoration: InputDecoration(
-                          labelText: 'Payment Frequency',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          fillColor: Colors.white,
-                          filled: true,
-                        ),
-                        items: _paymentFrequencies.map((String frequency) {
-                          return DropdownMenuItem<String>(
-                            value: frequency,
-                            child: Text(frequency),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          if (newValue != null) {
-                            setState(() {
-                              _selectedPaymentFrequency = newValue;
-                            });
-                          }
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select payment frequency';
                           }
                           return null;
                         },
@@ -652,7 +611,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                           initialValue: unit.rent.toString(),
                           decoration: InputDecoration(
                             labelText: 'Rent',
-                            prefixText: '\$',
+                            prefixText: 'OMR',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -674,7 +633,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                           initialValue: unit.securityDeposit?.toString() ?? '',
                           decoration: InputDecoration(
                             labelText: 'Security Deposit',
-                            prefixText: '\$',
+                            prefixText: 'OMR',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),

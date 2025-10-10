@@ -225,7 +225,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '\$${NumberFormat('#,##0.00').format(_paymentData!['amount'])}',
+                              'OMR${NumberFormat('#,##0.00').format(_paymentData!['amount'])}',
                               style: GoogleFonts.poppins(
                                 fontSize: 24,
                                 fontWeight: FontWeight.w700,
@@ -380,7 +380,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                               ),
                             ),
                             Text(
-                              '\$${NumberFormat('#,##0.00').format(item['amount'])}',
+                              'OMR${NumberFormat('#,##0.00').format(item['amount'])}',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
@@ -405,7 +405,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                           ),
                         ),
                         Text(
-                          '\$${NumberFormat('#,##0.00').format(_paymentData!['fees']['subtotal'])}',
+                          'OMR${NumberFormat('#,##0.00').format(_paymentData!['fees']['subtotal'])}',
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -427,7 +427,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                           ),
                         ),
                         Text(
-                          '\$${NumberFormat('#,##0.00').format(_paymentData!['fees']['processingFee'])}',
+                          'OMR${NumberFormat('#,##0.00').format(_paymentData!['fees']['processingFee'])}',
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -449,7 +449,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                           ),
                         ),
                         Text(
-                          '\$${NumberFormat('#,##0.00').format(_paymentData!['fees']['taxFee'])}',
+                          'OMR${NumberFormat('#,##0.00').format(_paymentData!['fees']['taxFee'])}',
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -473,7 +473,7 @@ class _PaymentDetailPageState extends State<PaymentDetailPage> {
                           ),
                         ),
                         Text(
-                          '\$${NumberFormat('#,##0.00').format(_paymentData!['fees']['total'])}',
+                          'OMR${NumberFormat('#,##0.00').format(_paymentData!['fees']['total'])}',
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,

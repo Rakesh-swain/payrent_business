@@ -340,7 +340,7 @@ class _PaymentSchedulePageState extends State<PaymentSchedulePage> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    '\$${event['amount']}',
+                    'OMR${event['amount']}',
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,

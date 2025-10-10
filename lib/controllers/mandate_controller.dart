@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
+import 'package:payrent_business/widgets/dialog.dart';
 import 'package:uuid/uuid.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/mandate_model.dart';
@@ -124,6 +126,7 @@ class MandateController extends GetxController {
     required DateTime startDate,
     required int noOfInstallments,
     required String paymentFrequency,
+    required BuildContext context
   }) async {
     try {
       _isLoading.value = true;
@@ -150,13 +153,13 @@ class MandateController extends GetxController {
         unitId: unitId,
         referenceNumber: referenceNumber,
         landlordAccountHolderName: landlordAccountHolderName,
-        landlordAccountNumber: landlordAccountNumber,
+        landlordAccountNumber: '020020011206', //landlordAccountNumber,
         landlordIdType: landlordIdType,
         landlordIdNumber: landlordIdNumber,
         landlordBankBic: landlordBankBic,
         landlordBranchCode: landlordBranchCode,
         tenantAccountHolderName: tenantAccountHolderName,
-        tenantAccountNumber: tenantAccountNumber,
+        tenantAccountNumber: '001020078676', //tenantAccountNumber,
         tenantIdType: tenantIdType,
         tenantIdNumber: tenantIdNumber,
         tenantBankBic: tenantBankBic,
@@ -174,11 +177,12 @@ class MandateController extends GetxController {
       // Call API to create mandate
       final apiResponse = await _callMandateDetailsApi(mandate);
 
-      if (apiResponse != null) {
+      if (apiResponse != null && apiResponse['status'] != 'FAILURE') {
         // Update mandate with API response data
         final updatedMandate = mandate.copyWith(
           mmsId: apiResponse["MMSId"],
           mmsStatus: apiResponse['status'],
+          status: apiResponse['status'],
         );
 
         // Save to Firestore
@@ -194,19 +198,17 @@ class MandateController extends GetxController {
         // _mandates.insert(0, finalMandate);
         await fetchMandates();
 
-        Get.snackbar(
-          'Success',
-          'Mandate created successfully',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.withOpacity(0.9),
-          colorText: Colors.white,
-          margin: const EdgeInsets.all(12),
-          borderRadius: 8,
-        );
+       if (mandate != null) {
+        Get.back();
+       CustomDialogs.showSuccessDialog(context);
+      }
 
         return updatedMandate;
       } else {
-        throw Exception('Failed to create mandate via API');
+        CustomDialogs.showErrorDialog(
+          context,
+          '${apiResponse != null ? apiResponse['errorMessage'] : 'Unknown error'}',
+        );
       }
     } catch (e) {
       _errorMessage.value = 'Error creating mandate: $e';
@@ -260,7 +262,7 @@ class MandateController extends GetxController {
   }
 
   /// Update mandate status by calling the enquiry API
-  Future<bool> updateMandateStatus(String mandateId) async {
+  Future<bool> updateMandateStatus(String mandateId, String tenantId, String propertyId, String unitId, String refNumber, String mmsId, String frequency,int amount,DateTime startDate, int noOfInstallments ) async {
     try {
       _isLoading.value = true;
       _errorMessage.value = '';
@@ -284,7 +286,7 @@ class MandateController extends GetxController {
       final apiResponse = await _callMandateEnquiryApi(mandate.mmsId!);
 
       if (apiResponse != null) {
-        final newStatus = apiResponse['mmsStatus'] ?? mandate.mmsStatus;
+        final newStatus = apiResponse['MMSStatus'] ?? mandate.mmsStatus;
 
         // Update in Firestore
         await _firestoreService.updateSubcollectionDocument(
@@ -292,24 +294,31 @@ class MandateController extends GetxController {
           parentDocumentId: currentUser.uid,
           subcollection: 'mandates',
           documentId: mandateId,
-          data: {'mmsStatus': newStatus, 'updatedAt': DateTime.now()},
+          data: {'mmsStatus': newStatus, 'updatedAt': DateTime.now(),'status':newStatus},
         );
 
         // Update local list
         final index = _mandates.indexWhere((m) => m.id == mandateId);
         if (index != -1) {
-          _mandates[index] = mandate.copyWith(mmsStatus: newStatus);
+          _mandates[index] = mandate.copyWith(mmsStatus: newStatus,status: newStatus);
         }
+        if(newStatus.toString().toLowerCase() == "accepted"){
+          await createPaymentSchedule(
+            landlordId: currentUser.uid,
+            mandateId: mandateId,
+            tenantId: tenantId,
+            propertyId: propertyId,
+            unitId: unitId,
+            refNumber: refNumber,
+            mmsId: mmsId,
+            frequency: frequency,
+            amount: amount,
+            startDate: startDate,
+            numberOfPayments: noOfInstallments,
+          );
 
-        Get.snackbar(
-          'Success',
-          'Mandate status updated to: $newStatus',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.green.withOpacity(0.9),
-          colorText: Colors.white,
-          margin: const EdgeInsets.all(12),
-          borderRadius: 8,
-        );
+        }
+     
 
         return true;
       } else {
@@ -353,6 +362,7 @@ class MandateController extends GetxController {
 
       if (response.statusCode == 202) {
         final responseData = jsonDecode(response.body);
+        print(responseData);
         return responseData;
       } else {
         throw Exception('API call failed with status: ${response.statusCode}');
@@ -362,6 +372,56 @@ class MandateController extends GetxController {
       return null;
     }
   }
+Future<void> createPaymentSchedule({
+  required String landlordId,
+  required String mandateId,
+  required String tenantId,
+  required String propertyId,
+  required String unitId,
+  required String mmsId,
+  required String refNumber, // Mandate-level reference
+  required String frequency, // monthly, quarterly, half-yearly, yearly
+  required int amount,
+  required DateTime startDate,
+  required int numberOfPayments,
+}) async {
+  final paymentsRef = FirebaseFirestore.instance
+      .collection('users')
+      .doc(landlordId)
+      .collection('payments');
+
+  int monthInterval = switch (frequency.toLowerCase()) {
+    'monthly' => 1,
+    'quarterly' => 3,
+    'half-yearly' => 6,
+    'yearly' => 12,
+    _ => throw Exception('Invalid frequency type'),
+  };
+
+  for (int i = 0; i < numberOfPayments; i++) {
+    final dueDate = DateTime(startDate.year, startDate.month + (i * monthInterval), startDate.day);
+
+    // Create doc reference so we can use its ID
+    final docRef = paymentsRef.doc();
+
+    await docRef.set({
+      'payment_ref_number': docRef.id, // 👈 unique payment reference (doc ID)
+      'mandate_id': mandateId,
+      'tenant_id': tenantId,
+      'landlord_id': landlordId,
+      'property_id': propertyId,
+      'unit_id': unitId,
+      'mmsId': mmsId,
+      'ref_number': refNumber, // Mandate-level reference
+      'frequency': frequency,
+      'amount': amount,
+      'status': 'pending', // pending | paid | overdue
+      'due_date': Timestamp.fromDate(dueDate),
+      'payment_date': null,
+      'created_at': Timestamp.now(),
+    });
+  }
+}
 
   /// Get mandate by ID
   MandateModel? getMandateById(String id) {

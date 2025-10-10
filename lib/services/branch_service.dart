@@ -191,13 +191,13 @@ class BranchService {
   ];
 
   // Get all available bank BICs
-  static List<String> getAllBankBics() {
-    return _branchData.map((branch) => branch.bankBic).toSet().toList()..sort();
+  static List<BranchInfo> getAllBranchList() {
+    return _branchData;
   }
 
   // Get branches for a specific bank BIC
-  static List<BranchInfo> getBranchesForBank(String bankBic) {
-    return _branchData.where((branch) => branch.bankBic == bankBic).toList();
+  static BranchInfo getBranchesForBank(String bankName) {
+    return _branchData.where((branch) => branch.branchName == bankName).first;
   }
 
   // Get specific branch info
