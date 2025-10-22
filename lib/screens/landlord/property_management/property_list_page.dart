@@ -511,9 +511,23 @@ class _PropertyListPageState extends State<PropertyListPage>
 
   @override
   Widget build(BuildContext context) {
-    // Check if we're on a larger screen
-    final isLargeScreen = MediaQuery.of(context).size.width > 600;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Responsive breakpoints
+        final bool isMobile = constraints.maxWidth < 600;
+        final bool isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+        final bool isDesktop = constraints.maxWidth >= 1024;
 
+        if (isMobile) {
+          return _buildMobileLayout();
+        } else {
+          return _buildWebLayout(isTablet: isTablet, isDesktop: isDesktop);
+        }
+      },
+    );
+  }
+
+  Widget _buildMobileLayout() {
     return Scaffold(
       backgroundColor: Color(0xFFF8F9FB),
       appBar: AppBar(
@@ -759,7 +773,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                 ? _buildErrorView()
                 : _filteredProperties.isEmpty
                 ? _buildEmptyView()
-                : _buildPropertyList(isLargeScreen),
+                : _buildPropertyList(false), // Mobile layout
           ),
         ],
       ),
@@ -776,6 +790,669 @@ class _PropertyListPageState extends State<PropertyListPage>
           ),
         ),
         icon: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildWebLayout({required bool isTablet, required bool isDesktop}) {
+    final maxWidth = isDesktop ? 1200.0 : 800.0;
+    final crossAxisCount = isDesktop ? 3 : 2;
+
+    return Scaffold(
+      backgroundColor: Color(0xFFF8F9FB),
+      body: Column(
+        children: [
+          // Web Header with Search and Filters
+          Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  offset: Offset(0, 2),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Column(
+                  children: [
+                    // Page Title and Actions
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'My Properties',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Manage and monitor all your properties',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Add Property Button
+                        ElevatedButton.icon(
+                          onPressed: () => Get.to(AddPropertyPage()),
+                          icon: const Icon(Icons.add, color: Colors.white),
+                          label: Text(
+                            'Add Property',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Search and Filter Row
+                    Row(
+                      children: [
+                        // Search Bar
+                        Expanded(
+                          flex: 3,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Search properties, locations, or unit numbers...',
+                                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, color: Colors.grey),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() {
+                                            _searchQuery = '';
+                                          });
+                                          _applyFiltersAndSort();
+                                        },
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                hintStyle: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              style: GoogleFonts.poppins(fontSize: 14),
+                              onChanged: (value) {
+                                setState(() {
+                                  _searchQuery = value;
+                                });
+                                _applyFiltersAndSort();
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+
+                        // Filter Dropdown
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _filterOption,
+                              hint: Text(
+                                'Filter',
+                                style: GoogleFonts.poppins(fontSize: 14),
+                              ),
+                              items: [
+                                'All',
+                                'Single Unit',
+                                'Multi Unit',
+                                'Fully Occupied',
+                                'Has Vacancy'
+                              ].map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(
+                                    value,
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                if (newValue != null) {
+                                  setState(() {
+                                    _filterOption = newValue;
+                                  });
+                                  _applyFiltersAndSort();
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+
+                        // Sort Dropdown
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _sortOption,
+                              hint: Text(
+                                'Sort',
+                                style: GoogleFonts.poppins(fontSize: 14),
+                              ),
+                              items: ['Newest', 'Oldest', 'A–Z', 'Z–A']
+                                  .map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(
+                                    value,
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                if (newValue != null) {
+                                  setState(() {
+                                    _sortOption = newValue;
+                                  });
+                                  _applyFiltersAndSort();
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+
+                        // Reset filters button
+                        if (_filterOption != 'All' || _sortOption != 'Newest') ...[
+                          const SizedBox(width: 16),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.refresh, size: 18),
+                            label: const Text('Reset'),
+                            onPressed: () {
+                              setState(() {
+                                _filterOption = 'All';
+                                _sortOption = 'Newest';
+                                _searchController.clear();
+                                _searchQuery = '';
+                              });
+                              _applyFiltersAndSort();
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: BorderSide(color: AppTheme.primaryColor),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+
+                    // Results Count
+                    if (_filteredProperties.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Text(
+                            '${_filteredProperties.length} Properties',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                          const Spacer(),
+                          if (_filterOption != 'All' || _sortOption != 'Newest')
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.filter_alt_outlined,
+                                    size: 14,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _filterOption != 'All'
+                                        ? _filterOption
+                                        : _sortOption,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Property Grid/List Content
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _errorMessage != null
+                        ? _buildErrorView()
+                        : _filteredProperties.isEmpty
+                            ? _buildEmptyView()
+                            : _buildWebPropertyGrid(crossAxisCount: crossAxisCount),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebPropertyGrid({required int crossAxisCount}) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(24),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: 0.85, // Adjust ratio for better property card proportions
+        crossAxisSpacing: 24,
+        mainAxisSpacing: 24,
+      ),
+      itemCount: _filteredProperties.length,
+      physics: const BouncingScrollPhysics(),
+      itemBuilder: (context, index) {
+        final propertyData = _filteredProperties[index].data() as Map<String, dynamic>;
+        final propertyId = _filteredProperties[index].id;
+        final property = PropertyModel.fromFirestore(_filteredProperties[index]);
+
+        return FadeInUp(
+          duration: Duration(milliseconds: 300 + (index * 50)),
+          child: _buildWebPropertyCard(context, propertyId, property),
+        );
+      },
+    );
+  }
+
+  Widget _buildWebPropertyCard(
+    BuildContext context,
+    String propertyId,
+    PropertyModel property,
+  ) {
+    // Calculate occupancy statistics
+    final totalUnits = property.units.length;
+    final occupiedUnits = property.units.where((unit) => unit.tenantId != null).length;
+    final isFullyOccupied = totalUnits > 0 && occupiedUnits == totalUnits;
+
+    // Calculate total rent
+    int totalRent = 0;
+    for (var unit in property.units) {
+      totalRent += unit.rent;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _navigateToPropertyDetails(propertyId, property),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Property Header Image/Gradient
+              Container(
+                height: 180,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Color(0xFF6366F1),
+                      Color(0xFFA78BFA),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    // Property Icon
+                    Center(
+                      child: Icon(
+                        Icons.home_rounded,
+                        size: 48,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                    // Property Type Badge
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          property.isMultiUnit ? 'Multi-Unit' : 'Single Unit',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Units Count
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '$totalUnits ${totalUnits == 1 ? 'Unit' : 'Units'}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Occupancy Status
+                    Positioned(
+                      bottom: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isFullyOccupied ? Colors.green : Colors.orange,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          isFullyOccupied
+                              ? 'Fully Occupied'
+                              : occupiedUnits > 0
+                                  ? '$occupiedUnits/$totalUnits Occupied'
+                                  : 'Vacant',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // More Options Button
+                    Positioned(
+                      top: 8,
+                      right: 50,
+                      child: IconButton(
+                        icon: const Icon(Icons.more_vert, color: Colors.white),
+                        onPressed: () => _showPropertyOptions(
+                          context,
+                          _filteredProperties.firstWhere((p) => p.id == propertyId),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Property Details
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Property Name
+                      Text(
+                        property.name,
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Address with Location Icon
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              '${property.address}, ${property.city}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+
+                      // Stats Section
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Row(
+                          children: [
+                            // Total Rent
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Total Rent',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'OMR${totalRent.toStringAsFixed(0)}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Occupancy Indicator
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  'Occupancy',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: isFullyOccupied ? Colors.green : Colors.orange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '$occupiedUnits/$totalUnits',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Action Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => _navigateToPropertyDetails(propertyId, property),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryColor,
+                                side: BorderSide(color: AppTheme.primaryColor),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                              child: Text(
+                                'View Units',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => _navigateToPropertyDetails(propertyId, property),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                              child: Text(
+                                'Details',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -368,38 +368,65 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Payment Summary',
-          style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () {
-              _showFilterBottomSheet();
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: AppTheme.primaryColor,
-          unselectedLabelColor: AppTheme.textSecondary,
-          indicatorColor: AppTheme.primaryColor,
-          indicatorWeight: 3,
-          labelStyle: GoogleFonts.poppins(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-          ),
-          tabs: const [
-            Tab(text: 'Properties'),
-            Tab(text: 'Tenants'),
-          ],
-        ),
-      ),
       body: Column(
+        children: [
+          // Custom header with tabs and filter
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title and filter button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Payment Summary',
+                      style: GoogleFonts.poppins(
+                        fontSize: 24, 
+                        fontWeight: FontWeight.w600
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.filter_list),
+                      onPressed: () {
+                        _showFilterBottomSheet();
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Tab bar
+                TabBar(
+                  controller: _tabController,
+                  labelColor: AppTheme.primaryColor,
+                  unselectedLabelColor: AppTheme.textSecondary,
+                  indicatorColor: AppTheme.primaryColor,
+                  indicatorWeight: 3,
+                  labelStyle: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  tabs: const [
+                    Tab(text: 'Properties'),
+                    Tab(text: 'Tenants'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
         children: [
           // Search Bar
           Padding(
@@ -475,8 +502,9 @@ class _PaymentSummaryPageState extends State<PaymentSummaryPage>
             ),
           ),
         ],
+            ),
       ),
-    );
+  ]));
   }
 
   Widget _buildPropertiesTab() {

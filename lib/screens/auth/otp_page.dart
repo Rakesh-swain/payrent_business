@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import 'package:payrent_business/controllers/phone_auth_controller.dart';
 import 'package:payrent_business/screens/auth/verification_complete_page.dart';
 import 'package:pinput/pinput.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';  
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';

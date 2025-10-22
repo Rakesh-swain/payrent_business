@@ -218,13 +218,34 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Check if web/tablet view (>= 600px)
+          final bool isWeb = constraints.maxWidth >= 600;
+          
+          if (isWeb) {
+            return _buildWebLayout();
+          } else {
+            return _buildMobileLayout();
+          }
+        },
+      ),
+    );
+  }
+  
+  Widget _buildMobileLayout() {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title:  Text('My Profile',style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-              )),
+        title: Text(
+          'My Profile',
+          style: GoogleFonts.poppins(
+            fontSize: 24,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -234,226 +255,15 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
           ),
         ],
       ),
-      body: SingleChildScrollView( physics: const BouncingScrollPhysics(),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Profile Header
             FadeInDown(
               duration: const Duration(milliseconds: 500),
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: AppTheme.cardShadow,
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        // Profile Image
-                        Stack(
-                          children: [
-                            GestureDetector(
-                              onTap: _pickImage,
-                              child: Stack(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 40,
-                                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                                    backgroundImage: _getProfileImage(),
-                                  ),
-                                  if (_userData['isUploading'] == true)
-                                    Positioned.fill(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.5),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Center(
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 0,
-                              right: 0,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(width: 16),
-                        
-                        // User Info
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _userData['name'] ?? '',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  _userData['accountType'] ?? '',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.mail_outline,
-                                    size: 14,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      _userData['email'] ?? '',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        color: AppTheme.textSecondary,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.phone_outlined,
-                                    size: 14,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _userData['phone'] ?? '',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: AppTheme.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Profile Completion
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Profile Completion',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Text(
-                              '${(_profileCompletionPercent * 100).toInt()}%',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        LinearPercentIndicator(
-                          padding: EdgeInsets.zero,
-                          lineHeight: 8.0,
-                          percent: _profileCompletionPercent,
-                          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                          progressColor: AppTheme.primaryColor,
-                          barRadius: const Radius.circular(4),
-                          animation: true,
-                          animationDuration: 1000,
-                        ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _buildCompletionChip(
-                              'Personal Info',
-                              _completionStatus['personalInfo'] ?? false,
-                            ),
-                            _buildCompletionChip(
-                              'Address',
-                              _completionStatus['address'] ?? false,
-                            ),
-                            _buildCompletionChip(
-                              'Contact',
-                              _completionStatus['contact'] ?? false,
-                            ),
-                            _buildCompletionChip(
-                              'Payment Info',
-                              _completionStatus['paymentInfo'] ?? false,
-                            ),
-                            _buildCompletionChip(
-                              'Verification',
-                              _completionStatus['verification'] ?? false,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              child: _buildProfileHeader(isMobile: true),
             ),
             
             // Profile Tabs
@@ -482,7 +292,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
             ),
             
             SizedBox(
-              height: 500, // Set a fixed height or use a different approach for dynamic height
+              height: 500,
               child: TabBarView(
                 controller: _tabController,
                 children: [
@@ -505,9 +315,452 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     );
   }
   
-  Widget _buildCompletionChip(String label, bool isCompleted) {
+  Widget _buildWebLayout() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Web Header
+              FadeInDown(
+                duration: const Duration(milliseconds: 300),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 32),
+                  child: Row(
+                    children: [
+                      Text(
+                        'My Profile',
+                        style: GoogleFonts.poppins(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          // Navigate to settings
+                        },
+                        icon: const Icon(Icons.settings_outlined, size: 18),
+                        label: const Text('Settings'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppTheme.textSecondary,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Web Profile Content - Two Column Layout
+              FadeInUp(
+                duration: const Duration(milliseconds: 400),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Left Column - Profile Info
+                    Expanded(
+                      flex: 1,
+                      child: _buildProfileHeader(isMobile: false),
+                    ),
+                    
+                    const SizedBox(width: 32),
+                    
+                    // Right Column - Tabs Content
+                    Expanded(
+                      flex: 2,
+                      child: _buildWebTabsContent(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildWebTabsContent() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Tab Headers
+          Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade200),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: AppTheme.primaryColor,
+              unselectedLabelColor: AppTheme.textSecondary,
+              indicatorColor: AppTheme.primaryColor,
+              indicatorWeight: 3,
+              labelStyle: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              tabs: [
+                Tab(
+                  text: widget.isLandlord ? 'Details' : 'Personal',
+                ),
+                Tab(
+                  text: widget.isLandlord ? 'Business' : 'Lease',
+                ),
+                const Tab(
+                  text: 'Settings',
+                ),
+              ],
+            ),
+          ),
+          
+          // Tab Content
+          SizedBox(
+            height: 600,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPersonalDetailsTab(),
+                widget.isLandlord
+                    ? _buildBusinessDetailsTab()
+                    : _buildLeaseDetailsTab(),
+                _buildSettingsSection(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildProfileHeader({required bool isMobile}) {
+    return Container(
+      margin: isMobile ? const EdgeInsets.all(16) : EdgeInsets.zero,
+      padding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
+        boxShadow: isMobile 
+            ? AppTheme.cardShadow
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 32,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+      ),
+      child: Column(
+        children: [
+          // Profile Image and Basic Info
+          isMobile 
+              ? _buildMobileProfileInfo()
+              : _buildWebProfileInfo(),
+          
+          SizedBox(height: isMobile ? 24 : 32),
+          
+          // Profile Completion
+          _buildProfileCompletion(isMobile: isMobile),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMobileProfileInfo() {
+    return Row(
+      children: [
+        // Profile Image
+        _buildProfileImageWidget(radius: 40),
+        
+        const SizedBox(width: 16),
+        
+        // User Info
+        Expanded(
+          child: _buildUserInfoColumn(
+            nameSize: 18,
+            tagSize: 12,
+            emailSize: 12,
+            phoneSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildWebProfileInfo() {
+    return Column(
+      children: [
+        // Profile Image (larger for web)
+        _buildProfileImageWidget(radius: 60),
+        
+        const SizedBox(height: 24),
+        
+        // User Info (centered for web)
+        _buildUserInfoColumn(
+          nameSize: 24,
+          tagSize: 14,
+          emailSize: 14,
+          phoneSize: 14,
+          isCentered: true,
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildProfileImageWidget({required double radius}) {
+    return Stack(
+      children: [
+        GestureDetector(
+          onTap: _pickImage,
+          child: Stack(
+            children: [
+              CircleAvatar(
+                radius: radius,
+                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                backgroundImage: _getProfileImage(),
+              ),
+              if (_userData['isUploading'] == true)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white,
+                width: 3,
+              ),
+            ),
+            child: Icon(
+              Icons.camera_alt,
+              size: radius > 50 ? 20 : 16,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildUserInfoColumn({
+    required double nameSize,
+    required double tagSize,
+    required double emailSize,
+    required double phoneSize,
+    bool isCentered = false,
+  }) {
+    return Column(
+      crossAxisAlignment: isCentered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      children: [
+        Text(
+          _userData['name'] ?? '',
+          style: GoogleFonts.poppins(
+            fontSize: nameSize,
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: isCentered ? TextAlign.center : TextAlign.start,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            _userData['accountType'] ?? '',
+            style: GoogleFonts.poppins(
+              fontSize: tagSize,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildContactInfo(
+          icon: Icons.mail_outline,
+          text: _userData['email'] ?? '',
+          size: emailSize,
+          isCentered: isCentered,
+        ),
+        const SizedBox(height: 8),
+        _buildContactInfo(
+          icon: Icons.phone_outlined,
+          text: _userData['phone'] ?? '',
+          size: phoneSize,
+          isCentered: isCentered,
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildContactInfo({
+    required IconData icon,
+    required String text,
+    required double size,
+    bool isCentered = false,
+  }) {
+    return Row(
+      mainAxisAlignment: isCentered ? MainAxisAlignment.center : MainAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: size + 2,
+          color: AppTheme.textSecondary,
+        ),
+        const SizedBox(width: 8),
+        if (isCentered)
+          Text(
+            text,
+            style: GoogleFonts.poppins(
+              fontSize: size,
+              color: AppTheme.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          )
+        else
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.poppins(
+                fontSize: size,
+                color: AppTheme.textSecondary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+    );
+  }
+  
+  Widget _buildProfileCompletion({required bool isMobile}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Profile Completion',
+              style: GoogleFonts.poppins(
+                fontSize: isMobile ? 14 : 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              '${(_profileCompletionPercent * 100).toInt()}%',
+              style: GoogleFonts.poppins(
+                fontSize: isMobile ? 14 : 16,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: isMobile ? 8 : 12),
+        LinearPercentIndicator(
+          padding: EdgeInsets.zero,
+          lineHeight: isMobile ? 8.0 : 10.0,
+          percent: _profileCompletionPercent,
+          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+          progressColor: AppTheme.primaryColor,
+          barRadius: const Radius.circular(5),
+          animation: true,
+          animationDuration: 1000,
+        ),
+        SizedBox(height: isMobile ? 16 : 20),
+        Wrap(
+          spacing: isMobile ? 8 : 12,
+          runSpacing: isMobile ? 8 : 12,
+          children: [
+            _buildCompletionChip(
+              'Personal Info',
+              _completionStatus['personalInfo'] ?? false,
+              isMobile: isMobile,
+            ),
+            _buildCompletionChip(
+              'Address',
+              _completionStatus['address'] ?? false,
+              isMobile: isMobile,
+            ),
+            _buildCompletionChip(
+              'Contact',
+              _completionStatus['contact'] ?? false,
+              isMobile: isMobile,
+            ),
+            _buildCompletionChip(
+              'Payment Info',
+              _completionStatus['paymentInfo'] ?? false,
+              isMobile: isMobile,
+            ),
+            _buildCompletionChip(
+              'Verification',
+              _completionStatus['verification'] ?? false,
+              isMobile: isMobile,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+  
+  Widget _buildCompletionChip(String label, bool isCompleted, {bool isMobile = true}) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 16, 
+        vertical: isMobile ? 6 : 8,
+      ),
       decoration: BoxDecoration(
         color: isCompleted
             ? AppTheme.successColor.withOpacity(0.1)
@@ -517,6 +770,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
           color: isCompleted
               ? AppTheme.successColor.withOpacity(0.3)
               : AppTheme.warningColor.withOpacity(0.3),
+          width: isMobile ? 1 : 1.5,
         ),
       ),
       child: Row(
@@ -524,14 +778,14 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
         children: [
           Icon(
             isCompleted ? Icons.check_circle : Icons.pending_outlined,
-            size: 14,
+            size: isMobile ? 14 : 16,
             color: isCompleted ? AppTheme.successColor : AppTheme.warningColor,
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: isMobile ? 4 : 6),
           Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 12,
+              fontSize: isMobile ? 12 : 14,
               fontWeight: FontWeight.w500,
               color: isCompleted ? AppTheme.successColor : AppTheme.warningColor,
             ),

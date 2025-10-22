@@ -152,32 +152,311 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         resizeToAvoidBottomInset: true,
-        body: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white,
-                const Color(0xFFECE6F0).withOpacity(0.5),
-              ],
-              stops: const [0.5, 1.0],
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            bool isWeb = constraints.maxWidth > 800;
+            
+            if (isWeb) {
+              return _buildWebLayout();
+            } else {
+              return _buildMobileLayout(screenSize);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebLayout() {
+    return Row(
+      children: [
+        // Left side - Logo and branding
+        Expanded(
+          flex: 5,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF4F46E5),
+                  Color(0xFF7C3AED),
+                  Color(0xFF3B82F6),
+                ],
+              ),
             ),
-          ),
-          child: SafeArea(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo and title with animation
                 FadeInDown(
                   duration: const Duration(milliseconds: 800),
-                  child: Padding(
-                    padding: EdgeInsets.only(top: screenSize.height * 0.05),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.home,
+                      size: 80,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                FadeInUp(
+                  duration: const Duration(milliseconds: 800),
+                  delay: const Duration(milliseconds: 200),
+                  child: Column(
+                    children: [
+                      Text(
+                        'PayRent Business',
+                        style: GoogleFonts.poppins(
+                          fontSize: 48,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          'Manage properties and tenants with ease',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
+                FadeInUp(
+                  duration: const Duration(milliseconds: 800),
+                  delay: const Duration(milliseconds: 400),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Column(
                       children: [
-                        // Logo with animated container
-                        TweenAnimationBuilder(
-                          tween: Tween<double>(begin: 1.0, end: 1.1),
+                        _buildFeatureItem(
+                          Icons.dashboard_outlined,
+                          'Real-time Dashboard',
+                          'Monitor your properties and payments in real-time',
+                        ),
+                        const SizedBox(height: 24),
+                        _buildFeatureItem(
+                          Icons.payment_outlined,
+                          'Easy Payments',
+                          'Collect rent payments effortlessly with automated reminders',
+                        ),
+                        const SizedBox(height: 24),
+                        _buildFeatureItem(
+                          Icons.people_outline,
+                          'Tenant Management',
+                          'Manage all your tenants and their documents in one place',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        // Right side - Form
+        Expanded(
+          flex: 4,
+          child: Container(
+            padding: const EdgeInsets.all(40),
+            child: Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Sign in to PayRent',
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {},
+                              child: Text(
+                                'Help',
+                                style: GoogleFonts.poppins(color: const Color(0xFF4F287D)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Tabs for Login/Signup
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: Container(
+                      height: 50,
+                      width: 300,
+                      decoration: BoxDecoration(
+                        color: const Color(0xffEDEEEF),
+                        borderRadius: BorderRadius.circular(25),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TabBar(
+                        indicatorWeight: 0,
+                        controller: _tabController,
+                        dividerColor: Colors.transparent,
+                        padding: const EdgeInsets.all(4),
+                        indicator: BoxDecoration(
+                          borderRadius: BorderRadius.circular(25),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF7869E6), Color(0xFF4F287D)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF7869E6).withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        labelStyle: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                        unselectedLabelStyle: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
+                        ),
+                        labelColor: Colors.white,
+                        unselectedLabelColor: const Color(0xff898989),
+                        overlayColor: MaterialStateProperty.resolveWith<Color?>(
+                          (Set<MaterialState> states) {
+                            if (states.contains(MaterialState.hovered) ||
+                                states.contains(MaterialState.focused) ||
+                                states.contains(MaterialState.pressed)) {
+                              return Colors.white.withOpacity(0.1);
+                            }
+                            return null;
+                          },
+                        ),
+                        onTap: (int index) {
+                          setState(() {
+                            _mobileController.text = '';
+                            _loginPhoneController.text = '';
+                            isSignupMobileFilled = false;
+                            isLoginMobileFilled = false;
+                          });
+                          
+                          // Add a haptic feedback for tab change
+                          HapticFeedback.mediumImpact();
+                        },
+                        tabs: const [
+                          Tab(text: "Log in"),
+                          Tab(text: "Sign up"),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Form content
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 400),
+                        child: TabBarView(
+                          controller: _tabController,
+                          physics: const BouncingScrollPhysics(),
+                          children: [
+                            // Login Tab with fade animation
+                            FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0.05, 0),
+                                  end: Offset.zero,
+                                ).animate(CurvedAnimation(
+                                  parent: _fadeController,
+                                  curve: Curves.easeOutCubic,
+                                )),
+                                child: _buildLoginTab(context, MediaQuery.of(context).size),
+                              ),
+                            ),
+                            // Signup Tab with fade animation
+                            FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(-0.05, 0),
+                                  end: Offset.zero,
+                                ).animate(CurvedAnimation(
+                                  parent: _fadeController,
+                                  curve: Curves.easeOutCubic,
+                                )),
+                                child: _buildSignupTab(context, MediaQuery.of(context).size),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(Size screenSize) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white,
+            const Color(0xFFECE6F0).withOpacity(0.5),
+          ],
+          stops: const [0.5, 1.0],
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          children: [
+            // Logo and title with animation
+            FadeInDown(
+              duration: const Duration(milliseconds: 800),
+              child: Padding(
+                padding: EdgeInsets.only(top: screenSize.height * 0.05),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Logo with animated container
+                    TweenAnimationBuilder(
+                      tween: Tween<double>(begin: 1.0, end: 1.1),
                           duration: const Duration(seconds: 2),
                           curve: Curves.easeInOut,
                           builder: (context, value, child) {
@@ -404,9 +683,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               ],
             ),
           ),
-        ),
-      ),
-    );
+        );
   }
 
   Widget _buildLoginTab(BuildContext context, Size screenSize) {
@@ -1382,6 +1659,63 @@ Future<void> _simulateLogin() async {
         ],
       ),
       maxLines: 2,
+    );
+  }
+
+  // Helper for feature items shown on the left-side web panel
+  Widget _buildFeatureItem(IconData icon, String title, String subtitle) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFECE6F0), Color(0xFFD2EEF5)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            size: 22,
+            color: const Color(0xFF4F287D),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                subtitle,
+                style: GoogleFonts.poppins(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

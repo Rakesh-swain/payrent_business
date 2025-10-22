@@ -48,6 +48,11 @@ dependencies:
   excel: ^4.0.0
   path_provider: ^2.1.5
   permission_handler: ^12.0.1
+  # Web-specific and responsive layout dependencies
+  go_router: ^14.2.1
+  responsive_framework: ^1.4.0
+  flutter_adaptive_scaffold: ^0.1.8
+  universal_html: ^2.2.4
   path: ^1.9.1
   device_info_plus: ^12.1.0
   shared_preferences: ^2.5.3

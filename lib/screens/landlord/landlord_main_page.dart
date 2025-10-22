@@ -7,6 +7,7 @@ import 'package:payrent_business/screens/landlord/payments/payment_summary_page.
 import 'package:payrent_business/screens/landlord/property_management/manage_properties_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/tenant_list_page.dart';
 import 'package:payrent_business/screens/profile/user_profile_page.dart';
+import 'package:animate_do/animate_do.dart';
 
 class LandlordMainPage extends StatefulWidget {
   const LandlordMainPage({super.key});

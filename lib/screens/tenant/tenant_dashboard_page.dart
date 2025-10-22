@@ -85,27 +85,6 @@ class _TenantDashboardPageState extends State<TenantDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Dashboard',
-          style: GoogleFonts.poppins(
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, size: 28),
-            onPressed: () {
-              // Handle notifications
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
       body: RefreshIndicator(
         color: AppTheme.primaryColor,
         onRefresh: _loadDashboardData,

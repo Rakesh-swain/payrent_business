@@ -89,45 +89,6 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Row(children: [Text('Dashboard', style: context.headingMedium)]),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search, size: 28),
-            onPressed: () {
-              // Handle search action
-            },
-          ),
-          IconButton(
-            icon: const Badge(
-              label: Text('3'),
-              child: Icon(Icons.notifications_outlined, size: 28),
-            ),
-            onPressed: () {
-              // Handle notifications
-            },
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: GestureDetector(
-              onTap: () {
-                // Navigate to profile
-              },
-              child: Obx(() {
-                final profileUrl = _profileController.profileImageUrl.value;
-                return CircleAvatar(
-                  radius: 18,
-                  backgroundImage: profileUrl.isNotEmpty
-                      ? NetworkImage(profileUrl)
-                      : const AssetImage('assets/profile.png') as ImageProvider,
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
       body: RefreshIndicator(
         color: AppTheme.primaryColor,
         onRefresh: () async {

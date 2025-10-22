@@ -1,13 +1,16 @@
 {
-    "name": "payrent_business",
-    "short_name": "payrent_business",
-    "start_url": ".",
+    "name": "PayRent - Property Management Platform",
+    "short_name": "PayRent",
+    "start_url": "/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#7869E6",
+    "theme_color": "#2D5FFF",
+    "description": "Desktop-first property management and rent collection platform for landlords and tenants.",
+    "categories": ["business", "finance", "productivity"],
+    "orientation": "any",
     "prefer_related_applications": false,
+    "scope": "/",
+    "lang": "en",
     "icons": [
         {
             "src": "icons/Icon-192.png",

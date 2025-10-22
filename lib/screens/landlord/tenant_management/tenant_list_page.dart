@@ -328,6 +328,23 @@ class _TenantListPageState extends State<TenantListPage> {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Responsive breakpoints
+        final bool isMobile = constraints.maxWidth < 600;
+        final bool isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+        final bool isDesktop = constraints.maxWidth >= 1024;
+
+        if (isMobile) {
+          return _buildMobileLayout();
+        } else {
+          return _buildWebLayout(isTablet: isTablet, isDesktop: isDesktop);
+        }
+      },
+    );
+  }
+
+  Widget _buildMobileLayout() {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -393,27 +410,6 @@ class _TenantListPageState extends State<TenantListPage> {
                         ),
 
                         const SizedBox(height: 10),
-
-                        // Filter Chips
-                        // Row(
-                        //   children: [
-                        //     _buildFilterChip('All', 'all'),
-                        //     const SizedBox(width: 8),
-                        //     _buildFilterChip('Active', 'active'),
-                        //     const SizedBox(width: 8),
-                        //     _buildFilterChip('Inactive', 'inactive'),
-                        //     const Spacer(),
-                        //     Obx(
-                        //       () => Text(
-                        //         '${_getFilteredTenants().length} tenant${_getFilteredTenants().length != 1 ? 's' : ''}',
-                        //         style: GoogleFonts.poppins(
-                        //           fontSize: 12,
-                        //           color: AppTheme.textSecondary,
-                        //         ),
-                        //       ),
-                        //     ),
-                        //   ],
-                        // ),
                       ],
                     ),
                   ),
@@ -484,148 +480,7 @@ class _TenantListPageState extends State<TenantListPage> {
                         );
                       }
 
-                      return ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: filteredTenants.length,
-                        itemBuilder: (context, index) {
-                          final tenant = filteredTenants[index];
-                          final data = tenant.data() as Map<String, dynamic>;
-
-                          // Get list of property names
-                          final properties =
-                              data['properties'] as List<dynamic>? ?? [];
-                          print(properties);
-                          final propertyNames = properties
-                              .map(
-                                (prop) =>
-                                    (prop
-                                        as Map<
-                                          String,
-                                          dynamic
-                                        >)['propertyName'] ??
-                                    '',
-                              )
-                              .where((name) => name.isNotEmpty)
-                              .toList();
-
-                          final propertyNamesString = propertyNames.join(
-                            ', ',
-                          ); // comma-separated list
-
-                          return FadeInUp(
-                            duration: Duration(
-                              milliseconds: 300 + (index * 100),
-                            ),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              child: Card(
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(color: Colors.grey.shade200),
-                                ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(16),
-                                  onTap: () => _showTenantOptions(tenant),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Row(
-                                      children: [
-                                        // Avatar
-                                        CircleAvatar(
-                                          radius: 28,
-                                          backgroundColor: AppTheme.primaryColor
-                                              .withOpacity(0.1),
-                                          child: Text(
-                                            '${(data['firstName']?.isNotEmpty ?? false) ? data['firstName'][0].toUpperCase() : ''}'
-                                            '${(data['lastName']?.isNotEmpty ?? false) ? data['lastName'][0].toUpperCase() : ''}',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppTheme.primaryColor,
-                                            ),
-                                          ),
-                                        ),
-
-                                        const SizedBox(width: 16),
-
-                                        // Tenant Info
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              // Name
-                                              Text(
-                                                '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'
-                                                    .trim(),
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppTheme.textPrimary,
-                                                ),
-                                              ),
-
-                                              const SizedBox(height: 4),
-
-                                              // Email
-                                              Text(
-                                                data['email'] ?? '',
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 14,
-                                                  color: AppTheme.textSecondary,
-                                                ),
-                                              ),
-
-                                              const SizedBox(height: 4),
-
-                                              // Properties list
-                                              // if (propertyNames.isNotEmpty)
-                                              //   Row(
-                                              //     children: [
-                                              //       Icon(
-                                              //         Icons.home_outlined,
-                                              //         size: 16,
-                                              //         color: AppTheme
-                                              //             .textSecondary,
-                                              //       ),
-                                              //       const SizedBox(width: 4),
-                                              //       Expanded(
-                                              //         child: Text(
-                                              //           propertyNamesString,
-                                              //           style:
-                                              //               GoogleFonts.poppins(
-                                              //                 fontSize: 12,
-                                              //                 color: AppTheme
-                                              //                     .textSecondary,
-                                              //               ),
-                                              //           overflow: TextOverflow
-                                              //               .ellipsis,
-                                              //         ),
-                                              //       ),
-                                              //     ],
-                                              //   ),
-                                            ],
-                                          ),
-                                        ),
-
-                                        const SizedBox(width: 8),
-
-                                        // More Options
-                                        Icon(
-                                          Icons.more_vert,
-                                          color: AppTheme.textSecondary,
-                                          size: 20,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      );
+                      return _buildMobileTenantList(filteredTenants);
                     }),
                   ),
                 ],
@@ -637,6 +492,610 @@ class _TenantListPageState extends State<TenantListPage> {
         },
         backgroundColor: AppTheme.primaryColor,
         child: const Icon(Icons.add, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildMobileTenantList(List<DocumentSnapshot> filteredTenants) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      itemCount: filteredTenants.length,
+      itemBuilder: (context, index) {
+        final tenant = filteredTenants[index];
+        final data = tenant.data() as Map<String, dynamic>;
+
+        // Get list of property names
+        final properties = data['properties'] as List<dynamic>? ?? [];
+        print(properties);
+        final propertyNames = properties
+            .map((prop) => (prop as Map<String, dynamic>)['propertyName'] ?? '')
+            .where((name) => name.isNotEmpty)
+            .toList();
+
+        return FadeInUp(
+          duration: Duration(milliseconds: 300 + (index * 100)),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.grey.shade200),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => _showTenantOptions(tenant),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      // Avatar
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                        child: Text(
+                          '${(data['firstName']?.isNotEmpty ?? false) ? data['firstName'][0].toUpperCase() : ''}'
+                          '${(data['lastName']?.isNotEmpty ?? false) ? data['lastName'][0].toUpperCase() : ''}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 16),
+
+                      // Tenant Info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Name
+                            Text(
+                              '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim(),
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+
+                            const SizedBox(height: 4),
+
+                            // Email
+                            Text(
+                              data['email'] ?? '',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+
+                            const SizedBox(height: 4),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      // More Options
+                      Icon(
+                        Icons.more_vert,
+                        color: AppTheme.textSecondary,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWebLayout({required bool isTablet, required bool isDesktop}) {
+    final maxWidth = isDesktop ? 1200.0 : 800.0;
+    final crossAxisCount = isDesktop ? 4 : 3;
+
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      body: Column(
+        children: [
+          // Web Header with Search and Actions
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  offset: const Offset(0, 2),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Column(
+                  children: [
+                    // Page Title and Actions
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Tenants',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Manage and monitor all your tenants',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Actions
+                        Row(
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: _refreshData,
+                              icon: Icon(Icons.refresh, size: 18),
+                              label: Text('Refresh'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryColor,
+                                side: BorderSide(color: AppTheme.primaryColor),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton.icon(
+                              onPressed: () => Get.to(() => const AddTenantPage())?.then((_) => _refreshData()),
+                              icon: const Icon(Icons.add, color: Colors.white),
+                              label: Text(
+                                'Add Tenant',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Search Row
+                    Row(
+                      children: [
+                        // Search Bar
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Search tenants by name, email, or phone...',
+                                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, color: Colors.grey),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          setState(() {
+                                            _searchQuery = '';
+                                          });
+                                        },
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                hintStyle: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              style: GoogleFonts.poppins(fontSize: 14),
+                              onChanged: (value) {
+                                setState(() {
+                                  _searchQuery = value;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Results Count
+                    Obx(() {
+                      final filteredTenants = _getFilteredTenants();
+                      if (filteredTenants.isNotEmpty) {
+                        return Column(
+                          children: [
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Text(
+                                  '${filteredTenants.length} Tenants',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Content Area
+          Expanded(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : Obx(() {
+                        final filteredTenants = _getFilteredTenants();
+                        if (filteredTenants.isEmpty) {
+                          return _buildEmptyState();
+                        }
+                        return _buildWebTenantGrid(filteredTenants, crossAxisCount);
+                      }),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.people_outline,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _searchQuery.isNotEmpty ? 'No tenants found' : 'No tenants yet',
+            style: GoogleFonts.poppins(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _searchQuery.isNotEmpty
+                ? 'Try adjusting your search'
+                : 'Add your first tenant to get started',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+            ),
+          ),
+          if (_searchQuery.isEmpty) ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                Get.to(() => const AddTenantPage())?.then((_) => _refreshData());
+              },
+              icon: const Icon(Icons.add_outlined),
+              label: Text(
+                'Add Tenant',
+                style: GoogleFonts.poppins(),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebTenantGrid(List<DocumentSnapshot> filteredTenants, int crossAxisCount) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(24),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        childAspectRatio: 0.85,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 20,
+      ),
+      itemCount: filteredTenants.length,
+      itemBuilder: (context, index) {
+        final tenant = filteredTenants[index];
+        final data = tenant.data() as Map<String, dynamic>;
+
+        return FadeInUp(
+          duration: Duration(milliseconds: 300 + (index * 50)),
+          child: _buildWebTenantCard(tenant, data),
+        );
+      },
+    );
+  }
+
+  Widget _buildWebTenantCard(DocumentSnapshot tenant, Map<String, dynamic> data) {
+    final status = _getTenantStatus(data);
+    final statusColor = _getStatusColor(status);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _viewTenantDetails(tenant),
+          child: Column(
+            children: [
+              // Header with Avatar and Status
+              Container(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    // Status Badge
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          status,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: statusColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Avatar
+                    CircleAvatar(
+                      radius: 32,
+                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                      child: Text(
+                        '${(data['firstName']?.isNotEmpty ?? false) ? data['firstName'][0].toUpperCase() : ''}'
+                        '${(data['lastName']?.isNotEmpty ?? false) ? data['lastName'][0].toUpperCase() : ''}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Name
+                    Text(
+                      '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.trim(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Details
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      // Email
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.email_outlined,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              data['email'] ?? '',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: AppTheme.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Phone
+                      if (data['phone'] != null && data['phone'].toString().isNotEmpty)
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.phone_outlined,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                data['phone'].toString(),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                      const Spacer(),
+
+                      // Action Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => _editTenant(tenant),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryColor,
+                                side: BorderSide(color: AppTheme.primaryColor),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                              child: Text(
+                                'Edit',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => _viewTenantDetails(tenant),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                              child: Text(
+                                'Details',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+
+              // More Options Button
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(color: Colors.grey[200]!),
+                  ),
+                ),
+                child: InkWell(
+                  onTap: () => _showTenantOptions(tenant),
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Icon(
+                      Icons.more_horiz,
+                      color: AppTheme.textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

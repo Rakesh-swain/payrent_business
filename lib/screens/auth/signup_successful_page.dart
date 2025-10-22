@@ -20,7 +20,7 @@ class _SignupSuccessfulPageState extends State<SignupSuccessfulPage> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(seconds: 2), () async {
+      Timer(const Duration(seconds: 2), () async {
       if (widget.accountType) {
         Get.offAll(LandlordMainPage());
       } else {
