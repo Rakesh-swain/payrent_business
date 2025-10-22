@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 import 'package:payrent_business/screens/auth/profile_signup_page.dart';
 import 'package:payrent_business/screens/landlord/landlord_main_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
-import 'package:payrent_business/services/tenant_auth_service.dart';
+import 'package:payrent_business/screens/web/web_main_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class VerificationCompletePage extends StatefulWidget {
@@ -37,6 +37,10 @@ Future<void> _checkUserTypeAndNavigate() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       
+      // Check if this is web platform (screen width > 800px)
+      final screenWidth = MediaQuery.of(context).size.width;
+      final isWeb = screenWidth > 800;
+      
       // Check if this is a tenant login
       if (widget.tenantInfo != null) {
         // Tenant user - store tenant info in shared preferences
@@ -44,7 +48,12 @@ Future<void> _checkUserTypeAndNavigate() async {
         await prefs.setString('tenantId', widget.tenantInfo!['tenantId']);
         await prefs.setString('landlordId', widget.tenantInfo!['landlordId']);
         
-        Get.offAll(() => const TenantMainPage());
+        // Navigate to appropriate main page based on platform
+        if (isWeb) {
+          Get.offAll(() => const WebMainPage(userType: 'Tenant'));
+        } else {
+          Get.offAll(() => const TenantMainPage());
+        }
         return;
       }
       
@@ -61,11 +70,16 @@ Future<void> _checkUserTypeAndNavigate() async {
         
         await prefs.setString('userType', userType);
         
-        if (userType == 'Landlord') {
-          Get.offAll(() => const LandlordMainPage());
+        // Navigate to appropriate main page based on platform
+        if (isWeb) {
+          Get.offAll(() => WebMainPage(userType: userType));
         } else {
-          // This case shouldn't happen, but handle it anyway
-          Get.offAll(() => const TenantMainPage());
+          if (userType == 'Landlord') {
+            Get.offAll(() => const LandlordMainPage());
+          } else {
+            // This case shouldn't happen, but handle it anyway
+            Get.offAll(() => const TenantMainPage());
+          }
         }
       } else {
         // New user - go to profile signup

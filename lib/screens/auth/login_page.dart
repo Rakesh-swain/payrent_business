@@ -214,7 +214,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   child: Column(
                     children: [
                       Text(
-                        'PayRent Business',
+                        'PayRent',
                         style: GoogleFonts.poppins(
                           fontSize: 48,
                           fontWeight: FontWeight.bold,
