@@ -13,11 +13,12 @@ import 'package:payrent_business/controllers/user_profile_controller.dart';
 import 'package:payrent_business/controllers/mandate_controller.dart';
 import 'package:payrent_business/models/payment_chart_data.dart';
 import 'package:payrent_business/screens/landlord/earnings/earning_details_page.dart';
-import 'package:payrent_business/screens/landlord/mandate/mandate_collection_page.dart';
+import 'package:payrent_business/screens/landlord/mandate/payment_list_page.dart';
 import 'package:payrent_business/screens/landlord/mandate/mandate_list_page.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_summary_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/bulk_upload_page.dart';
+import 'package:payrent_business/screens/landlord/complaints/complaint_list_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_list_page.dart';
 import 'package:payrent_business/screens/landlord/tenant_management/add_tenant_page.dart';
 import 'package:payrent_business/screens/landlord/mandate/mandate_status_page.dart';
@@ -987,12 +988,15 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                                 },
                               ),
                               ActionButton(
-                                icon: Icons.calendar_month_outlined,
-                                label: 'Add Reminder',
-                                color: Colors.teal,
-                                onTap: () {
-                                  // Navigate to add reminder
-                                },
+                                icon: Icons.report_problem_outlined,
+                                label: 'Raise Complaint',
+                                color: Colors.red,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ComplaintListPage(),
+                                  ),
+                                ),
                               ),
                             ],
                           ),

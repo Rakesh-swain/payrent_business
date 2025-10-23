@@ -403,7 +403,7 @@ class _CreateMandatePageState extends State<CreateMandatePage> {
                   ),
                 ),
                 Text(
-                  'OMR${widget.unit.rent.toStringAsFixed(2)}',
+                  'OMR ${widget.unit.rent.toStringAsFixed(2)}',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -654,7 +654,7 @@ class _CreateMandatePageState extends State<CreateMandatePage> {
                           ),
                         ),
                         Text(
-                          'OMR${totalAmount.toStringAsFixed(2)}',
+                          'OMR ${totalAmount.toStringAsFixed(2)}',
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -679,7 +679,7 @@ class _CreateMandatePageState extends State<CreateMandatePage> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'OMR${_paymentAmount.toStringAsFixed(2)} per payment × $_totalInstallments payments',
+                        'OMR ${_paymentAmount.toStringAsFixed(2)} per payment × $_totalInstallments payments',
                         style: GoogleFonts.poppins(
                           fontSize: 12,
                           color: Colors.grey[700],

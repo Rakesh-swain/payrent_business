@@ -21,7 +21,6 @@ import 'package:payrent_business/screens/landlord/property_management/unit_detai
 import 'package:payrent_business/screens/landlord/property_management/bulk_upload_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/template_viewer_page.dart';
 
-import 'package:payrent_business/screens/landlord/payments/payment_list_page.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_detail_page.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_schedule_page.dart';
 import 'package:payrent_business/screens/landlord/payments/payment_summary_page.dart';
@@ -36,7 +35,7 @@ import 'package:payrent_business/screens/landlord/mandate/mandate_viewer_page.da
 import 'package:payrent_business/screens/landlord/mandate/create_mandate_page.dart';
 import 'package:payrent_business/screens/landlord/mandate/new_create_mandate_page.dart';
 import 'package:payrent_business/screens/landlord/mandate/mandate_status_page.dart';
-import 'package:payrent_business/screens/landlord/mandate/mandate_collection_page.dart';
+import 'package:payrent_business/screens/landlord/mandate/payment_list_page.dart';
 
 import 'package:payrent_business/screens/landlord/earnings/earning_details_page.dart';
 

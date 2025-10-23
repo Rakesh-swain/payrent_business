@@ -37,11 +37,20 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
   Map<String, List<Map<String, dynamic>>> _propertyPayments = {};
   
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _fetchTenantData();
-  }
+void initState() {
+  super.initState();
+  _tabController = TabController(length: 3, vsync: this);
+
+  // Listen to tab changes
+  _tabController.addListener(() {
+    if (_tabController.indexIsChanging) {
+      setState(() {}); // Rebuild to show the correct tab in IndexedStack
+    }
+  });
+
+  _fetchTenantData();
+}
+
   
   @override
   void dispose() {
@@ -296,27 +305,34 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
           ),
         ],
       ),
-      body: Column(
+ body: FadeInUp(
+    duration: const Duration(milliseconds: 600),
+    child: SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Tenant Profile Header
+          // Tenant Header
           _buildTenantHeader(tenantData),
+          const SizedBox(height: 16),
           
           // Tab Bar
           _buildTabBar(),
-          
-          // Tab Content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildDetailsTab(tenantData),
-                _buildPaymentsTab(),
-                _buildDocumentsTab(tenantData),
-              ],
-            ),
+          const SizedBox(height: 16),
+
+          // Tab Content as Column
+          IndexedStack(
+            index: _tabController.index,
+            children: [
+              _buildDetailsTab(tenantData),
+              _buildPaymentsTab(),
+              _buildDocumentsTab(tenantData),
+            ],
           ),
         ],
       ),
+    ))
     );
   }
   
@@ -421,7 +437,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                 Expanded(
                   child: _buildHeaderStat(
                     'Total Rent',
-                    'OMR${totalRent.toStringAsFixed(0)}',
+                    'OMR ${totalRent.toStringAsFixed(0)}',
                     Icons.attach_money_outlined,
                   ),
                 ),
@@ -663,7 +679,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                     Text('Rent Amount', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
                     const SizedBox(height: 4),
                     Text(
-                      'OMR${(propertyData['rentAmount'] ?? 0).toStringAsFixed(0)}',
+                      'OMR ${(propertyData['rentAmount'] ?? 0).toStringAsFixed(0)}',
                       style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
                     ),
                   ],
@@ -688,10 +704,10 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Security Deposit', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
+                      Text('Security Deposit Amount', style: GoogleFonts.poppins(fontSize: 12, color: AppTheme.textSecondary)),
                       const SizedBox(height: 4),
                       Text(
-                        'OMR${propertyData['securityDeposit'].toStringAsFixed(0)}',
+                        'OMR ${propertyData['securityDeposit'].toStringAsFixed(0)}',
                         style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                     ],
@@ -748,6 +764,9 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
   }
   
   Widget _buildPropertyPaymentSection(Map<String, dynamic> property, List<Map<String, dynamic>> payments) {
+     payments.sort((a, b) => (a['dueDate'] as DateTime)
+      .compareTo(b['dueDate'] as DateTime));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -861,7 +880,7 @@ class _TenantDetailPageState extends State<TenantDetailPage> with SingleTickerPr
                 ),
               ),
               Text(
-                'OMR${NumberFormat('#,##0.00').format(totalAmount)}',
+                'OMR ${NumberFormat('#,##0.00').format(totalAmount)}',
                 style: GoogleFonts.poppins(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,

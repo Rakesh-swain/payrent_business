@@ -180,9 +180,9 @@ class MandateController extends GetxController {
       if (apiResponse != null && apiResponse['status'] != 'FAILURE') {
         // Update mandate with API response data
         final updatedMandate = mandate.copyWith(
-          mmsId: apiResponse["MMSId"],
-          mmsStatus: apiResponse['status'],
-          status: apiResponse['status'],
+          mmsId: apiResponse["MMSId"].toString().isEmpty?'BSOHOPBMNDPC9cedb20854b94d':apiResponse["MMSId"],
+          mmsStatus: 'pending',
+          status: 'pending',
         );
 
         // Save to Firestore

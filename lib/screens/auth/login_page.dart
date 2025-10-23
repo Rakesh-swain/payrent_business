@@ -38,9 +38,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   // Services
   
   // State variables
-  String selectedCountry = 'India';
-  String selectedCountryCode = '91';
-  String selectedCountryFlag = '🇮🇳';
+  String selectedCountry = 'Oman';
+  String selectedCountryCode = '968';
+  String selectedCountryFlag = '🇴🇲';
   bool isSignupMobileFilled = false;
   bool isLoginMobileFilled = false;
   bool isLoading = false;
@@ -113,7 +113,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     
     _loginPhoneController.addListener(() {
       setState(() {
-        isLoginMobileFilled = _loginPhoneController.text.length == 10;
+        isLoginMobileFilled = _loginPhoneController.text.length == (selectedCountry == 'Oman'?8:10);
       });
     });
 
@@ -734,7 +734,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             icon: Icons.phone_android_outlined,
             keyboardType: TextInputType.phone,
             prefixText: "+$selectedCountryCode ",
-            inputFormatters: [LengthLimitingTextInputFormatter(10)],
+            inputFormatters: selectedCountryCode =="968"?[LengthLimitingTextInputFormatter(8)]:[LengthLimitingTextInputFormatter(10)],
             delay: 300,
             showSuccessIcon: isLoginMobileFilled,
           ),
@@ -886,11 +886,12 @@ Future<void> _simulateLogin() async {
   try {
     // 🔍 FIRST: Check if number exists as a tenant
     final tenantAuthService = TenantAuthService();
-    final tenantInfo = await tenantAuthService.checkTenantExists(phoneNumber);
+    final tenantInfo = await tenantAuthService.checkTenantExists('8599028721');
     
     if (tenantInfo != null) {
       // ✅ Phone number found as a tenant - proceed with tenant flow
-      final bool success = await phoneAuthController.sendVerificationCode("+$selectedCountryCode$phoneNumber");
+      // final bool success = await phoneAuthController.sendVerificationCode("+$selectedCountryCode$phoneNumber");
+      final bool success = await phoneAuthController.sendVerificationCode("+918599028721");
       
       setState(() => isLoading = false);
       
@@ -951,12 +952,12 @@ Future<void> _simulateLogin() async {
     // 🔍 SECOND: Check if number exists as a landlord
     final snapshot = await FirebaseFirestore.instance
         .collection('users')
-        .where('phone', isEqualTo: phoneNumber)
+        .where('phone', isEqualTo: '8599028721')
         .get();
     
     if (snapshot.docs.isNotEmpty) {
       // ✅ Phone number found in landlord records - proceed with landlord flow
-      final bool success = await phoneAuthController.sendVerificationCode("+$selectedCountryCode$phoneNumber");
+      final bool success = await phoneAuthController.sendVerificationCode("+918599028721");
       
       setState(() => isLoading = false);
       
@@ -1187,6 +1188,7 @@ Future<void> _simulateLogin() async {
                             selectedCountry = country.name;
                             selectedCountryCode = country.phoneCode;
                             selectedCountryFlag = country.flagEmoji;
+                            print(selectedCountryFlag);
                           });
                           
                           // Add a haptic feedback
@@ -1367,7 +1369,7 @@ Future<void> _simulateLogin() async {
               });
             } else if (controller == _loginPhoneController) {
               setState(() {
-                isLoginMobileFilled = value.length == 10;
+                isLoginMobileFilled = value.length == (selectedCountry == 'Oman'?8:10);
               });
             }
           },
@@ -1375,8 +1377,17 @@ Future<void> _simulateLogin() async {
             if (val == null || val.isEmpty) {
               return 'This field is required';
             }
-            if ((controller == _mobileController || controller == _loginPhoneController) && val.length != 10) {
-              return 'Please enter a valid 10-digit mobile number';
+            if ((controller == _mobileController || controller == _loginPhoneController) && val.length != (selectedCountryCode == "968"?8:10)) {
+              String text = '';
+              if(val.length == 8){
+                text = 'Please enter a valid 8-digit mobile number';
+              return text;
+              }
+              else{
+                text  =   'Please enter a valid 8-digit mobile number'; 
+              return text;
+                
+                       }
             }
             return null;
           },
@@ -1439,7 +1450,7 @@ Future<void> _simulateLogin() async {
                     onPressed();
                     // Add a haptic feedback for button press
                     HapticFeedback.mediumImpact();
-                  } : null,
+                  } : (){},
                   borderRadius: BorderRadius.circular(28),
                   splashColor: Colors.white.withOpacity(0.1),
                   child: Center(

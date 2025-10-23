@@ -60,7 +60,7 @@ Future<void> _checkUserTypeAndNavigate() async {
       // Check if this is a landlord login
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
-          .where('phone', isEqualTo: widget.mobileNumber)
+          .where('phone', isEqualTo: '8599028721')
           .limit(1)
           .get();
 

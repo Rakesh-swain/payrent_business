@@ -907,28 +907,28 @@ class _TenantListPageState extends State<TenantListPage> {
                 child: Column(
                   children: [
                     // Status Badge
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          status,
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: statusColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    // Align(
+                    //   alignment: Alignment.topRight,
+                    //   child: Container(
+                    //     padding: const EdgeInsets.symmetric(
+                    //       horizontal: 8,
+                    //       vertical: 4,
+                    //     ),
+                    //     decoration: BoxDecoration(
+                    //       color: statusColor.withOpacity(0.1),
+                    //       borderRadius: BorderRadius.circular(12),
+                    //     ),
+                    //     child: Text(
+                    //       status,
+                    //       style: GoogleFonts.poppins(
+                    //         fontSize: 12,
+                    //         fontWeight: FontWeight.w500,
+                    //         color: statusColor,
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 8),
 
                     // Avatar
                     CircleAvatar(

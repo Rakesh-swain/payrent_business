@@ -430,7 +430,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
               SizedBox(height: 12),
               _buildInfoItem(
                 'Rent',
-                'OMR${widget.unit.rent.toStringAsFixed(2)}/mo',
+                'OMR ${widget.unit.rent.toStringAsFixed(2)}/mo',
               ),
             ],
           ),
@@ -623,7 +623,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
                 controller: _securityDepositController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: 'Security Deposit',
+                  labelText: 'Security Deposit Amount',
                   prefixText: 'OMR ',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -875,7 +875,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
           controller: _securityDepositController,
           keyboardType: TextInputType.number,
           decoration: InputDecoration(
-            labelText: 'Security Deposit',
+            labelText: 'Security Deposit Amount',
             prefixText: '\OMR ',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),

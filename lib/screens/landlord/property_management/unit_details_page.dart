@@ -375,9 +375,9 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                   _buildInfoRow('Unit Type', widget.unit.unitType),
                   _buildInfoRow('Bedrooms', widget.unit.bedrooms.toString()),
                   _buildInfoRow('Bathrooms', widget.unit.bathrooms.toString()),
-                  _buildInfoRow('Monthly Rent', 'OMR${widget.unit.rent.toStringAsFixed(2)}'),
+                  _buildInfoRow('Monthly Rent', 'OMR ${widget.unit.rent.toStringAsFixed(2)}'),
                   if (widget.unit.securityDeposit != null)
-                    _buildInfoRow('Security Deposit', 'OMR${widget.unit.securityDeposit!.toStringAsFixed(2)}'),
+                    _buildInfoRow('Security Deposit Amount', 'OMR ${widget.unit.securityDeposit!.toStringAsFixed(2)}'),
                   if (widget.unit.squareFeet != null)
                     _buildInfoRow('Square Feet', '${widget.unit.squareFeet} sq ft'),
                   if (widget.unit.notes != null && widget.unit.notes!.isNotEmpty)
@@ -407,7 +407,7 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                     ),
                     if (_leaseInfo != null) ...[
                       _buildInfoRow(
-                        'Security Deposit',
+                        'Security Deposit Amount',
                         '\OMR${(_leaseInfo?['securityDeposit'] ?? 0).toStringAsFixed(2)}',
                       ),
                       _buildInfoRow(
@@ -630,12 +630,12 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                   ),
                   _buildInfoRow(
                     'Rent',
-                    'OMR${(tenantData['rentAmount'] ?? 0).toStringAsFixed(2)}',
+                    'OMR ${(tenantData['rentAmount'] ?? 0).toStringAsFixed(2)}',
                   ),
                   if (tenantData['securityDeposit'] != null)
                     _buildInfoRow(
-                      'Security Deposit',
-                      'OMR${tenantData['securityDeposit'].toStringAsFixed(2)}',
+                      'Security Deposit Amount',
+                      'OMR ${tenantData['securityDeposit'].toStringAsFixed(2)}',
                     ),
                   _buildInfoRow(
                     'Rent Due Day',

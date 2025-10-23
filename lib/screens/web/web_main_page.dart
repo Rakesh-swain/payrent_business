@@ -20,6 +20,7 @@ import 'package:payrent_business/screens/tenant/tenant_profile_page.dart';
 
 import 'package:payrent_business/screens/web/widgets/web_sidebar.dart';
 import 'package:payrent_business/screens/web/widgets/web_topbar.dart';
+import 'package:payrent_business/screens/landlord/complaints/complaint_list_page.dart';
 
 class WebMainPage extends StatefulWidget {
   final String userType;
@@ -59,6 +60,7 @@ class _WebMainPageState extends State<WebMainPage> {
       'properties': 'Properties',
       'payments': 'Payments',
       'tenants': 'Tenants',
+      'complaints': 'Raise Complaint',
       'maintenance': 'Maintenance',
       'profile': 'Profile',
     };
@@ -92,6 +94,8 @@ class _WebMainPageState extends State<WebMainPage> {
           return const PaymentSummaryPage();
         case 'tenants':
           return const TenantListPage();
+        case 'complaints':
+          return const ComplaintListPage();
         case 'profile':
           return const UserProfilePage(isLandlord: true);
         default:

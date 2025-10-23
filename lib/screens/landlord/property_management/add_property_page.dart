@@ -611,7 +611,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                           initialValue: unit.rent.toString(),
                           decoration: InputDecoration(
                             labelText: 'Rent',
-                            prefixText: 'OMR',
+                            prefixText: 'OMR ',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -632,8 +632,8 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                         child: TextFormField(
                           initialValue: unit.securityDeposit?.toString() ?? '',
                           decoration: InputDecoration(
-                            labelText: 'Security Deposit',
-                            prefixText: 'OMR',
+                            labelText: 'Security Deposit Amount',
+                            prefixText: 'OMR ',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),

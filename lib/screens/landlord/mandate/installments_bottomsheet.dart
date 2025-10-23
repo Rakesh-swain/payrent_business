@@ -74,7 +74,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
                 Expanded(
                   child: _buildSummaryCard(
                     'Total Amount',
-                    'OMR${(amount * installments).toStringAsFixed(2)}',
+                    'OMR ${(amount * installments).toStringAsFixed(2)}',
                     Colors.green,
                     Icons.attach_money,
                   ),
@@ -83,7 +83,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
                 Expanded(
                   child: _buildSummaryCard(
                     'Per Payment',
-                    'OMR${amount.toStringAsFixed(2)}',
+                    'OMR ${amount.toStringAsFixed(2)}',
                     Colors.blue,
                     Icons.payment,
                   ),
@@ -153,7 +153,7 @@ class InstallmentsBottomSheet extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  'OMR${amount.toStringAsFixed(2)}',
+                                  'OMR ${amount.toStringAsFixed(2)}',
                                   style: GoogleFonts.poppins(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,

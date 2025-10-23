@@ -238,7 +238,7 @@ Map<String, dynamic> _getTemplateData() {
         'Payment Frequency', 'Is Multi Unit', 'Unit Number', 'Unit Type', 'Bedrooms', 'Bathrooms', 'Rent',
         'Tenant First Name', 'Tenant Last Name', 'Email', 'Phone',
         'Account Holder Name', 'Account Number', 'ID Type', 'ID Number', 'Bank BIC', 'Branch Code',
-        'Lease Start', 'Lease End', 'Security Deposit'
+        'Lease Start', 'Lease End', 'Security Deposit Amount'
       ],
       'rows': [
         // Single unit property with tenant

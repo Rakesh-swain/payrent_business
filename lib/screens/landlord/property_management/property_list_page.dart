@@ -333,7 +333,7 @@ class _PropertyListPageState extends State<PropertyListPage>
           onComplete: () {
             // Refresh property data after unit action
             _fetchProperties();
-            Get.back();
+            // Get.back();
           },
         );
       },
@@ -1100,7 +1100,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                         ? _buildErrorView()
                         : _filteredProperties.isEmpty
                             ? _buildEmptyView()
-                            : _buildWebPropertyGrid(crossAxisCount: crossAxisCount),
+                            : _buildWebPropertyList(),
               ),
             ),
           ),
@@ -1109,17 +1109,13 @@ class _PropertyListPageState extends State<PropertyListPage>
     );
   }
 
-  Widget _buildWebPropertyGrid({required int crossAxisCount}) {
-    return GridView.builder(
+  // New Web Property List - ListView instead of GridView
+  Widget _buildWebPropertyList() {
+    return ListView.separated(
       padding: const EdgeInsets.all(24),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        childAspectRatio: 0.85, // Adjust ratio for better property card proportions
-        crossAxisSpacing: 24,
-        mainAxisSpacing: 24,
-      ),
       itemCount: _filteredProperties.length,
       physics: const BouncingScrollPhysics(),
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final propertyData = _filteredProperties[index].data() as Map<String, dynamic>;
         final propertyId = _filteredProperties[index].id;
@@ -1127,13 +1123,14 @@ class _PropertyListPageState extends State<PropertyListPage>
 
         return FadeInUp(
           duration: Duration(milliseconds: 300 + (index * 50)),
-          child: _buildWebPropertyCard(context, propertyId, property),
+          child: _buildWebPropertyListCard(context, propertyId, property),
         );
       },
     );
   }
 
-  Widget _buildWebPropertyCard(
+  // New Horizontal Web Property List Card - Better responsive design
+  Widget _buildWebPropertyListCard(
     BuildContext context,
     String propertyId,
     PropertyModel property,
@@ -1142,6 +1139,7 @@ class _PropertyListPageState extends State<PropertyListPage>
     final totalUnits = property.units.length;
     final occupiedUnits = property.units.where((unit) => unit.tenantId != null).length;
     final isFullyOccupied = totalUnits > 0 && occupiedUnits == totalUnits;
+    final isExpanded = _expandedProperties.contains(propertyId);
 
     // Calculate total rent
     int totalRent = 0;
@@ -1162,178 +1160,484 @@ class _PropertyListPageState extends State<PropertyListPage>
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => _navigateToPropertyDetails(propertyId, property),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Property Header Image/Gradient
-              Container(
-                height: 180,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFF6366F1),
-                      Color(0xFFA78BFA),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
-                  ),
-                ),
-                child: Stack(
+      child: Column(
+        children: [
+          // Main Horizontal Property Card
+          Material(
+            color: Colors.transparent,
+            borderRadius: isExpanded 
+                ? BorderRadius.vertical(top: Radius.circular(16))
+                : BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: isExpanded 
+                  ? BorderRadius.vertical(top: Radius.circular(16))
+                  : BorderRadius.circular(16),
+              onTap: () => _navigateToPropertyDetails(propertyId, property),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
                   children: [
-                    // Property Icon
-                    Center(
-                      child: Icon(
-                        Icons.home_rounded,
-                        size: 48,
-                        color: Colors.white.withOpacity(0.9),
+                    // Small Property Image/Icon (Left side)
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(0xFF6366F1),
+                            Color(0xFFA78BFA),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ),
-                    // Property Type Badge
-                    Positioned(
-                      top: 12,
-                      left: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          property.isMultiUnit ? 'Multi-Unit' : 'Single Unit',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Units Count
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '$totalUnits ${totalUnits == 1 ? 'Unit' : 'Units'}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Occupancy Status
-                    Positioned(
-                      bottom: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isFullyOccupied ? Colors.green : Colors.orange,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          isFullyOccupied
-                              ? 'Fully Occupied'
-                              : occupiedUnits > 0
-                                  ? '$occupiedUnits/$totalUnits Occupied'
-                                  : 'Vacant',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // More Options Button
-                    Positioned(
-                      top: 8,
-                      right: 50,
-                      child: IconButton(
-                        icon: const Icon(Icons.more_vert, color: Colors.white),
-                        onPressed: () => _showPropertyOptions(
-                          context,
-                          _filteredProperties.firstWhere((p) => p.id == propertyId),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Property Details
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Property Name
-                      Text(
-                        property.name,
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Address with Location Icon
-                      Row(
+                      child: Stack(
                         children: [
-                          Icon(
-                            Icons.location_on_outlined,
-                            size: 16,
-                            color: Colors.grey[600],
+                          // Property Icon
+                          Center(
+                            child: Icon(
+                              Icons.home_rounded,
+                              size: 32,
+                              color: Colors.white.withOpacity(0.9),
+                            ),
                           ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              '${property.address}, ${property.city}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: Colors.grey[600],
+                          // Property Type Badge (Small)
+                          Positioned(
+                            top: 4,
+                            left: 4,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                              child: Text(
+                                property.isMultiUnit ? 'Multi' : 'Single',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const Spacer(),
+                    ),
+                    const SizedBox(width: 16),
 
-                      // Stats Section
-                      Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Row(
+                    // Property Details (Middle - Expandable)
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Property Name
+                          Text(
+                            property.name,
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+
+                          // Address with Location Icon
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.location_on_outlined,
+                                size: 14,
+                                color: Colors.grey[600],
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  '${property.address}, ${property.city}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 13,
+                                    color: Colors.grey[600],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Stats Row
+                          Row(
+                            children: [
+                              // Units Info
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '$totalUnits ${totalUnits == 1 ? 'Unit' : 'Units'}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+
+                              // Occupancy Status
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isFullyOccupied 
+                                      ? Colors.green.withOpacity(0.1)
+                                      : Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: isFullyOccupied ? Colors.green : Colors.orange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '$occupiedUnits/$totalUnits',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: isFullyOccupied ? Colors.green : Colors.orange,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Right Section - Rent & Actions
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // Total Rent (Prominent)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Total Rent',
+                              style: GoogleFonts.poppins(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'OMR ${totalRent.toStringAsFixed(0)}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Action Buttons Row
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // View Units Button
+                            OutlinedButton.icon(
+                              onPressed: () => _togglePropertyExpansion(propertyId),
+                              icon: Icon(
+                                isExpanded
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                size: 16,
+                              ),
+                              label: Text(
+                                isExpanded ? 'Hide' : 'Units',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryColor,
+                                side: BorderSide(color: AppTheme.primaryColor),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+
+                            // More Options Button
+                            IconButton(
+                              onPressed: () => _showPropertyOptions(
+                                context,
+                                _filteredProperties.firstWhere((p) => p.id == propertyId),
+                              ),
+                              icon: Icon(Icons.more_vert, size: 20),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.grey[100],
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Expanded Units Section (conditionally visible)
+          if (isExpanded)
+            AnimatedContainer(
+              duration: Duration(milliseconds: 300),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+                border: Border(
+                  top: BorderSide(color: Colors.grey[200]!, width: 1),
+                ),
+              ),
+              child: _buildWebUnitsSection(propertyId, property),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebPropertyCard(
+    BuildContext context,
+    String propertyId,
+    PropertyModel property,
+  ) {
+    // Calculate occupancy statistics
+    final totalUnits = property.units.length;
+    final occupiedUnits = property.units.where((unit) => unit.tenantId != null).length;
+    final isFullyOccupied = totalUnits > 0 && occupiedUnits == totalUnits;
+    final isExpanded = _expandedProperties.contains(propertyId);
+
+    // Calculate total rent
+    int totalRent = 0;
+    for (var unit in property.units) {
+      totalRent += unit.rent;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 16,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Main Property Card
+          Material(
+            color: Colors.transparent,
+            borderRadius: isExpanded 
+                ? BorderRadius.vertical(top: Radius.circular(16))
+                : BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: isExpanded 
+                  ? BorderRadius.vertical(top: Radius.circular(16))
+                  : BorderRadius.circular(16),
+              onTap: () => _navigateToPropertyDetails(propertyId, property),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Property Header Image/Gradient (Smaller)
+                  Container(
+                    height: 80, // Much smaller height
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFF6366F1),
+                          Color(0xFFA78BFA),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: isExpanded 
+                          ? BorderRadius.vertical(top: Radius.circular(16))
+                          : BorderRadius.vertical(top: Radius.circular(16)),
+                    ),
+                    child: Stack(
+                      children: [
+                        // Property Icon
+                        Center(
+                          child: Icon(
+                            Icons.home_rounded,
+                            size: 48,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                        // Property Type Badge
+                        Positioned(
+                          top: 12,
+                          left: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              property.isMultiUnit ? 'Multi-Unit' : 'Single Unit',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Units Count
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '$totalUnits ${totalUnits == 1 ? 'Unit' : 'Units'}',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Occupancy Status
+                        Positioned(
+                          bottom: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isFullyOccupied ? Colors.green : Colors.orange,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              isFullyOccupied
+                                  ? 'Fully Occupied'
+                                  : occupiedUnits > 0
+                                      ? '$occupiedUnits/$totalUnits Occupied'
+                                      : 'Vacant',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // More Options Button
+                        Positioned(
+                          top: 8,
+                          right: 50,
+                          child: IconButton(
+                            icon: const Icon(Icons.more_vert, color: Colors.white),
+                            onPressed: () => _showPropertyOptions(
+                              context,
+                              _filteredProperties.firstWhere((p) => p.id == propertyId),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Property Details
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Property Name
+                        Text(
+                          property.name,
+                          style: GoogleFonts.poppins(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+
+                        // Address with Location Icon
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 14,
+                              color: Colors.grey[600],
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                '${property.address}, ${property.city}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Stats Section (Condensed)
+                        Row(
                           children: [
                             // Total Rent
                             Expanded(
@@ -1343,16 +1647,16 @@ class _PropertyListPageState extends State<PropertyListPage>
                                   Text(
                                     'Total Rent',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       color: Colors.grey[600],
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'OMR${totalRent.toStringAsFixed(0)}',
+                                    'OMR ${totalRent.toStringAsFixed(0)}',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 16,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                       color: AppTheme.primaryColor,
                                     ),
@@ -1367,7 +1671,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                                 Text(
                                   'Occupancy',
                                   style: GoogleFonts.poppins(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     color: Colors.grey[600],
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -1377,18 +1681,18 @@ class _PropertyListPageState extends State<PropertyListPage>
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Container(
-                                      width: 8,
-                                      height: 8,
+                                      width: 6,
+                                      height: 6,
                                       decoration: BoxDecoration(
                                         color: isFullyOccupied ? Colors.green : Colors.orange,
                                         shape: BoxShape.circle,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
+                                    const SizedBox(width: 4),
                                     Text(
                                       '$occupiedUnits/$totalUnits',
                                       style: GoogleFonts.poppins(
-                                        fontSize: 14,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -1398,62 +1702,559 @@ class _PropertyListPageState extends State<PropertyListPage>
                             ),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 12),
 
-                      // Action Buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => _navigateToPropertyDetails(propertyId, property),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.primaryColor,
-                                side: BorderSide(color: AppTheme.primaryColor),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                        // Action Buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _togglePropertyExpansion(propertyId),
+                                icon: Icon(
+                                  isExpanded
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
+                                  size: 16,
                                 ),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: Text(
-                                'View Units',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                                label: Text(
+                                  isExpanded ? 'Hide Units' : 'View Units',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => _navigateToPropertyDetails(propertyId, property),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              child: Text(
-                                'Details',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryColor,
+                                  side: BorderSide(color: AppTheme.primaryColor),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () => _navigateToPropertyDetails(propertyId, property),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                ),
+                                child: Text(
+                                  'Details',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Expanded Units Section (conditionally visible)
+          if (isExpanded)
+            AnimatedContainer(
+              duration: Duration(milliseconds: 300),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+                border: Border(
+                  top: BorderSide(color: Colors.grey[200]!, width: 1),
+                ),
+              ),
+              child: _buildWebUnitsSection(propertyId, property),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebUnitsSection(String propertyId, PropertyModel property) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Units Header
+          Row(
+            children: [
+              Icon(
+                Icons.home_work_outlined,
+                size: 18,
+                color: AppTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Property Units',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${property.units.length} units',
+                  style: GoogleFonts.poppins(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.primaryColor,
                   ),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 12),
+
+          // Units List - Dynamic ListView for better handling of content
+          ListView.separated(
+            shrinkWrap: true,
+            physics: NeverScrollableScrollPhysics(),
+            itemCount: property.units.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final unit = property.units[index];
+              return FadeInUp(
+                duration: Duration(milliseconds: 200 + (index * 50)),
+                child: _buildWebUnitCard(propertyId, unit, property),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebUnitCard(String propertyId, PropertyUnitModel unit, PropertyModel property) {
+    final isOccupied = unit.tenantId != null;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isOccupied ? Colors.green.withOpacity(0.3) : Colors.orange.withOpacity(0.3), 
+          width: 1.5
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => _navigateToUnitDetails(propertyId, unit.unitId, unit),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Unit Header Row
+                Row(
+                  children: [
+                    // Unit Number Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Unit ${unit.unitNumber}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    
+                    // Status Badge with Mandate Info
+                    _buildUnitStatusBadge(unit, propertyId),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Unit Type and Rent Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        unit.unitType,
+                        style: GoogleFonts.poppins(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        'OMR ${unit.rent}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Room Info and Actions Row
+                Row(
+                  children: [
+                    // Bed/Bath Info
+                    Row(
+                      children: [
+                        Icon(Icons.bed_outlined, size: 12, color: Colors.grey[600]),
+                        Text('${unit.bedrooms}', 
+                          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[700])),
+                        const SizedBox(width: 8),
+                        Icon(Icons.bathtub_outlined, size: 12, color: Colors.grey[600]),
+                        Text('${unit.bathrooms}', 
+                          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[700])),
+                      ],
+                    ),
+                    const Spacer(),
+                    
+                    // Unit Actions
+                    InkWell(
+                      onTap: () => _showUnitOptions(context, propertyId, unit),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.more_horiz,
+                          size: 16,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                 // 🔹 Mandate Section
+                   if (isOccupied) ...[
+                  const SizedBox(height: 16),
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(userId)
+                        .get(),
+                    builder: (context, userSnapshot) {
+                      if (userSnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const CircularProgressIndicator(strokeWidth: 2);
+                      }
+
+                      AccountInformation? landlordAccountInfo;
+                      if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                        final userData =
+                            userSnapshot.data!.data() as Map<String, dynamic>;
+                        if (userData['cr_account_holder_name'] != null) {
+                          landlordAccountInfo = AccountInformation.fromMap(
+                            userData,
+                          );
+                        }
+                      }
+
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(userId)
+                            .collection('mandates')
+                            .where('propertyId', isEqualTo: propertyId)
+                            .where('unitId', isEqualTo: unit.unitId)
+                            .snapshots(),
+                        builder: (context, mandateSnapshot) {
+                          if (mandateSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const CircularProgressIndicator(
+                              strokeWidth: 2,
+                            );
+                          }
+
+                          final mandates = mandateSnapshot.data?.docs ?? [];
+                          // No mandate → show Create Mandate button
+                          if (mandates.isEmpty) {
+                            final tenantId = unit.tenantId;
+                            if (tenantId == null) {
+                              return const Text(
+                                'No tenant assigned for this unit.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            }
+                            return FutureBuilder<DocumentSnapshot>(
+                              future: FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(userId)
+                                  .collection('tenants')
+                                  .doc(tenantId)
+                                  .get(),
+                              builder: (context, tenantSnapshot) {
+                                if (tenantSnapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const SizedBox();
+                                }
+                                if (!tenantSnapshot.hasData ||
+                                    !tenantSnapshot.data!.exists) {
+                                  return const Text(
+                                    'Tenant information not found. Please assign tenant to create mandate.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.red,
+                                    ),
+                                  );
+                                }
+                                // ✅ Pass landlordAccountInfo, mandates, and propertyId
+                                return _buildMandateButton(
+                                  unit,
+                                  tenantSnapshot.data!,
+                                  landlordAccountInfo,
+                                  mandates,
+                                  propertyId,
+                                );
+                              },
+                            );
+                          }
+
+                          // Mandate exists → show based on status
+                          final mandateData =
+                              mandates.first.data() as Map<String, dynamic>;
+                          final status = mandateData['mmsStatus'].toString().toLowerCase();
+                          print(status);
+
+                          if (status == 'success' || status == 'pending') {
+                            return Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.orange.withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'This mandate request is pending.\nAwaiting confirmation of mandate request.',
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.orange[800],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: 10),
+                                ElevatedButton(
+                                  onPressed: () => Get.to(
+                                    () => MandateStatusPage(
+                                      mandateId: mandates.first.id,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                  ),
+                                  child: const Text(
+                                    'Check Mandate Status',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          } else if (status == 'accepted') {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.green.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle,
+                                    size: 16,
+                                    color: Colors.green,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Mandate creation successful',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: Colors.green[800],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          return const SizedBox();
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildUnitStatusBadge(PropertyUnitModel unit, String propertyId) {
+    final isOccupied = unit.tenantId != null;
+    
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('mandates')
+          .where('propertyId', isEqualTo: propertyId)
+          .where('unitId', isEqualTo: unit.unitId)
+          .snapshots(),
+      builder: (context, mandateSnapshot) {
+        final mandates = mandateSnapshot.data?.docs ?? [];
+        final hasPendingMandate = mandates.any((mandate) {
+          final data = mandate.data() as Map<String, dynamic>;
+          return data['mmsStatus']?.toString().toLowerCase() == 'pending';
+        });
+        final hasActiveMandate = mandates.any((mandate) {
+          final data = mandate.data() as Map<String, dynamic>;
+          return data['mmsStatus']?.toString().toLowerCase() == 'accepted';
+        });
+
+        if (hasActiveMandate) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.verified, size: 8, color: Colors.green),
+                const SizedBox(width: 2),
+                Text(
+                  'Mandate Active',
+                  style: GoogleFonts.poppins(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else if (hasPendingMandate) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.pending, size: 8, color: Colors.orange),
+                const SizedBox(width: 2),
+                Text(
+                  'Pending',
+                  style: GoogleFonts.poppins(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: isOccupied 
+                  ? Colors.blue.withOpacity(0.1)
+                  : Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isOccupied 
+                    ? Colors.blue.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.3)
+              ),
+            ),
+            child: Text(
+              isOccupied ? 'Occupied' : 'Vacant',
+              style: GoogleFonts.poppins(
+                fontSize: 8,
+                fontWeight: FontWeight.w500,
+                color: isOccupied ? Colors.blue.shade700 : Colors.grey.shade600,
+              ),
+            ),
+          );
+        }
+      },
     );
   }
 
@@ -2168,7 +2969,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                         borderRadius: BorderRadius.circular(30),
                       ),
                       child: Text(
-                        'OMR${unit.rent.toStringAsFixed(0)}/mo',
+                        'OMR ${unit.rent.toStringAsFixed(0)}/mo',
                         style: GoogleFonts.poppins(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -2180,7 +2981,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                 ),
 
                 // 🔹 Mandate Section
-                if (isOccupied) ...[
+                   if (isOccupied) ...[
                   const SizedBox(height: 16),
                   FutureBuilder<DocumentSnapshot>(
                     future: FirebaseFirestore.instance

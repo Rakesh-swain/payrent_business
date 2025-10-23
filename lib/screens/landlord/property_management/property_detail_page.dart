@@ -482,7 +482,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                 // _buildInfoRow('Payment Frequency', _getPaymentFrequency()),
                 _buildInfoRow(
                   'Total Rent Amount',
-                  'OMR${_calculateTotalRent().toStringAsFixed(0)}',
+                  'OMR ${_calculateTotalRent().toStringAsFixed(0)}',
                 ),
                 // _buildInfoRow(
                 //   'Average Unit Rent',
@@ -678,7 +678,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                   ),
                   _buildUnitDetailItem(
                     'Rent Amount',
-                  'OMR${unit.rent}/mo',
+                  'OMR ${unit.rent}/mo',
                     isHighlighted: true,
                   ),
                 ],
@@ -811,7 +811,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
 
     final leaseStartTimestamp = tenantData['leaseStartDate'] as Timestamp?;
     final leaseEndTimestamp = tenantData['leaseEndDate'] as Timestamp?;
-
+    print(tenantData);
+print(leaseStartTimestamp);
+print(leaseEndTimestamp);
     final leaseStart = leaseStartTimestamp?.toDate();
     final leaseEnd = leaseEndTimestamp?.toDate();
 

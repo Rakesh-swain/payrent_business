@@ -441,7 +441,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                   ),
                 ),
                 Text(
-                  'OMR${widget.unit.rent.toStringAsFixed(2)}',
+                  'OMR ${widget.unit.rent.toStringAsFixed(2)}',
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -916,7 +916,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                             ),
                           ),
                           Text(
-                            'OMR${totalAmount.toStringAsFixed(2)}',
+                            'OMR ${totalAmount.toStringAsFixed(2)}',
                             style: GoogleFonts.poppins(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
@@ -930,7 +930,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                 ),
                 SizedBox(height: 16),
                 _buildSummaryRow('Frequency', _selectedFrequency),
-                _buildSummaryRow('Amount per Payment', 'OMR${_paymentAmount.toStringAsFixed(2)}'),
+                _buildSummaryRow('Amount per Payment', 'OMR ${_paymentAmount.toStringAsFixed(2)}'),
                 _buildSummaryRow('Duration', '${duration} days'),
                 SizedBox(height: 12),
                 Container(
