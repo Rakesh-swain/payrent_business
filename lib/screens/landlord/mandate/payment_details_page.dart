@@ -11,6 +11,8 @@ class PaymentDetailsPage extends StatefulWidget {
   final String type; // 'tenant' or 'property'
   final String
   paymentType; // 'collection today', 'due rent today', 'overdue', 'total earning this month'
+   final String? email; // optional
+  final String? phone; // optional
 
   const PaymentDetailsPage({
     Key? key,
@@ -18,6 +20,8 @@ class PaymentDetailsPage extends StatefulWidget {
     required this.name,
     required this.type,
     required this.paymentType,
+    this.email,
+    this.phone,
   }) : super(key: key);
 
   @override
@@ -26,48 +30,56 @@ class PaymentDetailsPage extends StatefulWidget {
 
 class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
   // Apply payment type specific filters
-  Query _applyPaymentTypeFilter(Query query) {
-    final now = DateTime.now();
-    final startOfToday = DateTime(now.year, now.month, now.day);
-    final endOfToday = startOfToday.add(Duration(days: 1));
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+Query _applyPaymentTypeFilter(Query query) {
+  final now = DateTime.now();
+  final startOfToday = DateTime(now.year, now.month, now.day);
+  final endOfToday = startOfToday.add(const Duration(days: 1));
+  final startOfTomorrow = endOfToday; // tomorrow starts after today ends
+  final endOfTomorrow = startOfTomorrow.add(const Duration(days: 1));
+  final startOfMonth = DateTime(now.year, now.month, 1);
+  final endOfMonth = DateTime(now.year, now.month + 1, 0);
 
-    switch (widget.paymentType) {
-      case 'collection today':
-        // Payments that are paid today
-        return query
-            .where('status', isEqualTo: 'paid')
-            .where(
-              'payment_date',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday),
-            )
-            .where('payment_date', isLessThan: Timestamp.fromDate(endOfToday));
+  switch (widget.paymentType) {
+    case 'collection today':
+      // Payments that are paid today
+      return query.where(
+        Filter.and(
+          Filter('status', isEqualTo: 'paid'),
+          Filter('payment_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday)),
+          Filter('payment_date', isLessThan: Timestamp.fromDate(endOfToday)),
+        ),
+      );
 
-      case 'total earning this month':
-        // All paid payments this month
-        return query
-            .where('status', isEqualTo: 'paid')
-            .where(
-              'payment_date',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth),
-            )
-            .where(
-              'payment_date',
-              isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth),
-            );
+    case 'total earning this month':
+      // All paid payments this month
+      return query.where(
+        Filter.and(
+          Filter('status', isEqualTo: 'paid'),
+          Filter('payment_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth)),
+          Filter('payment_date', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth)),
+        ),
+      );
 
-      case 'due rent today':
-        // Payments due today (regardless of status)
-        return query
-            .where(
-              'due_date',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday),
-            )
-            .where('due_date', isLessThan: Timestamp.fromDate(endOfToday));
+    case 'due rent today':
+      // Payments due today (regardless of status)
+      return query.where(
+        Filter.and(
+          Filter('due_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday)),
+          Filter('due_date', isLessThan: Timestamp.fromDate(endOfToday)),
+        ),
+      );
 
-      case 'overdue':
-      // ✅ Include both 'pending' and 'failed' statuses
+    case 'due rent tomorrow':
+      // Payments due tomorrow (regardless of status)
+      return query.where(
+        Filter.and(
+          Filter('due_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfTomorrow)),
+          Filter('due_date', isLessThan: Timestamp.fromDate(endOfTomorrow)),
+        ),
+      );
+
+    case 'overdue':
+      // Pending or failed payments due before today
       return query.where(
         Filter.and(
           Filter.or(
@@ -78,10 +90,11 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
         ),
       );
 
-      default:
-        return query;
-    }
+    default:
+      return query;
   }
+}
+
 
   String _getPaymentTypeTitle() {
     switch (widget.paymentType) {
@@ -93,6 +106,8 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
         return 'Overdue Payments';
       case 'total earning this month':
         return 'Earnings This Month';
+      case 'due rent tomorrow':
+        return 'Due Rent Tomorrow';
       default:
         return '${widget.type.capitalizeFirst} Payments';
     }
@@ -116,13 +131,35 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  widget.name,
-                  style: GoogleFonts.poppins(
-                    color: Color(0xFF1A1A2E),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      widget.name,
+                      style: GoogleFonts.poppins(
+                        color: Color(0xFF1A1A2E),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    widget.email != null?Text(
+                      '+968 ${widget.phone!}',
+                      style: GoogleFonts.poppins(
+                        color: Color(0xFF1A1A2E),
+                        fontWeight: FontWeight.w400,
+                        fontSize: 15,
+                      ),
+                    ):Container(),
+                    SizedBox(width: 10),
+                     widget.phone != null?Text(
+                      widget.email!,
+                      style: GoogleFonts.poppins(
+                        color: Color(0xFF1A1A2E),
+                        fontWeight: FontWeight.w400,
+                        fontSize: 15,
+                      ),
+                    ):Container(),
+                  ],
                 ),
                 Text(
                   _getPaymentTypeTitle(),
@@ -213,7 +250,7 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
 
       if (status == 'paid') {
         paidCount++;
-      } else if (status == 'pending') {
+      } else if (status == 'pending' || status == "failed") {
         if (dueDate.isBefore(startOfToday)) {
           overdueCount++;
         } else {
@@ -323,21 +360,37 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  _buildStatusChip('Paid', paid, Colors.green),
-                  SizedBox(width: 12),
-                  _buildStatusChip('Pending', pending, Colors.orange),
-                  SizedBox(width: 12),
-                  _buildStatusChip('Overdue', overdue, Colors.red),
-                ],
-              ),
+              _buildStatusRow(paid, pending, overdue)
             ],
           ),
         ),
       ],
     );
   }
+Widget _buildStatusRow(int paid, int pending, int overdue) {
+  List<Widget> chips = [];
+
+  if (widget.paymentType == "total earning this month" ||
+      widget.paymentType == "collection today") {
+    chips = [
+      _buildStatusChip('Paid', paid, Colors.green),
+    ];
+  } else if (widget.paymentType == "due rent today") {
+    chips = [
+      _buildStatusChip('Paid', paid, Colors.green),
+      const SizedBox(width: 12),
+      _buildStatusChip('Pending', pending, Colors.orange),
+    ];
+  } else if (widget.paymentType == "overdue") {
+    chips = [
+      _buildStatusChip('Overdue', overdue, Colors.red),
+    ];
+  }
+
+  return Row(
+    children: chips,
+  );
+}
 
   Widget _buildMobileSummaryHeader(
     int total,
@@ -401,14 +454,7 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
           ],
         ),
         SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildStatusChip('Paid', paid, Colors.green),
-            _buildStatusChip('Pending', pending, Colors.orange),
-            _buildStatusChip('Overdue', overdue, Colors.red),
-          ],
-        ),
+        _buildStatusRow(paid, pending, overdue)
       ],
     );
   }
@@ -458,6 +504,8 @@ class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
     final isOverdue = (status == 'pending' || status == 'failed') && date.isBefore(startOfToday);
     final displayStatus =status == "failed"?'failed': isOverdue ? 'overdue':status;
     final reason = payment['reason'];
+    final scheduleNo = payment['schedule_number'];
+
 print(status);
     // Status color
     Color statusColor;
@@ -503,7 +551,7 @@ print(status);
             // Date Badge
             Container(
               width: 50,
-              height: 50,
+              height: 60,
               decoration: BoxDecoration(
                 color: statusColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
@@ -526,6 +574,13 @@ print(status);
                       fontSize: 11,
                     ),
                   ),
+                  Text(
+                    DateFormat('yyyy').format(date),
+                    style: GoogleFonts.poppins(
+                      color: statusColor.withOpacity(0.7),
+                      fontSize: 11,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -543,7 +598,7 @@ print(status);
                   ],
                   SizedBox(height: 4),
                   Text(
-                    DateFormat('MMM dd, yyyy').format(date),
+                    'Schedule No. ${scheduleNo}',
                     style: GoogleFonts.poppins(
                       color: Colors.grey[600],
                       fontSize: 14,
@@ -601,22 +656,68 @@ print(status);
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        displayStatus.toUpperCase(),
-                        style: GoogleFonts.poppins(
-                          color: statusColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                    GestureDetector(
+                      onTap: (){
+                         if (displayStatus.toLowerCase() == 'failed' || displayStatus.toLowerCase() == 'overdue' ){
+                            showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              title: Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline,
+                                    color: Colors.redAccent,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Failed Reason',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.redAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              content: Text(
+                                reason ?? 'Insufficient Funds — The tenant’s account didn’t have enough balance to complete the payment.',
+                                style: GoogleFonts.poppins(fontSize: 13),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: Text(
+                                    'Close',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.blueAccent,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                         }
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          displayStatus.toUpperCase(),
+                          style: GoogleFonts.poppins(
+                            color: statusColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
-                    if (displayStatus.toLowerCase() == 'failed') ...[
+                    if (displayStatus.toLowerCase() == 'failed' || displayStatus.toLowerCase() == 'overdue' ) ...[
                       SizedBox(width: 6),
                       GestureDetector(
                         onTap: () {
@@ -643,7 +744,7 @@ print(status);
                                 ],
                               ),
                               content: Text(
-                                reason ?? 'No reason provided.',
+                                reason ?? 'Insufficient Funds — The tenant’s account didn’t have enough balance to complete the payment.',
                                 style: GoogleFonts.poppins(fontSize: 13),
                               ),
                               actions: [
@@ -672,9 +773,9 @@ print(status);
                 ),
 
                 // Show Defer button only for overdue payments in overdue payment type and if not already deferred
-                if (widget.paymentType == 'overdue' &&
+                if (((widget.paymentType == 'overdue') &&
                     isOverdue &&
-                    deferredDate == null) ...[
+                    deferredDate == null)|| (widget.paymentType == "due rent tomorrow")) ...[
                   SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: () => _showDeferPaymentDialog(payment),
@@ -719,17 +820,34 @@ print(status);
           .snapshots(),
       builder: (context, snapshot) {
         String tenantName = 'Unknown Tenant';
+          String phone = '';
+        String email = '';
         if (snapshot.hasData && snapshot.data!.exists) {
           final tenantData = snapshot.data!.data() as Map<String, dynamic>;
           final firstName = tenantData['firstName'] ?? '';
           final lastName = tenantData['lastName'] ?? '';
           tenantName = '$firstName $lastName'.trim();
+           phone = tenantData['phone'] ?? '';
+           email = tenantData['email'] ?? '';
           if (tenantName.isEmpty) tenantName = 'Unknown Tenant';
         }
 
-        return Text(
-          tenantName,
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tenantName,
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+              Text(
+            '+968 ${phone}',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w400, fontSize: 12),
+            ),
+              Text(
+              email,
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w400, fontSize: 12),
+            ),
+          ],
         );
       },
     );

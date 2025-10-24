@@ -301,7 +301,7 @@ class _UnitActionBottomSheetState extends State<UnitActionBottomSheet> {
       setState(() {
         _isLoading = false;
       });
-
+      Get.back();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Tenant assigned successfully')),
       );

@@ -931,75 +931,78 @@ class PaymentController extends GetxController {
     return total;
   }
 
-  Future<double> getTotalPayments({required String filter}) async {
-    double total = 0.0;
+Future<double> getTotalPayments({required String filter}) async {
+  double total = 0.0;
 
-    try {
-      Query<Map<String, dynamic>> query = _firestore
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
-          .collection('payments');
+  try {
+    Query<Map<String, dynamic>> query = _firestore
+        .collection('users')
+        .doc(FirebaseAuth.instance.currentUser!.uid)
+        .collection('payments');
 
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
+    final now = DateTime.now();
 
-      final startOfMonth = DateTime(now.year, now.month, 1);
-      final endOfMonth = DateTime(
-        now.year,
-        now.month + 1,
-        1,
-      ); // exclusive of next month
+    // Calculate time ranges
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
 
-      switch (filter.toLowerCase()) {
-        case 'total_earnings_this_month':
-          query = query
-              .where('status', isEqualTo: 'paid')
-              .where(
-                'due_date',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth),
-              )
-              .where('due_date', isLessThan: Timestamp.fromDate(endOfMonth));
-          break;
+    final startOfTomorrow = endOfDay;
+    final endOfTomorrow = startOfTomorrow.add(const Duration(days: 1));
 
-        case 'due_rent_today':
-          query = query
-              .where(
-                'due_date',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
-              )
-              .where('due_date', isLessThan: Timestamp.fromDate(endOfDay));
-          break;
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 1); // exclusive
 
-        case 'overdue':
-          query = query
-              .where('status', isEqualTo: 'pending')
-              .where('due_date', isLessThan: Timestamp.fromDate(startOfDay));
-          break;
+    switch (filter.toLowerCase()) {
+      case 'total_earnings_this_month':
+        query = query
+            .where('status', isEqualTo: 'paid')
+            .where('due_date',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
+            .where('due_date', isLessThan: Timestamp.fromDate(endOfMonth));
+        break;
 
-        case 'collected_today':
-          query = query
-              .where('status', isEqualTo: 'paid')
-              .where(
-                'due_date',
-                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
-              )
-              .where('due_date', isLessThan: Timestamp.fromDate(endOfDay));
-          break;
+      case 'due_rent_today':
+        query = query
+            .where('due_date',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+            .where('due_date', isLessThan: Timestamp.fromDate(endOfDay));
+        break;
 
-        default:
-          // fallback: fetch all payments
-          query = query;
-      }
+      case 'due_rent_tomorrow':
+        query = query
+            .where('due_date',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfTomorrow))
+            .where('due_date', isLessThan: Timestamp.fromDate(endOfTomorrow));
+        break;
 
-      final snapshot = await query.get();
-      for (var doc in snapshot.docs) {
-        total += (doc.data()['amount'] ?? 0);
-      }
-    } catch (e) {
-      print('Error fetching total payments: $e');
+      case 'overdue':
+        query = query
+            .where('status', isEqualTo: 'pending')
+            .where('due_date', isLessThan: Timestamp.fromDate(startOfDay));
+        break;
+
+      case 'collected_today':
+        query = query
+            .where('status', isEqualTo: 'paid')
+            .where('due_date',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+            .where('due_date', isLessThan: Timestamp.fromDate(endOfDay));
+        break;
+
+      default:
+        // fallback: fetch all payments
+        query = query;
     }
 
-    return total;
+    final snapshot = await query.get();
+    for (var doc in snapshot.docs) {
+      total += (doc.data()['amount'] ?? 0);
+    }
+  } catch (e) {
+    print('Error fetching total payments: $e');
   }
+
+  return total;
+}
+
 }

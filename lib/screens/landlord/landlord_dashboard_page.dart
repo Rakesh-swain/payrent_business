@@ -418,16 +418,16 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                       Expanded(
                         child: FutureBuilder<double>(
                           future: _paymentController.getTotalPayments(
-                            filter: 'overdue',
+                            filter: 'due_rent_tomorrow',
                           ),
                           builder: (context, snapshot) {
                             final total = snapshot.data ?? 0;
                             return GestureDetector(
                               onTap: () {
-                                Get.to(PaymentListPage(type: 'overdue'));
+                                Get.to(PaymentListPage(type: 'due rent tomorrow'));
                               },
                               child: StatCard(
-                                title: 'Overdue Rent',
+                                title: 'Due Rent Tomorrow',
                                 value: total.toStringAsFixed(0),
                                 icon: Icons.warning_amber_outlined,
                                 color: AppTheme.errorColor,
@@ -468,7 +468,29 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                           },
                         ),
                       ),
-                      Expanded(child: Container()),
+                      const SizedBox(width: 12),
+
+                                           Expanded(
+                        child: FutureBuilder<double>(
+                          future: _paymentController.getTotalPayments(
+                            filter: 'overdue',
+                          ),
+                          builder: (context, snapshot) {
+                            final total = snapshot.data ?? 0;
+                            return GestureDetector(
+                              onTap: () {
+                                Get.to(PaymentListPage(type: 'overdue'));
+                              },
+                              child: StatCard(
+                                title: 'Overdue Rent',
+                                value: total.toStringAsFixed(0),
+                                icon: Icons.warning_amber_outlined,
+                                color: AppTheme.errorColor,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -585,6 +607,9 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                                 months: months,
                               ),
                               builder: (context, snapshot) {
+                                if (snapshot.hasError) {
+                                  return Container();
+                                }
                                 if (!snapshot.hasData) {
                                   return Container();
                                 }
@@ -603,17 +628,21 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                                     : 50000;
 
                                 // Dynamic maxY calculation
-                                final dynamicMaxY = maxAmount < 1000
-                                    ? ((maxAmount / 100).ceil() * 100)
-                                          .toDouble() // Round to nearest 100
-                                    : maxAmount < 10000
-                                    ? ((maxAmount / 1000).ceil() * 1000)
-                                          .toDouble() // Round to nearest 1000
-                                    : ((maxAmount / 10000).ceil() * 10000)
-                                          .toDouble(); // Round to nearest 10000
+                                final dynamicMaxY = maxAmount > 0
+                                    ? (maxAmount < 1000
+                                          ? ((maxAmount / 100).ceil() * 100)
+                                                .toDouble()
+                                          : maxAmount < 10000
+                                          ? ((maxAmount / 1000).ceil() * 1000)
+                                                .toDouble()
+                                          : ((maxAmount / 10000).ceil() * 10000)
+                                                .toDouble())
+                                    : 1000.0; // fallback value when no data
 
                                 // Dynamic interval based on the range
-                                final interval = dynamicMaxY / 5;
+                                final interval = dynamicMaxY > 0
+                                    ? dynamicMaxY / 5
+                                    : 1.0;
 
                                 // Dynamic left side reserved size based on max value
                                 final leftReservedSize = dynamicMaxY >= 100000
@@ -989,12 +1018,13 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                               ),
                               ActionButton(
                                 icon: Icons.report_problem_outlined,
-                                label: 'Raise Complaint',
+                                label: 'Complaints',
                                 color: Colors.red,
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const ComplaintListPage(),
+                                    builder: (context) =>
+                                        const ComplaintListPage(),
                                   ),
                                 ),
                               ),

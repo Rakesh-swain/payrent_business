@@ -60,7 +60,7 @@ class _WebMainPageState extends State<WebMainPage> {
       'properties': 'Properties',
       'payments': 'Payments',
       'tenants': 'Tenants',
-      'complaints': 'Raise Complaint',
+      'complaints': 'Complaints',
       'maintenance': 'Maintenance',
       'profile': 'Profile',
     };

@@ -1,3 +1,4 @@
+import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -23,7 +24,8 @@ class _ComplaintListPageState extends State<ComplaintListPage> {
   bool _selectAll = false;
   bool _showMemoFetched = false;
   Map<String, bool> _memoStatus = {}; // Track which payments have memos
-
+  String property_name = "";
+  String unit_name = "";
   @override
   Widget build(BuildContext context) {
     final isWeb = MediaQuery.of(context).size.width >= 800;
@@ -34,7 +36,7 @@ class _ComplaintListPageState extends State<ComplaintListPage> {
         elevation: 0,
         backgroundColor: Colors.white,
         title: Text(
-          'Raise Complaint',
+          'Complaints',
           style: GoogleFonts.poppins(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -313,7 +315,7 @@ class _ComplaintListPageState extends State<ComplaintListPage> {
                     ),
                   ),
                   child: Text(
-                    'Raise Complaint',
+                    'Complaints',
                     style: GoogleFonts.poppins(fontSize: 12),
                   ),
                 ),
@@ -464,7 +466,8 @@ class _ComplaintListPageState extends State<ComplaintListPage> {
           orElse: () => {'unitNumber': 'Unknown Unit'},
         );
         final unitName = unit['unitNumber'] ?? 'Unknown Unit';
-
+        property_name = propertyName;
+        unit_name = unitName;
         return Text(
           '$propertyName - $unitName',
           style: GoogleFonts.poppins(
@@ -552,83 +555,265 @@ class _ComplaintListPageState extends State<ComplaintListPage> {
     });
   }
 
-  Future<void> _fetchMemo() async {
-    if (_selectedPaymentIds.isEmpty) return;
+ Future<void> _fetchMemo() async {
+  if (_selectedPaymentIds.isEmpty) return;
 
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text('Fetching memos...', style: GoogleFonts.poppins()),
-          ],
-        ),
+  // Show beautiful loading dialog
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      backgroundColor: Colors.white,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 80,
+            width: 80,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  height: 80,
+                  width: 80,
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF6200EE),
+                    ),
+                    strokeWidth: 6,
+                  ),
+                ),
+                Icon(
+                  Icons.description,
+                  size: 40,
+                  color: Color(0xFF6200EE),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          AnimatedTextKit(
+            animatedTexts: [
+              TypewriterAnimatedText(
+                'Fetching memo.',
+                textStyle: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                speed: const Duration(milliseconds: 100),
+              ),
+              TypewriterAnimatedText(
+                'Fetching memo..',
+                textStyle: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                speed: const Duration(milliseconds: 100),
+              ),
+              TypewriterAnimatedText(
+                'Fetching memo...',
+                textStyle: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                speed: const Duration(milliseconds: 100),
+              ),
+            ],
+            totalRepeatCount: 100,
+            repeatForever: true,
+          ),
+        ],
       ),
-    );
+    ),
+  );
 
-    try {
-      // Check for memo files in Firestore for selected payments
-      for (String paymentId in _selectedPaymentIds) {
-        final memoDoc = await _firestore
-            .collection('users')
-            .doc(_auth.currentUser?.uid)
-            .collection('payments')
-            .doc(paymentId)
-            .get();
+  try {
+    // Check for memo files in Firestore for selected payments
+    for (String paymentId in _selectedPaymentIds) {
+      final memoDoc = await _firestore
+          .collection('users')
+          .doc(_auth.currentUser?.uid)
+          .collection('payments')
+          .doc(paymentId)
+          .get();
 
-        if (memoDoc.exists) {
-          final data = memoDoc.data();
-          final memoFile = data?['memo_file'];
+      if (memoDoc.exists) {
+        final data = memoDoc.data();
+        final memoFile = data?['memo_file'];
 
-          // ✅ Check if memo_file field exists and is not empty
-          if (memoFile != null && memoFile.toString().isNotEmpty) {
-            _memoStatus[paymentId] = true;
-          } else {
-            _memoStatus[paymentId] = false;
-          }
+        // ✅ Check if memo_file field exists and is not empty
+        if (memoFile != null && memoFile.toString().isNotEmpty) {
+          _memoStatus[paymentId] = true;
         } else {
           _memoStatus[paymentId] = false;
         }
+      } else {
+        _memoStatus[paymentId] = false;
       }
-
-      Navigator.pop(context); // Close loading dialog
-
-      setState(() {
-        _showMemoFetched = true;
-      });
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Memo fetch completed.',
-            style: GoogleFonts.poppins(color: Colors.white),
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      Navigator.pop(context); // Close loading dialog
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Error fetching memos: ${e.toString()}',
-            style: GoogleFonts.poppins(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
-  }
 
+    // Wait for 3 seconds
+    await Future.delayed(const Duration(seconds: 3));
+
+    Navigator.pop(context); // Close loading dialog
+
+    setState(() {
+      _showMemoFetched = true;
+    });
+
+    // Show beautiful success dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 80,
+                width: 80,
+                decoration: BoxDecoration(
+                  color: Color(0xFFE8F5E9),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF4CAF50),
+                  size: 50,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Memo Fetch Completed',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'All memos have been fetched successfully',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF6200EE),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 20,vertical: 5),
+                    child: Text(
+                      'Done',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  } catch (e) {
+    Navigator.pop(context); // Close loading dialog
+
+    // Show error dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 80,
+                width: 80,
+                decoration: BoxDecoration(
+                  color: Color(0xFFFFEBEE),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.error_outline,
+                  color: Color(0xFFf44336),
+                  size: 50,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Oops! Error Occurred',
+                style: GoogleFonts.poppins(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Error fetching memos: ${e.toString()}',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFFf44336),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: Text(
+                    'Close',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
   void _navigateToRaiseComplaint(
     QueryDocumentSnapshot payment,
     Map<String, dynamic> data,
@@ -637,7 +822,7 @@ class _ComplaintListPageState extends State<ComplaintListPage> {
       context,
       MaterialPageRoute(
         builder: (context) =>
-            RaiseComplaintPage(paymentId: payment.id, paymentData: data),
+            RaiseComplaintPage(paymentId: payment.id, paymentData: data,propertyName: property_name,unitName: unit_name,),
       ),
     );
   }

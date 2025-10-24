@@ -622,29 +622,29 @@ class _UnitDetailsPageState extends State<UnitDetailsPage> with SingleTickerProv
                 children: [
                   _buildInfoRow(
                     'Lease Start',
-                    _formatTimestamp(tenantData['leaseStartDate']),
+                    _formatTimestamp(_leaseInfo?['startDate']),
                   ),
                   _buildInfoRow(
                     'Lease End',
-                    _formatTimestamp(tenantData['leaseEndDate']),
+                    _formatTimestamp(_leaseInfo?['endDate']),
                   ),
                   _buildInfoRow(
                     'Rent',
-                    'OMR ${(tenantData['rentAmount'] ?? 0).toStringAsFixed(2)}',
+                    'OMR ${(_leaseInfo?['rentAmount'] ?? 0).toStringAsFixed(2)}',
                   ),
                   if (tenantData['securityDeposit'] != null)
                     _buildInfoRow(
                       'Security Deposit Amount',
                       'OMR ${tenantData['securityDeposit'].toStringAsFixed(2)}',
                     ),
-                  _buildInfoRow(
-                    'Rent Due Day',
-                    '${tenantData['rentDueDay'] ?? 1}${_getDaySuffix(tenantData['rentDueDay'] ?? 1)} of each month',
-                  ),
+                  // _buildInfoRow(
+                  //   'Rent Due Day',
+                  //   '${tenantData['rentDueDay'] ?? 1}${_getDaySuffix(tenantData['rentDueDay'] ?? 1)} of each month',
+                  // ),
                   _buildInfoRow(
                     'Days Remaining',
-                    _calculateDaysRemaining(tenantData['leaseEndDate']),
-                    valueColor: _calculateRemainingColor(tenantData['leaseEndDate']),
+                    _calculateDaysRemaining(_leaseInfo?['endDate']),
+                    valueColor: _calculateRemainingColor(_leaseInfo?['endDate']),
                   ),
                 ],
               ),

@@ -4,15 +4,20 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:payrent_business/config/theme.dart';
+import 'package:payrent_business/screens/landlord/complaints/pdf_viewer_page.dart';
 
 class RaiseComplaintPage extends StatefulWidget {
   final String paymentId;
   final Map<String, dynamic> paymentData;
+  final String propertyName;
+  final String unitName;
 
   const RaiseComplaintPage({
     Key? key,
     required this.paymentId,
     required this.paymentData,
+    required this.propertyName,
+    required this.unitName,
   }) : super(key: key);
 
   @override
@@ -24,7 +29,13 @@ class _RaiseComplaintPageState extends State<RaiseComplaintPage> {
   final TextEditingController _subjectController = TextEditingController();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+  final TextEditingController _emailController = TextEditingController();
+  List<String> _emails = [
+    'support@propertyoman.com',
+    'admin@propertyoman.com',
+    'helpdesk@propertyoman.com',
+  ];
+
   bool _isSubmitting = false;
   String _selectedPriority = 'Medium';
   final List<String> _priorities = ['Low', 'Medium', 'High', 'Critical'];
@@ -53,39 +64,51 @@ class _RaiseComplaintPageState extends State<RaiseComplaintPage> {
       final propertyId = widget.paymentData['property_id'] ?? '';
       final unitId = widget.paymentData['unit_id'] ?? '';
       final amount = (widget.paymentData['amount'] ?? 0.0).toDouble();
-      
+
       // Get tenant name
-      final tenantDoc = await _firestore.collection('tenants').doc(tenantId).get();
-      final tenantName = tenantDoc.exists 
-          ? (tenantDoc.data()?['full_name'] ?? 'Unknown Tenant')
+      final tenantDoc = await _firestore
+          .collection('users')
+          .doc(_auth.currentUser!.uid)
+          .collection('tenants')
+          .doc(tenantId)
+          .get();
+      final tenantName = tenantDoc.exists
+          ? "${tenantDoc.data()?['firstName']} ${tenantDoc.data()?['lastName']}"
           : 'Unknown Tenant';
-      
+
       // Get property and unit name
-      final propertyDoc = await _firestore.collection('properties').doc(propertyId).get();
-      String propertyUnitName = 'Unknown Property';
+      final propertyDoc = await _firestore
+          .collection('users')
+          .doc(_auth.currentUser!.uid)
+          .collection('properties')
+          .doc(propertyId)
+          .get();
+      String propertyUnitName = widget.propertyName;
       if (propertyDoc.exists) {
         final propertyData = propertyDoc.data()!;
-        final propertyName = propertyData['name'] ?? 'Unknown Property';
+        final propertyName = propertyData['name'] ?? widget.unitName;
         final units = propertyData['units'] as List<dynamic>? ?? [];
         final unit = units.firstWhere(
           (u) => u['id'] == unitId,
-          orElse: () => {'unit_name': 'Unknown Unit'},
+          orElse: () => {'unit_name': widget.unitName},
         );
-        final unitName = unit['unit_name'] ?? 'Unknown Unit';
+        final unitName = unit['unit_name'] ?? widget.unitName;
         propertyUnitName = '$propertyName - $unitName';
       }
 
       // Pre-fill subject
       setState(() {
-        _subjectController.text = 'Payment Issue - $tenantName - $propertyUnitName (OMR ${amount.toStringAsFixed(2)})';
+        _subjectController.text =
+            'Payment Issue - $tenantName - $propertyUnitName (OMR ${amount.toStringAsFixed(2)})';
       });
 
       // Pre-fill complaint template
       final dueDate = (widget.paymentData['due_date'] as Timestamp?)?.toDate();
       final status = widget.paymentData['status'] ?? '';
       final reason = widget.paymentData['reason'] ?? '';
-      
-      String complaintTemplate = '''Dear Team,
+
+      String complaintTemplate =
+          '''Dear Team,
 
 I am writing to raise a complaint regarding an overdue/failed payment for the following details:
 
@@ -115,7 +138,6 @@ Best regards,
       setState(() {
         _complaintController.text = complaintTemplate;
       });
-
     } catch (e) {
       print('Error loading payment info: $e');
     }
@@ -124,7 +146,7 @@ Best regards,
   @override
   Widget build(BuildContext context) {
     final isWeb = MediaQuery.of(context).size.width >= 800;
-    
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -190,7 +212,10 @@ Best regards,
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppTheme.primaryColor, AppTheme.primaryColor.withOpacity(0.8)],
+                    colors: [
+                      AppTheme.primaryColor,
+                      AppTheme.primaryColor.withOpacity(0.8),
+                    ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -232,7 +257,104 @@ Best regards,
           _buildPaymentInfoCard(),
 
           const SizedBox(height: 24),
+          Text(
+            'Memo File*',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PdfViewerPage(
+                    pdfUrl:
+                        'https://firebasestorage.googleapis.com/v0/b/payrent-business.firebasestorage.app/o/memo_file.pdf?alt=media&token=ff1cb232-b063-4875-b216-f8d3aa138c89',
+                  ),
+                ),
+              );
+            },
+            child: Container(
+              padding: EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(Icons.picture_as_pdf, color: Colors.green, size: 20),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Recipient Email Field
+          Text(
+            'Recipient Emails *',
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
 
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.grey.shade50,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _emails.map((email) {
+                    return Chip(
+                      label: Text(
+                        email,
+                        style: GoogleFonts.poppins(fontSize: 13),
+                      ),
+                      deleteIcon: const Icon(Icons.close, size: 18),
+                      onDeleted: () {
+                        setState(() {
+                          _emails.remove(email);
+                        });
+                      },
+                      backgroundColor: Colors.grey.shade200,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    hintText: 'Add recipient email and press Enter',
+                    hintStyle: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: AppTheme.textSecondary,
+                    ),
+                    border: InputBorder.none,
+                  ),
+                  onSubmitted: (value) {
+                    if (value.isNotEmpty && !_emails.contains(value)) {
+                      setState(() {
+                        _emails.add(value);
+                      });
+                    }
+                    _emailController.clear();
+                  },
+                  style: GoogleFonts.poppins(fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
           // Subject Field
           Text(
             'Subject *',
@@ -261,7 +383,10 @@ Best regards,
               ),
               filled: true,
               fillColor: Colors.grey.shade50,
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
             ),
             style: GoogleFonts.poppins(fontSize: 14),
           ),
@@ -298,7 +423,9 @@ Best regards,
                   fontSize: 14,
                   color: AppTheme.textPrimary,
                 ),
-                items: _priorities.map<DropdownMenuItem<String>>((String value) {
+                items: _priorities.map<DropdownMenuItem<String>>((
+                  String value,
+                ) {
                   Color priorityColor = _getPriorityColor(value);
                   return DropdownMenuItem<String>(
                     value: value,
@@ -352,10 +479,7 @@ Best regards,
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.all(16),
               ),
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                height: 1.5,
-              ),
+              style: GoogleFonts.poppins(fontSize: 14, height: 1.5),
             ),
           ),
 
@@ -366,7 +490,9 @@ Best regards,
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: Colors.grey.shade400),
                     padding: EdgeInsets.symmetric(vertical: 16),
@@ -426,15 +552,12 @@ Best regards,
     final amount = (widget.paymentData['amount'] ?? 0.0).toDouble();
     final status = widget.paymentData['status'] ?? '';
     final dueDate = (widget.paymentData['due_date'] as Timestamp?)?.toDate();
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Colors.red.shade50,
-            Colors.orange.shade50,
-          ],
+          colors: [Colors.red.shade50, Colors.orange.shade50],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.red.withOpacity(0.2)),
@@ -454,18 +577,25 @@ Best regards,
           Row(
             children: [
               Expanded(
-                child: _buildInfoItem('Amount', 'OMR ${amount.toStringAsFixed(2)}'),
+                child: _buildInfoItem(
+                  'Amount',
+                  'OMR ${amount.toStringAsFixed(2)}',
+                ),
               ),
               Expanded(
                 child: _buildInfoItem(
-                  'Due Date', 
-                  dueDate != null ? DateFormat('MMM dd, yyyy').format(dueDate) : 'N/A',
+                  'Due Date',
+                  dueDate != null
+                      ? DateFormat('MMM dd, yyyy').format(dueDate)
+                      : 'N/A',
                 ),
               ),
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: status == 'failed' ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                  color: status == 'failed'
+                      ? Colors.red.withOpacity(0.1)
+                      : Colors.orange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -577,7 +707,6 @@ Best regards,
 
       // Navigate back
       Navigator.pop(context);
-
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

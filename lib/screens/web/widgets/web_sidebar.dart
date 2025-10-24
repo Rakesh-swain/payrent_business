@@ -54,7 +54,7 @@ class WebSidebar extends StatelessWidget {
       SidebarMenuItem(
         icon: Icons.report_problem_outlined,
         activeIcon: Icons.report_problem,
-        label: 'Raise Complaint',
+        label: 'Complaints',
         route: 'complaints',
       ),
       SidebarMenuItem(

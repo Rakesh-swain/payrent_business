@@ -41,6 +41,8 @@ class _PaymentListPageState extends State<PaymentListPage> with SingleTickerProv
       return 'Overdue Rent';
     case 'total earning this month':
       return 'Earnings This Month';
+    case 'due rent tomorrow':
+      return 'Due Rent Tomorrow';
     default:
       return 'Due Rent Today';
   }
@@ -109,51 +111,59 @@ IconData get _headerIcon {
 
   // Apply payment type specific filters
   Query _applyPaymentTypeFilter(Query query) {
-    final now = DateTime.now();
-    final startOfToday = DateTime(now.year, now.month, now.day);
-    final endOfToday = startOfToday.add(Duration(days: 1));
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+  final now = DateTime.now();
+  final startOfToday = DateTime(now.year, now.month, now.day);
+  final endOfToday = startOfToday.add(Duration(days: 1));
+  final startOfTomorrow = endOfToday; // tomorrow starts when today ends
+  final endOfTomorrow = startOfTomorrow.add(Duration(days: 1));
+  final startOfMonth = DateTime(now.year, now.month, 1);
+  final endOfMonth = DateTime(now.year, now.month + 1, 0);
 
-    switch (widget.type) {
-      case 'collection today':
-        // Payments that are paid today
-        return query
-            .where('status', isEqualTo: 'paid')
-            .where('payment_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday))
-            .where('payment_date', isLessThan: Timestamp.fromDate(endOfToday));
-        
-      case 'total earning this month':
-        // All paid payments this month
-        return query
-            .where('status', isEqualTo: 'paid')
-            .where('payment_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
-            .where('payment_date', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth));
-            
-      case 'due rent today':
-        // Payments due today (regardless of status)
-        return query
-            .where('due_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday))
-            .where('due_date', isLessThan: Timestamp.fromDate(endOfToday));
-            
-      case 'overdue':
-        // For overdue, show all overdue payments first, then apply date filter if selected
-        query = query
-            .where('status', isEqualTo: 'pending')
-            .where('due_date', isLessThan: Timestamp.fromDate(startOfToday));
-            
-        // Apply additional date filter for overdue if filter is selected
-        if (_selectedFilter != 'all') { // Apply additional filters only when a specific filter is selected
-          final dateRange = _getDateRange();
-          query = query
-              .where('due_date', isGreaterThanOrEqualTo: Timestamp.fromDate(dateRange.start));
-        }
-        return query;
-        
-      default:
-        return query;
-    }
+  switch (widget.type) {
+    case 'collection today':
+      // Payments that are paid today
+      return query
+          .where('status', isEqualTo: 'paid')
+          .where('payment_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday))
+          .where('payment_date', isLessThan: Timestamp.fromDate(endOfToday));
+
+    case 'total earning this month':
+      // All paid payments this month
+      return query
+          .where('status', isEqualTo: 'paid')
+          .where('payment_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
+          .where('payment_date', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth));
+
+    case 'due rent today':
+      // Payments due today (regardless of status)
+      return query
+          .where('due_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday))
+          .where('due_date', isLessThan: Timestamp.fromDate(endOfToday));
+
+    case 'due rent tomorrow':
+      // Payments due tomorrow
+      return query
+          .where('due_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfTomorrow))
+          .where('due_date', isLessThan: Timestamp.fromDate(endOfTomorrow));
+
+    case 'overdue':
+      // Overdue = pending or failed and due date before today
+      query = query
+          .where('status', whereIn: ['pending', 'failed'])
+          .where('due_date', isLessThan: Timestamp.fromDate(startOfToday));
+
+      // Optional date range filter
+      if (_selectedFilter != 'all') {
+        final dateRange = _getDateRange();
+        query = query.where('due_date', isGreaterThanOrEqualTo: Timestamp.fromDate(dateRange.start));
+      }
+      return query;
+
+    default:
+      return query;
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -273,64 +283,113 @@ IconData get _headerIcon {
   }
 
   // Build Tenants Tab View
-  Widget _buildTenantsView(bool isWeb) {
-    final landlordId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    
-    // Build query based on payment type
-    Query query = FirebaseFirestore.instance
-        .collection('users')
-        .doc(landlordId)
-        .collection('payments');
+Widget _buildTenantsView(bool isWeb) {
+  final landlordId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    // Apply filters based on payment type
-    query = _applyPaymentTypeFilter(query);
-print(query.snapshots());
-    return StreamBuilder<QuerySnapshot>(
-      stream: query.snapshots(),
-      builder: (context, snapshot) {
-         if (snapshot.hasError) {
+  Query query = FirebaseFirestore.instance
+      .collection('users')
+      .doc(landlordId)
+      .collection('payments');
+
+  query = _applyPaymentTypeFilter(query);
+
+  return StreamBuilder<QuerySnapshot>(
+    stream: query.snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
         print(snapshot.error);
-        return Center(
-          child: Text('Error loading payments: ${snapshot.error}'),
-        );
+        return Center(child: Text('Error loading payments: ${snapshot.error}'));
       }
-        print(snapshot.hasData);
-        if (!snapshot.hasData) {
-          return Center(child: CircularProgressIndicator());
+
+      if (!snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      // Group payments by tenant
+      Map<String, List<Map<String, dynamic>>> tenantPayments = {};
+      Map<String, double> tenantTotals = {};
+
+      for (var doc in snapshot.data!.docs) {
+        final payment = doc.data() as Map<String, dynamic>;
+        final tenantId = payment['tenant_id'] ?? '';
+        if (tenantId.isNotEmpty) {
+          tenantPayments.putIfAbsent(tenantId, () => []);
+          tenantPayments[tenantId]!.add(payment);
+          tenantTotals[tenantId] = (tenantTotals[tenantId] ?? 0) + (payment['amount'] ?? 0);
         }
+      }
 
-        // Group payments by tenant
-        Map<String, List<Map<String, dynamic>>> tenantPayments = {};
-        Map<String, double> tenantTotals = {};
-        
-        for (var doc in snapshot.data!.docs) {
-          final payment = doc.data() as Map<String, dynamic>;
-          final tenantId = payment['tenant_id'] ?? '';
-          if (tenantId.isNotEmpty) {
-            tenantPayments.putIfAbsent(tenantId, () => []);
-            tenantPayments[tenantId]!.add(payment);
-            tenantTotals[tenantId] = (tenantTotals[tenantId] ?? 0) + (payment['amount'] ?? 0);
-          }
-        }
+      if (tenantPayments.isEmpty) {
+        return _buildEmptyView('No tenant payments found');
+      }
 
-        if (tenantPayments.isEmpty) {
-          return _buildEmptyView('No tenant payments found');
-        }
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: tenantPayments.keys.length,
+        itemBuilder: (context, index) {
+          final tenantId = tenantPayments.keys.elementAt(index);
+          final payments = tenantPayments[tenantId]!;
+          final totalAmount = tenantTotals[tenantId]!;
 
-        return ListView.builder(
-          padding: EdgeInsets.all(16),
-          itemCount: tenantPayments.keys.length,
-          itemBuilder: (context, index) {
-            final tenantId = tenantPayments.keys.elementAt(index);
-            final payments = tenantPayments[tenantId]!;
-            final totalAmount = tenantTotals[tenantId]!;
+          // Take the first payment to get property/unit info
+          final firstPayment = payments.first;
+          final propertyId = firstPayment['property_id'];
+          final unitId = firstPayment['unit_id'];
 
-            return _buildTenantCard(tenantId, payments, totalAmount, isWeb);
-          },
-        );
-      },
-    );
-  }
+          // 🏠 Fetch property + unit names asynchronously
+          return FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance
+                .collection('users')
+                .doc(landlordId)
+                .collection('properties')
+                .doc(propertyId)
+                .get(),
+            builder: (context, propertySnapshot) {
+              if (propertySnapshot.connectionState == ConnectionState.waiting) {
+                return  Container();
+              }
+
+              if (!propertySnapshot.hasData || !propertySnapshot.data!.exists) {
+                return _buildTenantCard(
+                  tenantId,
+                  payments,
+                  totalAmount,
+                  isWeb,
+                  'Unknown Property',
+                   'Unknown Unit',
+                );
+              }
+
+              final propertyData = propertySnapshot.data!.data() as Map<String, dynamic>;
+              print(propertyData);
+              final propertyName = propertyData['property_name'] ?? 'Unknown Property';
+              final units = propertyData['units'] as List<dynamic>? ?? [];
+
+              // 🔍 Find unit name by matching unit_id
+              String unitName = 'Unknown Unit';
+              for (var unit in units) {
+                if (unit is Map<String, dynamic> && unit['unit_id'] == unitId) {
+                  unitName = unit['unit_name'] ?? 'Unknown Unit';
+                  break;
+                }
+              }
+
+              return _buildTenantCard(
+                tenantId,
+                payments,
+                totalAmount,
+                isWeb,
+                propertyName,
+                unitName,
+              );
+            },
+          );
+        },
+      );
+    },
+  );
+}
+
 
   // Build Properties Tab View
   Widget _buildPropertiesView(bool isWeb) {
@@ -393,7 +452,7 @@ print(query.snapshots());
 
 
 
-  Widget _buildTenantCard(String tenantId, List<Map<String, dynamic>> payments, double totalAmount, bool isWeb) {
+  Widget _buildTenantCard(String tenantId, List<Map<String, dynamic>> payments, double totalAmount, bool isWeb,String proppertyName,String unitName) {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
           .collection('users')
@@ -403,10 +462,14 @@ print(query.snapshots());
           .snapshots(),
       builder: (context, tenantSnapshot) {
         String tenantName = 'Unknown Tenant';
+        String phone = '';
+        String email = '';
         if (tenantSnapshot.hasData && tenantSnapshot.data!.exists) {
           final tenantData = tenantSnapshot.data!.data() as Map<String, dynamic>;
           final firstName = tenantData['firstName'] ?? '';
           final lastName = tenantData['lastName'] ?? '';
+           phone = tenantData['phone'] ?? '';
+           email = tenantData['email'] ?? '';
           tenantName = '$firstName $lastName'.trim();
           if (tenantName.isEmpty) tenantName = 'Unknown Tenant';
         }
@@ -416,6 +479,10 @@ print(query.snapshots());
           subtitle: '${payments.length} payment${payments.length > 1 ? 's' : ''}',
           totalAmount: totalAmount,
           isWeb: isWeb,
+          email: email,
+          phone: phone,
+          propertyName: proppertyName,
+          unitName: unitName,
           onExpand: () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -424,6 +491,8 @@ print(query.snapshots());
                 name: tenantName,
                 type: 'tenant',
                 paymentType: widget.type,
+                email: email,
+                phone: phone,
               ),
             ),
           ),
@@ -452,6 +521,10 @@ print(query.snapshots());
           subtitle: '${payments.length} payment${payments.length > 1 ? 's' : ''}',
           totalAmount: totalAmount,
           isWeb: isWeb,
+          email: '',
+          phone: '',
+          propertyName: '',
+          unitName: '',
           onExpand: () => Navigator.push(
             context,
             MaterialPageRoute(
@@ -467,15 +540,23 @@ print(query.snapshots());
     );
   }
 
-  Widget _buildExpandableCard({
-    required String title,
-    required String subtitle,
-    required double totalAmount,
-    required bool isWeb,
-    required VoidCallback onExpand,
-  }) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12),
+Widget _buildExpandableCard({
+  required String title,
+  required String subtitle,
+  required String phone,
+  required String email,
+  required String propertyName,
+  required String unitName,
+  required double totalAmount,
+  required bool isWeb,
+  required VoidCallback onExpand,
+}) {
+
+
+  return InkWell(
+    onTap: onExpand,
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -483,44 +564,122 @@ print(query.snapshots());
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: EdgeInsets.all(16),
-        leading: Container(
-          padding: EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            Icons.person,
-            color: AppTheme.primaryColor,
-            size: 24,
-          ),
-        ),
-        title: Text(
-          title,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: GoogleFonts.poppins(
-            color: Colors.grey[600],
-            fontSize: 14,
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 👤 Icon
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.person,
+                color: AppTheme.primaryColor,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 16),
+    
+            // 📄 Info section
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+    
+                  if (subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey[600],
+                        fontSize: 13,
+                      ),
+                    ),
+    
+                  const SizedBox(height: 6),
+    
+                  // 📞 Phone (only if not empty)
+                  if (phone.isNotEmpty)
+                    Row(
+                      children: [
+                        Icon(Icons.phone, size: 16, color: Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        Text(
+                          '+968 $phone',
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+    
+                  // 📧 Email (only if not empty)
+                  if (email.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.email, size: 16, color: Colors.grey[600]),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            email,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.grey[700],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+    
+                  // // 🏠 Property (only if not empty)
+                  // if (propertyName.isNotEmpty || unitName.isNotEmpty) ...[
+                  //   const SizedBox(height: 8),
+                  //   Row(
+                  //     children: [
+                  //       Icon(Icons.home_work_outlined, size: 16, color: Colors.grey[600]),
+                  //       const SizedBox(width: 6),
+                  //       Expanded(
+                  //         child: Text(
+                  //           '${propertyName.isNotEmpty ? propertyName : ''}'
+                  //           '${propertyName.isNotEmpty && unitName.isNotEmpty ? ' • ' : ''}'
+                  //           '${unitName.isNotEmpty ? unitName : ''}',
+                  //           style: GoogleFonts.poppins(
+                  //             fontSize: 13,
+                  //             color: Colors.grey[700],
+                  //             fontWeight: FontWeight.w500,
+                  //           ),
+                  //           overflow: TextOverflow.ellipsis,
+                  //         ),
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ],
+                ],
+              ),
+            ),
+    
+            // 💰 Amount + arrow
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   'OMR ${totalAmount.toStringAsFixed(2)}',
@@ -530,26 +689,26 @@ print(query.snapshots());
                     fontSize: 16,
                   ),
                 ),
-                Text(
-                  'Total',
-                  style: GoogleFonts.poppins(
-                    color: Colors.grey[500],
-                    fontSize: 12,
-                  ),
+                // Text(
+                //   'Total',
+                //   style: GoogleFonts.poppins(
+                //     color: Colors.grey[500],
+                //     fontSize: 12,
+                //   ),
+                // ),
+                IconButton(
+                  icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onPressed: onExpand,
                 ),
               ],
             ),
-            SizedBox(width: 8),
-            IconButton(
-              icon: Icon(Icons.arrow_forward_ios, size: 16),
-              onPressed: onExpand,
-            ),
           ],
         ),
-        onTap: onExpand,
       ),
-    );
-  }
+    ),
+  );
+}
+
 
 
 

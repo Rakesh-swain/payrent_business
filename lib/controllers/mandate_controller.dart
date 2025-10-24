@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -103,7 +104,15 @@ class MandateController extends GetxController {
     const uuid = Uuid();
     return uuid.v4().replaceAll('-', ''); // Remove dashes to get 32 characters
   }
+String generateCustomId({int randomLength = 16}) {
+  const fixedPart = 'BSOHOPBMNDPC';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  final rnd = Random();
 
+  final randomPart = List.generate(randomLength, (_) => chars[rnd.nextInt(chars.length)]).join();
+
+  return fixedPart + randomPart;
+}
   /// Create a new mandate (call API and save to Firestore)
   Future<MandateModel?> createMandate({
     required String landlordId,
@@ -159,7 +168,7 @@ class MandateController extends GetxController {
         landlordBankBic: landlordBankBic,
         landlordBranchCode: landlordBranchCode,
         tenantAccountHolderName: tenantAccountHolderName,
-        tenantAccountNumber: '001020078676', //tenantAccountNumber,
+        tenantAccountNumber: '001020032647', //tenantAccountNumber,
         tenantIdType: tenantIdType,
         tenantIdNumber: tenantIdNumber,
         tenantBankBic: tenantBankBic,
@@ -175,12 +184,18 @@ class MandateController extends GetxController {
       );
 
       // Call API to create mandate
-      final apiResponse = await _callMandateDetailsApi(mandate);
+      // final apiResponse = await _callMandateDetailsApi(mandate);
 
-      if (apiResponse != null && apiResponse['status'] != 'FAILURE') {
+      // if (apiResponse != null && apiResponse['status'] != 'FAILURE') {
         // Update mandate with API response data
-        final updatedMandate = mandate.copyWith(
-          mmsId: apiResponse["MMSId"].toString().isEmpty?'BSOHOPBMNDPC9cedb20854b94d':apiResponse["MMSId"],
+        // final updatedMandate = mandate.copyWith(
+        //   mmsId: apiResponse["MMSId"].toString().isEmpty?'BSOHOPBMNDPC9cedb20854b94d':apiResponse["MMSId"],
+        //   mmsStatus: 'pending',
+        //   status: 'pending',
+        // );
+        String mmsId = generateCustomId();
+  final updatedMandate = mandate.copyWith(
+          mmsId: mmsId,
           mmsStatus: 'pending',
           status: 'pending',
         );
@@ -204,12 +219,12 @@ class MandateController extends GetxController {
       }
 
         return updatedMandate;
-      } else {
-        CustomDialogs.showErrorDialog(
-          context,
-          '${apiResponse != null ? apiResponse['errorMessage'] : 'Unknown error'}',
-        );
-      }
+      // } else {
+      //   CustomDialogs.showErrorDialog(
+      //     context,
+      //     '${apiResponse != null ? apiResponse['errorMessage'] : 'Unknown error'}',
+      //   );
+      // }
     } catch (e) {
       _errorMessage.value = 'Error creating mandate: $e';
       Get.snackbar(
@@ -283,47 +298,48 @@ class MandateController extends GetxController {
       }
 
       // Call enquiry API
-      final apiResponse = await _callMandateEnquiryApi(mandate.mmsId!);
+      // final apiResponse = await _callMandateEnquiryApi(mandate.mmsId!);
 
-      if (apiResponse != null) {
-        final newStatus = apiResponse['MMSStatus'] ?? mandate.mmsStatus;
+      // if (apiResponse != null) {
+      //   final newStatus = apiResponse['MMSStatus'] ?? mandate.mmsStatus;
 
-        // Update in Firestore
-        await _firestoreService.updateSubcollectionDocument(
-          parentCollection: 'users',
-          parentDocumentId: currentUser.uid,
-          subcollection: 'mandates',
-          documentId: mandateId,
-          data: {'mmsStatus': newStatus, 'updatedAt': DateTime.now(),'status':newStatus},
-        );
+      //   // Update in Firestore
+      //   await _firestoreService.updateSubcollectionDocument(
+      //     parentCollection: 'users',
+      //     parentDocumentId: currentUser.uid,
+      //     subcollection: 'mandates',
+      //     documentId: mandateId,
+      //     data: {'mmsStatus': newStatus, 'updatedAt': DateTime.now(),'status':newStatus},
+      //   );
 
-        // Update local list
-        final index = _mandates.indexWhere((m) => m.id == mandateId);
-        if (index != -1) {
-          _mandates[index] = mandate.copyWith(mmsStatus: newStatus,status: newStatus);
-        }
-        if(newStatus.toString().toLowerCase() == "accepted"){
-          await createPaymentSchedule(
-            landlordId: currentUser.uid,
-            mandateId: mandateId,
-            tenantId: tenantId,
-            propertyId: propertyId,
-            unitId: unitId,
-            refNumber: refNumber,
-            mmsId: mmsId,
-            frequency: frequency,
-            amount: amount,
-            startDate: startDate,
-            numberOfPayments: noOfInstallments,
-          );
+      //   // Update local list
+      //   final index = _mandates.indexWhere((m) => m.id == mandateId);
+      //   if (index != -1) {
+      //     _mandates[index] = mandate.copyWith(mmsStatus: newStatus,status: newStatus);
+      //   }
+      //   if(newStatus.toString().toLowerCase() == "accepted"){
+      //     await createPaymentSchedule(
+      //       landlordId: currentUser.uid,
+      //       mandateId: mandateId,
+      //       tenantId: tenantId,
+      //       propertyId: propertyId,
+      //       unitId: unitId,
+      //       refNumber: refNumber,
+      //       mmsId: mmsId,
+      //       frequency: frequency,
+      //       amount: amount,
+      //       startDate: startDate,
+      //       numberOfPayments: noOfInstallments,
+      //     );
 
-        }
+      //   }
      
 
-        return true;
-      } else {
-        throw Exception('Failed to get mandate status from API');
-      }
+      //   return true;
+      // } else {
+      //   throw Exception('Failed to get mandate status from API');
+      // }
+      return true;
     } catch (e) {
       _errorMessage.value = 'Error updating mandate status: $e';
       Get.snackbar(
@@ -406,6 +422,7 @@ Future<void> createPaymentSchedule({
 
     await docRef.set({
       'payment_ref_number': docRef.id, // 👈 unique payment reference (doc ID)
+      'schedule_number': i + 1,        // 👈 schedule number (1-based)
       'mandate_id': mandateId,
       'tenant_id': tenantId,
       'landlord_id': landlordId,

@@ -515,7 +515,8 @@ class _PropertyListPageState extends State<PropertyListPage>
       builder: (context, constraints) {
         // Responsive breakpoints
         final bool isMobile = constraints.maxWidth < 600;
-        final bool isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+        final bool isTablet =
+            constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
         final bool isDesktop = constraints.maxWidth >= 1024;
 
         if (isMobile) {
@@ -535,6 +536,10 @@ class _PropertyListPageState extends State<PropertyListPage>
           'My Properties',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
+         leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A2E)),
+              onPressed: () => Navigator.pop(context),
+            ),
         elevation: 0,
         actions: [
           IconButton(
@@ -779,7 +784,12 @@ class _PropertyListPageState extends State<PropertyListPage>
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Get.to(AddPropertyPage());
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddPropertyPage()),
+          ).then((_) {
+            _fetchProperties();
+          });
         },
         backgroundColor: AppTheme.primaryColor,
         label: Text(
@@ -800,11 +810,15 @@ class _PropertyListPageState extends State<PropertyListPage>
 
     return Scaffold(
       backgroundColor: Color(0xFFF8F9FB),
+      appBar: AppBar( leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A2E)),
+              onPressed: () => Navigator.pop(context),
+            ),),
       body: Column(
         children: [
           // Web Header with Search and Filters
           Container(
-            padding: EdgeInsets.all(24),
+            padding: EdgeInsets.symmetric(horizontal: 24),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -848,7 +862,16 @@ class _PropertyListPageState extends State<PropertyListPage>
                         ),
                         // Add Property Button
                         ElevatedButton.icon(
-                          onPressed: () => Get.to(AddPropertyPage()),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AddPropertyPage(),
+                              ),
+                            ).then((_) {
+                              _fetchProperties();
+                            });
+                          },
                           icon: const Icon(Icons.add, color: Colors.white),
                           label: Text(
                             'Add Property',
@@ -887,11 +910,18 @@ class _PropertyListPageState extends State<PropertyListPage>
                             child: TextField(
                               controller: _searchController,
                               decoration: InputDecoration(
-                                hintText: 'Search properties, locations, or unit numbers...',
-                                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                                hintText:
+                                    'Search properties, locations, or unit numbers...',
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: Colors.grey,
+                                ),
                                 suffixIcon: _searchQuery.isNotEmpty
                                     ? IconButton(
-                                        icon: const Icon(Icons.clear, color: Colors.grey),
+                                        icon: const Icon(
+                                          Icons.clear,
+                                          color: Colors.grey,
+                                        ),
                                         onPressed: () {
                                           _searchController.clear();
                                           setState(() {
@@ -938,21 +968,24 @@ class _PropertyListPageState extends State<PropertyListPage>
                                 'Filter',
                                 style: GoogleFonts.poppins(fontSize: 14),
                               ),
-                              items: [
-                                'All',
-                                'Single Unit',
-                                'Multi Unit',
-                                'Fully Occupied',
-                                'Has Vacancy'
-                              ].map((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(
-                                    value,
-                                    style: GoogleFonts.poppins(fontSize: 14),
-                                  ),
-                                );
-                              }).toList(),
+                              items:
+                                  [
+                                    'All',
+                                    'Single Unit',
+                                    'Multi Unit',
+                                    'Fully Occupied',
+                                    'Has Vacancy',
+                                  ].map((String value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(
+                                        value,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
                               onChanged: (String? newValue) {
                                 if (newValue != null) {
                                   setState(() {
@@ -981,8 +1014,9 @@ class _PropertyListPageState extends State<PropertyListPage>
                                 'Sort',
                                 style: GoogleFonts.poppins(fontSize: 14),
                               ),
-                              items: ['Newest', 'Oldest', 'A–Z', 'Z–A']
-                                  .map((String value) {
+                              items: ['Newest', 'Oldest', 'A–Z', 'Z–A'].map((
+                                String value,
+                              ) {
                                 return DropdownMenuItem<String>(
                                   value: value,
                                   child: Text(
@@ -1004,7 +1038,8 @@ class _PropertyListPageState extends State<PropertyListPage>
                         ),
 
                         // Reset filters button
-                        if (_filterOption != 'All' || _sortOption != 'Newest') ...[
+                        if (_filterOption != 'All' ||
+                            _sortOption != 'Newest') ...[
                           const SizedBox(width: 16),
                           OutlinedButton.icon(
                             icon: const Icon(Icons.refresh, size: 18),
@@ -1097,10 +1132,10 @@ class _PropertyListPageState extends State<PropertyListPage>
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _errorMessage != null
-                        ? _buildErrorView()
-                        : _filteredProperties.isEmpty
-                            ? _buildEmptyView()
-                            : _buildWebPropertyList(),
+                    ? _buildErrorView()
+                    : _filteredProperties.isEmpty
+                    ? _buildEmptyView()
+                    : _buildWebPropertyList(),
               ),
             ),
           ),
@@ -1117,9 +1152,12 @@ class _PropertyListPageState extends State<PropertyListPage>
       physics: const BouncingScrollPhysics(),
       separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
-        final propertyData = _filteredProperties[index].data() as Map<String, dynamic>;
+        final propertyData =
+            _filteredProperties[index].data() as Map<String, dynamic>;
         final propertyId = _filteredProperties[index].id;
-        final property = PropertyModel.fromFirestore(_filteredProperties[index]);
+        final property = PropertyModel.fromFirestore(
+          _filteredProperties[index],
+        );
 
         return FadeInUp(
           duration: Duration(milliseconds: 300 + (index * 50)),
@@ -1137,7 +1175,9 @@ class _PropertyListPageState extends State<PropertyListPage>
   ) {
     // Calculate occupancy statistics
     final totalUnits = property.units.length;
-    final occupiedUnits = property.units.where((unit) => unit.tenantId != null).length;
+    final occupiedUnits = property.units
+        .where((unit) => unit.tenantId != null)
+        .length;
     final isFullyOccupied = totalUnits > 0 && occupiedUnits == totalUnits;
     final isExpanded = _expandedProperties.contains(propertyId);
 
@@ -1165,11 +1205,11 @@ class _PropertyListPageState extends State<PropertyListPage>
           // Main Horizontal Property Card
           Material(
             color: Colors.transparent,
-            borderRadius: isExpanded 
+            borderRadius: isExpanded
                 ? BorderRadius.vertical(top: Radius.circular(16))
                 : BorderRadius.circular(16),
             child: InkWell(
-              borderRadius: isExpanded 
+              borderRadius: isExpanded
                   ? BorderRadius.vertical(top: Radius.circular(16))
                   : BorderRadius.circular(16),
               onTap: () => _navigateToPropertyDetails(propertyId, property),
@@ -1183,10 +1223,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                       height: 80,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [
-                            Color(0xFF6366F1),
-                            Color(0xFFA78BFA),
-                          ],
+                          colors: [Color(0xFF6366F1), Color(0xFFA78BFA)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -1207,7 +1244,10 @@ class _PropertyListPageState extends State<PropertyListPage>
                             top: 4,
                             left: 4,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(8),
@@ -1274,7 +1314,10 @@ class _PropertyListPageState extends State<PropertyListPage>
                             children: [
                               // Units Info
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppTheme.primaryColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
@@ -1292,9 +1335,12 @@ class _PropertyListPageState extends State<PropertyListPage>
 
                               // Occupancy Status
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: isFullyOccupied 
+                                  color: isFullyOccupied
                                       ? Colors.green.withOpacity(0.1)
                                       : Colors.orange.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
@@ -1306,7 +1352,9 @@ class _PropertyListPageState extends State<PropertyListPage>
                                       width: 6,
                                       height: 6,
                                       decoration: BoxDecoration(
-                                        color: isFullyOccupied ? Colors.green : Colors.orange,
+                                        color: isFullyOccupied
+                                            ? Colors.green
+                                            : Colors.orange,
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -1316,7 +1364,9 @@ class _PropertyListPageState extends State<PropertyListPage>
                                       style: GoogleFonts.poppins(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w500,
-                                        color: isFullyOccupied ? Colors.green : Colors.orange,
+                                        color: isFullyOccupied
+                                            ? Colors.green
+                                            : Colors.orange,
                                       ),
                                     ),
                                   ],
@@ -1363,7 +1413,8 @@ class _PropertyListPageState extends State<PropertyListPage>
                           children: [
                             // View Units Button
                             OutlinedButton.icon(
-                              onPressed: () => _togglePropertyExpansion(propertyId),
+                              onPressed: () =>
+                                  _togglePropertyExpansion(propertyId),
                               icon: Icon(
                                 isExpanded
                                     ? Icons.keyboard_arrow_up
@@ -1383,7 +1434,10 @@ class _PropertyListPageState extends State<PropertyListPage>
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -1392,7 +1446,9 @@ class _PropertyListPageState extends State<PropertyListPage>
                             IconButton(
                               onPressed: () => _showPropertyOptions(
                                 context,
-                                _filteredProperties.firstWhere((p) => p.id == propertyId),
+                                _filteredProperties.firstWhere(
+                                  (p) => p.id == propertyId,
+                                ),
                               ),
                               icon: Icon(Icons.more_vert, size: 20),
                               style: IconButton.styleFrom(
@@ -1439,7 +1495,9 @@ class _PropertyListPageState extends State<PropertyListPage>
   ) {
     // Calculate occupancy statistics
     final totalUnits = property.units.length;
-    final occupiedUnits = property.units.where((unit) => unit.tenantId != null).length;
+    final occupiedUnits = property.units
+        .where((unit) => unit.tenantId != null)
+        .length;
     final isFullyOccupied = totalUnits > 0 && occupiedUnits == totalUnits;
     final isExpanded = _expandedProperties.contains(propertyId);
 
@@ -1467,11 +1525,11 @@ class _PropertyListPageState extends State<PropertyListPage>
           // Main Property Card
           Material(
             color: Colors.transparent,
-            borderRadius: isExpanded 
+            borderRadius: isExpanded
                 ? BorderRadius.vertical(top: Radius.circular(16))
                 : BorderRadius.circular(16),
             child: InkWell(
-              borderRadius: isExpanded 
+              borderRadius: isExpanded
                   ? BorderRadius.vertical(top: Radius.circular(16))
                   : BorderRadius.circular(16),
               onTap: () => _navigateToPropertyDetails(propertyId, property),
@@ -1483,14 +1541,11 @@ class _PropertyListPageState extends State<PropertyListPage>
                     height: 80, // Much smaller height
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [
-                          Color(0xFF6366F1),
-                          Color(0xFFA78BFA),
-                        ],
+                        colors: [Color(0xFF6366F1), Color(0xFFA78BFA)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: isExpanded 
+                      borderRadius: isExpanded
                           ? BorderRadius.vertical(top: Radius.circular(16))
                           : BorderRadius.vertical(top: Radius.circular(16)),
                     ),
@@ -1518,7 +1573,9 @@ class _PropertyListPageState extends State<PropertyListPage>
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              property.isMultiUnit ? 'Multi-Unit' : 'Single Unit',
+                              property.isMultiUnit
+                                  ? 'Multi-Unit'
+                                  : 'Single Unit',
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -1560,15 +1617,17 @@ class _PropertyListPageState extends State<PropertyListPage>
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: isFullyOccupied ? Colors.green : Colors.orange,
+                              color: isFullyOccupied
+                                  ? Colors.green
+                                  : Colors.orange,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               isFullyOccupied
                                   ? 'Fully Occupied'
                                   : occupiedUnits > 0
-                                      ? '$occupiedUnits/$totalUnits Occupied'
-                                      : 'Vacant',
+                                  ? '$occupiedUnits/$totalUnits Occupied'
+                                  : 'Vacant',
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -1582,10 +1641,15 @@ class _PropertyListPageState extends State<PropertyListPage>
                           top: 8,
                           right: 50,
                           child: IconButton(
-                            icon: const Icon(Icons.more_vert, color: Colors.white),
+                            icon: const Icon(
+                              Icons.more_vert,
+                              color: Colors.white,
+                            ),
                             onPressed: () => _showPropertyOptions(
                               context,
-                              _filteredProperties.firstWhere((p) => p.id == propertyId),
+                              _filteredProperties.firstWhere(
+                                (p) => p.id == propertyId,
+                              ),
                             ),
                           ),
                         ),
@@ -1684,7 +1748,9 @@ class _PropertyListPageState extends State<PropertyListPage>
                                       width: 6,
                                       height: 6,
                                       decoration: BoxDecoration(
-                                        color: isFullyOccupied ? Colors.green : Colors.orange,
+                                        color: isFullyOccupied
+                                            ? Colors.green
+                                            : Colors.orange,
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -1709,7 +1775,8 @@ class _PropertyListPageState extends State<PropertyListPage>
                           children: [
                             Expanded(
                               child: OutlinedButton.icon(
-                                onPressed: () => _togglePropertyExpansion(propertyId),
+                                onPressed: () =>
+                                    _togglePropertyExpansion(propertyId),
                                 icon: Icon(
                                   isExpanded
                                       ? Icons.keyboard_arrow_up
@@ -1725,25 +1792,34 @@ class _PropertyListPageState extends State<PropertyListPage>
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppTheme.primaryColor,
-                                  side: BorderSide(color: AppTheme.primaryColor),
+                                  side: BorderSide(
+                                    color: AppTheme.primaryColor,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 6,
+                                  ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: () => _navigateToPropertyDetails(propertyId, property),
+                                onPressed: () => _navigateToPropertyDetails(
+                                  propertyId,
+                                  property,
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.primaryColor,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
-                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 6,
+                                  ),
                                 ),
                                 child: Text(
                                   'Details',
@@ -1846,16 +1922,22 @@ class _PropertyListPageState extends State<PropertyListPage>
     );
   }
 
-  Widget _buildWebUnitCard(String propertyId, PropertyUnitModel unit, PropertyModel property) {
+  Widget _buildWebUnitCard(
+    String propertyId,
+    PropertyUnitModel unit,
+    PropertyModel property,
+  ) {
     final isOccupied = unit.tenantId != null;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isOccupied ? Colors.green.withOpacity(0.3) : Colors.orange.withOpacity(0.3), 
-          width: 1.5
+          color: isOccupied
+              ? Colors.green.withOpacity(0.3)
+              : Colors.orange.withOpacity(0.3),
+          width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
@@ -1881,7 +1963,10 @@ class _PropertyListPageState extends State<PropertyListPage>
                   children: [
                     // Unit Number Badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
@@ -1900,7 +1985,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                       ),
                     ),
                     const Spacer(),
-                    
+
                     // Status Badge with Mandate Info
                     _buildUnitStatusBadge(unit, propertyId),
                   ],
@@ -1923,7 +2008,10 @@ class _PropertyListPageState extends State<PropertyListPage>
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -1950,17 +2038,35 @@ class _PropertyListPageState extends State<PropertyListPage>
                     // Bed/Bath Info
                     Row(
                       children: [
-                        Icon(Icons.bed_outlined, size: 12, color: Colors.grey[600]),
-                        Text('${unit.bedrooms}', 
-                          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[700])),
+                        Icon(
+                          Icons.bed_outlined,
+                          size: 12,
+                          color: Colors.grey[600],
+                        ),
+                        Text(
+                          '${unit.bedrooms}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            color: Colors.grey[700],
+                          ),
+                        ),
                         const SizedBox(width: 8),
-                        Icon(Icons.bathtub_outlined, size: 12, color: Colors.grey[600]),
-                        Text('${unit.bathrooms}', 
-                          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[700])),
+                        Icon(
+                          Icons.bathtub_outlined,
+                          size: 12,
+                          color: Colors.grey[600],
+                        ),
+                        Text(
+                          '${unit.bathrooms}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 10,
+                            color: Colors.grey[700],
+                          ),
+                        ),
                       ],
                     ),
                     const Spacer(),
-                    
+
                     // Unit Actions
                     InkWell(
                       onTap: () => _showUnitOptions(context, propertyId, unit),
@@ -1976,8 +2082,8 @@ class _PropertyListPageState extends State<PropertyListPage>
                     ),
                   ],
                 ),
-                 // 🔹 Mandate Section
-                   if (isOccupied) ...[
+                // 🔹 Mandate Section
+                if (isOccupied) ...[
                   const SizedBox(height: 16),
                   FutureBuilder<DocumentSnapshot>(
                     future: FirebaseFirestore.instance
@@ -2067,7 +2173,9 @@ class _PropertyListPageState extends State<PropertyListPage>
                           // Mandate exists → show based on status
                           final mandateData =
                               mandates.first.data() as Map<String, dynamic>;
-                          final status = mandateData['mmsStatus'].toString().toLowerCase();
+                          final status = mandateData['mmsStatus']
+                              .toString()
+                              .toLowerCase();
                           print(status);
 
                           if (status == 'success' || status == 'pending') {
@@ -2164,7 +2272,7 @@ class _PropertyListPageState extends State<PropertyListPage>
 
   Widget _buildUnitStatusBadge(PropertyUnitModel unit, String propertyId) {
     final isOccupied = unit.tenantId != null;
-    
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('mandates')
@@ -2234,14 +2342,14 @@ class _PropertyListPageState extends State<PropertyListPage>
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
             decoration: BoxDecoration(
-              color: isOccupied 
+              color: isOccupied
                   ? Colors.blue.withOpacity(0.1)
                   : Colors.grey.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isOccupied 
+                color: isOccupied
                     ? Colors.blue.withOpacity(0.3)
-                    : Colors.grey.withOpacity(0.3)
+                    : Colors.grey.withOpacity(0.3),
               ),
             ),
             child: Text(
@@ -2405,7 +2513,14 @@ class _PropertyListPageState extends State<PropertyListPage>
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
-              Get.to(AddPropertyPage());
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddPropertyPage(),
+                ),
+              ).then((_) {
+                _fetchProperties();
+              });
             },
             icon: const Icon(Icons.add),
             label: const Text('Add Property'),
@@ -2981,7 +3096,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                 ),
 
                 // 🔹 Mandate Section
-                   if (isOccupied) ...[
+                if (isOccupied) ...[
                   const SizedBox(height: 16),
                   FutureBuilder<DocumentSnapshot>(
                     future: FirebaseFirestore.instance
@@ -3071,7 +3186,9 @@ class _PropertyListPageState extends State<PropertyListPage>
                           // Mandate exists → show based on status
                           final mandateData =
                               mandates.first.data() as Map<String, dynamic>;
-                          final status = mandateData['mmsStatus'].toString().toLowerCase();
+                          final status = mandateData['mmsStatus']
+                              .toString()
+                              .toLowerCase();
                           print(status);
 
                           if (status == 'success' || status == 'pending') {

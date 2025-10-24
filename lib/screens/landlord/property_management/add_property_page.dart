@@ -7,7 +7,6 @@ import 'package:animate_do/animate_do.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/property_model.dart';
 
-
 class AddPropertyPage extends StatefulWidget {
   const AddPropertyPage({Key? key}) : super(key: key);
 
@@ -18,7 +17,7 @@ class AddPropertyPage extends StatefulWidget {
 class _AddPropertyPageState extends State<AddPropertyPage> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
-  
+
   // Text controllers for property fields
   final _nameController = TextEditingController();
   final _addressController = TextEditingController();
@@ -26,7 +25,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
   final _stateController = TextEditingController();
   final _zipCodeController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   // Property type dropdown
   String _selectedPropertyType = 'Single Family';
   final List<String> _propertyTypes = [
@@ -36,24 +35,22 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
     'Condo',
     'Townhouse',
     'Commercial',
-    'Other'
+    'Other',
   ];
-  
 
-  
   // Multi-unit toggle
   bool _isMultiUnit = false;
-  
+
   // List of units
   List<PropertyUnitModel> _units = [];
-  
+
   @override
   void initState() {
     super.initState();
     // Add a default unit
     _addUnit();
   }
-  
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -64,23 +61,27 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
     _descriptionController.dispose();
     super.dispose();
   }
-  
+
   // Add a new unit to the list
   void _addUnit() {
+    final unitNumber = _isMultiUnit
+        ? 'Unit ${_units.length + 1}'
+        : (_units.isEmpty ? 'Main' : 'Unit ${_units.length + 1}');
+
     final newUnit = PropertyUnitModel(
-      unitNumber: _units.isEmpty ? "Main" : "Unit ${_units.length + 1}",
+      unitNumber: unitNumber,
       unitType: "Standard",
       bedrooms: 1,
       bathrooms: 1,
       rent: 0,
       paymentFrequency: 'Monthly',
     );
-    
+
     setState(() {
       _units.add(newUnit);
     });
   }
-  
+
   // Remove a unit from the list
   void _removeUnit(int index) {
     if (_units.length > 1) {
@@ -93,14 +94,14 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
       );
     }
   }
-  
+
   // Update a unit in the list
   void _updateUnit(int index, PropertyUnitModel updatedUnit) {
     setState(() {
       _units[index] = updatedUnit;
     });
   }
-  
+
   // Submit the form
   Future<void> _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
@@ -114,7 +115,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
         if (userId == null) {
           throw Exception('User not logged in');
         }
-        
+
         // Create the property model
         final property = PropertyModel(
           name: _nameController.text,
@@ -128,17 +129,16 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
           landlordId: userId,
           description: _descriptionController.text,
         );
-        
+
         // Convert to Firestore data and add payment frequency
         final propertyData = property.toFirestore();
-        
+
         // Save to Firestore in users/properties collection
         await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('properties')
-          .add(propertyData);
-        
+            .collection('users')
+            .doc(userId)
+            .collection('properties')
+            .add(propertyData);
 
         setState(() {
           _isLoading = false;
@@ -155,25 +155,28 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
         setState(() {
           _isLoading = false;
         });
-        
+
         // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding property: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error adding property: $e')));
       }
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text('Add Property', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        title: Text(
+          'Add Property',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context)
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: _isLoading
@@ -190,7 +193,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                     children: [
                       // Property Details Section
                       _buildSectionTitle('Property Details'),
-                      
+
                       // Property Name
                       TextFormField(
                         controller: _nameController,
@@ -211,7 +214,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                         },
                       ),
                       const SizedBox(height: 16.0),
-                      
+
                       // Property Address
                       TextFormField(
                         controller: _addressController,
@@ -232,7 +235,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                         },
                       ),
                       const SizedBox(height: 16.0),
-                      
+
                       // Property City
                       TextFormField(
                         controller: _cityController,
@@ -253,7 +256,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                         },
                       ),
                       const SizedBox(height: 16.0),
-                      
+
                       // State and Zip Code Row
                       Row(
                         children: [
@@ -304,7 +307,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                         ],
                       ),
                       const SizedBox(height: 16.0),
-                      
+
                       // Property Type Dropdown
                       DropdownButtonFormField<String>(
                         value: _selectedPropertyType,
@@ -337,7 +340,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                         },
                       ),
                       const SizedBox(height: 16.0),
-                      
+
                       // Description
                       TextFormField(
                         controller: _descriptionController,
@@ -353,7 +356,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                         maxLines: 3,
                       ),
                       const SizedBox(height: 24.0),
-                      
+
                       // Multi-Unit Toggle
                       Card(
                         shape: RoundedRectangleBorder(
@@ -377,8 +380,11 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                                   setState(() {
                                     _isMultiUnit = value;
                                     // Reset units when toggling
-                                    _units.clear();
-                                    _addUnit(); // Add a default unit
+                                    // _units.clear();
+                                    // _addUnit(); // Add a default unit
+                                    if (_units.isEmpty) {
+                                      _addUnit();
+                                    }
                                   });
                                 },
                                 activeColor: AppTheme.primaryColor,
@@ -388,13 +394,13 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                         ),
                       ),
                       const SizedBox(height: 16.0),
-                      
+
                       // Units Section
                       _buildSectionTitle('Units'),
-                      
+
                       // Units List
                       ..._buildUnitsList(),
-                      
+
                       // Add Unit Button
                       if (_isMultiUnit) ...[
                         const SizedBox(height: 16.0),
@@ -406,7 +412,10 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.accentColor,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -414,9 +423,9 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                           ),
                         ),
                       ],
-                      
+
                       const SizedBox(height: 32.0),
-                      
+
                       // Submit Button
                       SizedBox(
                         width: double.infinity,
@@ -430,15 +439,17 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                             ),
                           ),
                           child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : Text(
-                                'Save Property',
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                              ? const CircularProgressIndicator(
                                   color: Colors.white,
+                                )
+                              : Text(
+                                  'Save Property',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                              ),
                         ),
                       ),
                       const SizedBox(height: 24.0),
@@ -449,7 +460,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
             ),
     );
   }
-  
+
   // Build section title
   Widget _buildSectionTitle(String title) {
     return Padding(
@@ -464,14 +475,14 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
       ),
     );
   }
-  
+
   // Build units list
   List<Widget> _buildUnitsList() {
     final widgets = <Widget>[];
-    
+
     for (var i = 0; i < _units.length; i++) {
       final unit = _units[i];
-      
+
       widgets.add(
         FadeInUp(
           duration: Duration(milliseconds: 300 + (i * 100)),
@@ -506,7 +517,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                   ),
                   const Divider(),
                   const SizedBox(height: 12.0),
-                  
+
                   // Unit Number
                   TextFormField(
                     initialValue: unit.unitNumber,
@@ -526,14 +537,11 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                       return null;
                     },
                     onChanged: (value) {
-                      _updateUnit(
-                        i,
-                        unit.copyWith(unitNumber: value),
-                      );
+                      _updateUnit(i, unit.copyWith(unitNumber: value));
                     },
                   ),
                   const SizedBox(height: 12.0),
-                  
+
                   // Unit Type
                   TextFormField(
                     initialValue: unit.unitType,
@@ -547,14 +555,11 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                       filled: true,
                     ),
                     onChanged: (value) {
-                      _updateUnit(
-                        i,
-                        unit.copyWith(unitType: value),
-                      );
+                      _updateUnit(i, unit.copyWith(unitType: value));
                     },
                   ),
                   const SizedBox(height: 12.0),
-                  
+
                   // Bedrooms & Bathrooms
                   Row(
                     children: [
@@ -594,7 +599,9 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                           onChanged: (value) {
                             _updateUnit(
                               i,
-                              unit.copyWith(bathrooms: int.tryParse(value) ?? 0),
+                              unit.copyWith(
+                                bathrooms: int.tryParse(value) ?? 0,
+                              ),
                             );
                           },
                         ),
@@ -602,7 +609,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                     ],
                   ),
                   const SizedBox(height: 12.0),
-                  
+
                   // Rent & Security Deposit
                   Row(
                     children: [
@@ -644,7 +651,11 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                           onChanged: (value) {
                             _updateUnit(
                               i,
-                              unit.copyWith(securityDeposit: value.isNotEmpty ? int.tryParse(value) : null),
+                              unit.copyWith(
+                                securityDeposit: value.isNotEmpty
+                                    ? int.tryParse(value)
+                                    : null,
+                              ),
                             );
                           },
                         ),
@@ -652,7 +663,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                     ],
                   ),
                   const SizedBox(height: 12.0),
-                  
+
                   // Notes
                   TextFormField(
                     initialValue: unit.notes ?? '',
@@ -667,10 +678,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
                     ),
                     maxLines: 2,
                     onChanged: (value) {
-                      _updateUnit(
-                        i,
-                        unit.copyWith(notes: value),
-                      );
+                      _updateUnit(i, unit.copyWith(notes: value));
                     },
                   ),
                 ],
@@ -680,7 +688,7 @@ class _AddPropertyPageState extends State<AddPropertyPage> {
         ),
       );
     }
-    
+
     return widgets;
   }
 }
