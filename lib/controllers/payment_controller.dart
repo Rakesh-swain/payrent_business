@@ -976,9 +976,8 @@ Future<double> getTotalPayments({required String filter}) async {
         break;
 
       case 'overdue':
-        query = query
-            .where('status', isEqualTo: 'pending')
-            .where('due_date', isLessThan: Timestamp.fromDate(startOfDay));
+        // Fetch all pending/failed payments first
+        query = query.where('status', whereIn: ['pending', 'failed']);
         break;
 
       case 'collected_today':
@@ -991,12 +990,25 @@ Future<double> getTotalPayments({required String filter}) async {
 
       default:
         // fallback: fetch all payments
-        query = query;
+        break;
     }
 
     final snapshot = await query.get();
+
     for (var doc in snapshot.docs) {
-      total += (doc.data()['amount'] ?? 0);
+      final data = doc.data();
+
+      // Overdue logic: due_date < today OR deferred_date exists
+      if (filter.toLowerCase() == 'overdue') {
+        final dueDate = (data['due_date'] as Timestamp?)?.toDate();
+        final hasDeferred = data.containsKey('deferred_date');
+
+        if ((dueDate != null && dueDate.isBefore(startOfDay)) || hasDeferred) {
+          total += (data['amount'] ?? 0);
+        }
+      } else {
+        total += (data['amount'] ?? 0);
+      }
     }
   } catch (e) {
     print('Error fetching total payments: $e');
@@ -1004,5 +1016,6 @@ Future<double> getTotalPayments({required String filter}) async {
 
   return total;
 }
+
 
 }

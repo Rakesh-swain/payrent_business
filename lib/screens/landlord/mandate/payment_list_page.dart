@@ -149,8 +149,8 @@ IconData get _headerIcon {
     case 'overdue':
       // Overdue = pending or failed and due date before today
       query = query
-          .where('status', whereIn: ['pending', 'failed'])
-          .where('due_date', isLessThan: Timestamp.fromDate(startOfToday));
+          .where('status', whereIn: ['pending', 'failed']);
+          // .where('due_date', isLessThan: Timestamp.fromDate(startOfToday));
 
       // Optional date range filter
       if (_selectedFilter != 'all') {
@@ -305,17 +305,38 @@ Widget _buildTenantsView(bool isWeb) {
         return const Center(child: CircularProgressIndicator());
       }
 
-      // Group payments by tenant
+      // 🌅 Handle "overdue" payments filter locally
+      List<QueryDocumentSnapshot> docs = snapshot.data!.docs;
+      if (widget.type == 'overdue') {
+        final now = DateTime.now();
+        final startOfToday = DateTime(now.year, now.month, now.day);
+
+        docs = docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final dueDate = (data['due_date'] as Timestamp?)?.toDate();
+          final hasDeferred = data.containsKey('deferred_date');
+
+          // Include if due_date is before today OR deferred_date exists
+          return (dueDate != null && dueDate.isBefore(startOfToday)) || hasDeferred;
+        }).toList();
+      }
+
+      if (docs.isEmpty) {
+        return _buildEmptyView('No tenant payments found');
+      }
+
+      // 🧾 Group payments by tenant
       Map<String, List<Map<String, dynamic>>> tenantPayments = {};
       Map<String, double> tenantTotals = {};
 
-      for (var doc in snapshot.data!.docs) {
+      for (var doc in docs) {
         final payment = doc.data() as Map<String, dynamic>;
         final tenantId = payment['tenant_id'] ?? '';
         if (tenantId.isNotEmpty) {
           tenantPayments.putIfAbsent(tenantId, () => []);
           tenantPayments[tenantId]!.add(payment);
-          tenantTotals[tenantId] = (tenantTotals[tenantId] ?? 0) + (payment['amount'] ?? 0);
+          tenantTotals[tenantId] =
+              (tenantTotals[tenantId] ?? 0) + (payment['amount'] ?? 0);
         }
       }
 
@@ -346,7 +367,7 @@ Widget _buildTenantsView(bool isWeb) {
                 .get(),
             builder: (context, propertySnapshot) {
               if (propertySnapshot.connectionState == ConnectionState.waiting) {
-                return  Container();
+                return Container();
               }
 
               if (!propertySnapshot.hasData || !propertySnapshot.data!.exists) {
@@ -356,12 +377,12 @@ Widget _buildTenantsView(bool isWeb) {
                   totalAmount,
                   isWeb,
                   'Unknown Property',
-                   'Unknown Unit',
+                  'Unknown Unit',
                 );
               }
 
-              final propertyData = propertySnapshot.data!.data() as Map<String, dynamic>;
-              print(propertyData);
+              final propertyData =
+                  propertySnapshot.data!.data() as Map<String, dynamic>;
               final propertyName = propertyData['property_name'] ?? 'Unknown Property';
               final units = propertyData['units'] as List<dynamic>? ?? [];
 
@@ -393,62 +414,85 @@ Widget _buildTenantsView(bool isWeb) {
 
   // Build Properties Tab View
   Widget _buildPropertiesView(bool isWeb) {
-    final landlordId = FirebaseAuth.instance.currentUser?.uid ?? '';
-    
-    // Build query based on payment type
-    Query query = FirebaseFirestore.instance
-        .collection('users')
-        .doc(landlordId)
-        .collection('payments');
+  final landlordId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    // Apply filters based on payment type
-    query = _applyPaymentTypeFilter(query);
+  // Build query based on payment type
+  Query query = FirebaseFirestore.instance
+      .collection('users')
+      .doc(landlordId)
+      .collection('payments');
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: query.snapshots(),
-      builder: (context, snapshot) {
-         if (snapshot.hasError) {
+  // Apply filters based on payment type
+  query = _applyPaymentTypeFilter(query);
+
+  return StreamBuilder<QuerySnapshot>(
+    stream: query.snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.hasError) {
         print(snapshot.error);
         return Center(
           child: Text('Error loading payments: ${snapshot.error}'),
         );
       }
-        if (!snapshot.hasData) {
-          return Center(child: CircularProgressIndicator());
+
+      if (!snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      final docs = snapshot.data!.docs;
+
+      // Handle "overdue" case with custom deferred_date logic
+      List<QueryDocumentSnapshot> filteredDocs = docs;
+
+      if (widget.type == 'overdue') {
+        final now = DateTime.now();
+        final startOfToday = DateTime(now.year, now.month, now.day);
+
+        filteredDocs = docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+
+          final dueDate = (data['due_date'] as Timestamp?)?.toDate();
+          final hasDeferred = data.containsKey('deferred_date');
+
+          // Include if overdue (due_date < today) or deferred_date exists
+          return (dueDate != null && dueDate.isBefore(startOfToday)) || hasDeferred;
+        }).toList();
+      }
+
+      // Group payments by property
+      Map<String, List<Map<String, dynamic>>> propertyPayments = {};
+      Map<String, double> propertyTotals = {};
+
+      for (var doc in filteredDocs) {
+        final payment = doc.data() as Map<String, dynamic>;
+        final propertyId = payment['property_id'] ?? '';
+
+        if (propertyId.isNotEmpty) {
+          propertyPayments.putIfAbsent(propertyId, () => []);
+          propertyPayments[propertyId]!.add(payment);
+          propertyTotals[propertyId] =
+              (propertyTotals[propertyId] ?? 0) + (payment['amount'] ?? 0);
         }
+      }
 
-        // Group payments by property
-        Map<String, List<Map<String, dynamic>>> propertyPayments = {};
-        Map<String, double> propertyTotals = {};
-        
-        for (var doc in snapshot.data!.docs) {
-          final payment = doc.data() as Map<String, dynamic>;
-          final propertyId = payment['property_id'] ?? '';
-          if (propertyId.isNotEmpty) {
-            propertyPayments.putIfAbsent(propertyId, () => []);
-            propertyPayments[propertyId]!.add(payment);
-            propertyTotals[propertyId] = (propertyTotals[propertyId] ?? 0) + (payment['amount'] ?? 0);
-          }
-        }
+      if (propertyPayments.isEmpty) {
+        return _buildEmptyView('No property payments found');
+      }
 
-        if (propertyPayments.isEmpty) {
-          return _buildEmptyView('No property payments found');
-        }
+      return ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: propertyPayments.keys.length,
+        itemBuilder: (context, index) {
+          final propertyId = propertyPayments.keys.elementAt(index);
+          final payments = propertyPayments[propertyId]!;
+          final totalAmount = propertyTotals[propertyId]!;
 
-        return ListView.builder(
-          padding: EdgeInsets.all(16),
-          itemCount: propertyPayments.keys.length,
-          itemBuilder: (context, index) {
-            final propertyId = propertyPayments.keys.elementAt(index);
-            final payments = propertyPayments[propertyId]!;
-            final totalAmount = propertyTotals[propertyId]!;
-
-            return _buildPropertyCard(propertyId, payments, totalAmount, isWeb);
-          },
-        );
-      },
-    );
-  }
+          return _buildPropertyCard(propertyId, payments, totalAmount, isWeb);
+        },
+      );
+    },
+  );
+}
 
 
 

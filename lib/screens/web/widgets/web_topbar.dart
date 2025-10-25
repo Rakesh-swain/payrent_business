@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:get/get.dart';
+import 'package:payrent_business/controllers/auth_controller.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
+import 'package:payrent_business/screens/auth/login_page.dart';
 
 class WebTopbar extends StatelessWidget {
   final String title;
@@ -11,7 +13,7 @@ class WebTopbar extends StatelessWidget {
   final VoidCallback? onMenuPressed;
   final bool isMobile;
 
-  const WebTopbar({
+   WebTopbar({
     super.key,
     required this.title,
     required this.userType,
@@ -19,7 +21,68 @@ class WebTopbar extends StatelessWidget {
     this.onMenuPressed,
     this.isMobile = false,
   });
+  final AuthController _authController = Get.find<AuthController>();
 
+void _logout(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          'Logout',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to logout?',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Close dialog
+            },
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back();
+              await _authController.signOut(); // Use the AuthController to sign out
+              Get.offAll(() => const LoginPage());
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Logout',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+}
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -176,43 +239,45 @@ class WebTopbar extends StatelessWidget {
             }
           },
           itemBuilder: (context) => [
+            // PopupMenuItem(
+            //   value: 'profile',
+            //   child: Row(
+            //     children: [
+            //       Icon(
+            //         Icons.person_outline,
+            //         size: 18,
+            //         color: Colors.grey[600],
+            //       ),
+            //       const SizedBox(width: 12),
+            //       Text(
+            //         'Profile',
+            //         style: GoogleFonts.poppins(fontSize: 14),
+            //       ),
+            //     ],
+            //   ),
+            // ),
+            // PopupMenuItem(
+            //   value: 'settings',
+            //   child: Row(
+            //     children: [
+            //       Icon(
+            //         Icons.settings_outlined,
+            //         size: 18,
+            //         color: Colors.grey[600],
+            //       ),
+            //       const SizedBox(width: 12),
+            //       Text(
+            //         'Settings',
+            //         style: GoogleFonts.poppins(fontSize: 14),
+            //       ),
+            //     ],
+            //   ),
+            // ),
+            // const PopupMenuDivider(),
             PopupMenuItem(
-              value: 'profile',
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.person_outline,
-                    size: 18,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Profile',
-                    style: GoogleFonts.poppins(fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'settings',
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.settings_outlined,
-                    size: 18,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Settings',
-                    style: GoogleFonts.poppins(fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            const PopupMenuDivider(),
-            PopupMenuItem(
-              value: 'logout',
+              value: 'logout',onTap: (){
+                _logout(context);
+              },
               child: Row(
                 children: [
                   Icon(

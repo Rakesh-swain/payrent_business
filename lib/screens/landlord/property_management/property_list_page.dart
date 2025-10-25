@@ -9,9 +9,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:payrent_business/config/theme.dart';
 import 'package:payrent_business/models/account_information_model.dart';
 import 'package:payrent_business/models/property_model.dart';
+import 'package:payrent_business/screens/landlord/mandate/installment_dialog.dart';
+import 'package:payrent_business/screens/landlord/mandate/installments_bottomsheet.dart';
 import 'package:payrent_business/screens/landlord/mandate/mandate_status_page.dart';
 import 'package:payrent_business/screens/landlord/mandate/new_create_mandate_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/add_property_page.dart';
+import 'package:payrent_business/screens/landlord/property_management/add_unit_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/edit_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/property_detail_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
@@ -67,6 +70,28 @@ class _PropertyListPageState extends State<PropertyListPage>
     _searchController.dispose();
     _filterAnimationController.dispose();
     super.dispose();
+  }
+
+  void _showInstallmentsDialog(
+    int numberOfInstallments,
+    int paymentAmount,
+    String selectedFrequency,
+    DateTime startDate,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: InstallmentsDialog(
+          installments: numberOfInstallments,
+          amount: paymentAmount,
+          frequency: selectedFrequency,
+          startDate: startDate,
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchProperties() async {
@@ -255,7 +280,7 @@ class _PropertyListPageState extends State<PropertyListPage>
       ),
       builder: (context) {
         return Container(
-          padding: EdgeInsets.symmetric(vertical: 24),
+          padding: const EdgeInsets.symmetric(vertical: 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -287,6 +312,23 @@ class _PropertyListPageState extends State<PropertyListPage>
                       propertyId: propertyModel.id!,
                     ),
                   );
+                },
+              ),
+              _buildActionButton(
+                icon: Icons.add,
+                label: 'Add Unit',
+                color: Colors.green,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          AddUnitPage(propertyId: propertyModel.id!),
+                    ),
+                  ).then((_) {
+                    _fetchProperties();
+                  });
                 },
               ),
               _buildActionButton(
@@ -536,10 +578,10 @@ class _PropertyListPageState extends State<PropertyListPage>
           'My Properties',
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
-         leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A2E)),
-              onPressed: () => Navigator.pop(context),
-            ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A2E)),
+          onPressed: () => Navigator.pop(context),
+        ),
         elevation: 0,
         actions: [
           IconButton(
@@ -810,10 +852,12 @@ class _PropertyListPageState extends State<PropertyListPage>
 
     return Scaffold(
       backgroundColor: Color(0xFFF8F9FB),
-      appBar: AppBar( leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A2E)),
-              onPressed: () => Navigator.pop(context),
-            ),),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A2E)),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body: Column(
         children: [
           // Web Header with Search and Filters
@@ -2176,7 +2220,11 @@ class _PropertyListPageState extends State<PropertyListPage>
                           final status = mandateData['mmsStatus']
                               .toString()
                               .toLowerCase();
-                          print(status);
+                          final noOfPayments = mandateData['noOfInstallments'];
+                          final frequency = mandateData['paymentFrequency'];
+                          final rent = mandateData['rentAmount'];
+                          final startDate =
+                              (mandateData['startDate'] as Timestamp).toDate();
 
                           if (status == 'success' || status == 'pending') {
                             return Column(
@@ -2215,6 +2263,24 @@ class _PropertyListPageState extends State<PropertyListPage>
                                   ),
                                   child: const Text(
                                     'Check Mandate Status',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                SizedBox(height: 10),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _showInstallmentsDialog(
+                                      noOfPayments,
+                                      rent,
+                                      frequency,
+                                      startDate,
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                  ),
+                                  child: const Text(
+                                    'Check Payment Schedule',
                                     style: TextStyle(color: Colors.white),
                                   ),
                                 ),
@@ -3189,7 +3255,11 @@ class _PropertyListPageState extends State<PropertyListPage>
                           final status = mandateData['mmsStatus']
                               .toString()
                               .toLowerCase();
-                          print(status);
+                          final noOfPayments = mandateData['noOfInstallments'];
+                          final frequency = mandateData['paymentFrequency'];
+                          final rent = mandateData['rentAmount'];
+                          final startDate =
+                              (mandateData['startDate'] as Timestamp).toDate();
 
                           if (status == 'success' || status == 'pending') {
                             return Column(
@@ -3228,6 +3298,24 @@ class _PropertyListPageState extends State<PropertyListPage>
                                   ),
                                   child: const Text(
                                     'Check Mandate Status',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                SizedBox(height: 10),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _showInstallmentsDialog(
+                                      noOfPayments,
+                                      rent,
+                                      frequency,
+                                      startDate,
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                  ),
+                                  child: const Text(
+                                    'Check Payment Schedule',
                                     style: TextStyle(color: Colors.white),
                                   ),
                                 ),

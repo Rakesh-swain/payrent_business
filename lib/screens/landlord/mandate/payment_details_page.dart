@@ -11,7 +11,7 @@ class PaymentDetailsPage extends StatefulWidget {
   final String type; // 'tenant' or 'property'
   final String
   paymentType; // 'collection today', 'due rent today', 'overdue', 'total earning this month'
-   final String? email; // optional
+  final String? email; // optional
   final String? phone; // optional
 
   const PaymentDetailsPage({
@@ -30,71 +30,81 @@ class PaymentDetailsPage extends StatefulWidget {
 
 class _PaymentDetailsPageState extends State<PaymentDetailsPage> {
   // Apply payment type specific filters
-Query _applyPaymentTypeFilter(Query query) {
-  final now = DateTime.now();
-  final startOfToday = DateTime(now.year, now.month, now.day);
-  final endOfToday = startOfToday.add(const Duration(days: 1));
-  final startOfTomorrow = endOfToday; // tomorrow starts after today ends
-  final endOfTomorrow = startOfTomorrow.add(const Duration(days: 1));
-  final startOfMonth = DateTime(now.year, now.month, 1);
-  final endOfMonth = DateTime(now.year, now.month + 1, 0);
+  Query _applyPaymentTypeFilter(Query query) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final endOfToday = startOfToday.add(const Duration(days: 1));
+    final startOfTomorrow = endOfToday; // tomorrow starts after today ends
+    final endOfTomorrow = startOfTomorrow.add(const Duration(days: 1));
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
 
-  switch (widget.paymentType) {
-    case 'collection today':
-      // Payments that are paid today
-      return query.where(
-        Filter.and(
-          Filter('status', isEqualTo: 'paid'),
-          Filter('payment_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday)),
-          Filter('payment_date', isLessThan: Timestamp.fromDate(endOfToday)),
-        ),
-      );
+    switch (widget.paymentType) {
+      case 'collection today':
+        // Payments that are paid today
+        return query.where(
+          Filter.and(
+            Filter('status', isEqualTo: 'paid'),
+            Filter(
+              'payment_date',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday),
+            ),
+            Filter('payment_date', isLessThan: Timestamp.fromDate(endOfToday)),
+          ),
+        );
 
-    case 'total earning this month':
-      // All paid payments this month
-      return query.where(
-        Filter.and(
-          Filter('status', isEqualTo: 'paid'),
-          Filter('payment_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth)),
-          Filter('payment_date', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth)),
-        ),
-      );
+      case 'total earning this month':
+        // All paid payments this month
+        return query.where(
+          Filter.and(
+            Filter('status', isEqualTo: 'paid'),
+            Filter(
+              'payment_date',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth),
+            ),
+            Filter(
+              'payment_date',
+              isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth),
+            ),
+          ),
+        );
 
-    case 'due rent today':
-      // Payments due today (regardless of status)
-      return query.where(
-        Filter.and(
-          Filter('due_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday)),
-          Filter('due_date', isLessThan: Timestamp.fromDate(endOfToday)),
-        ),
-      );
+      case 'due rent today':
+        // Payments due today (regardless of status)
+        return query.where(
+          Filter.and(
+            Filter(
+              'due_date',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday),
+            ),
+            Filter('due_date', isLessThan: Timestamp.fromDate(endOfToday)),
+          ),
+        );
 
-    case 'due rent tomorrow':
-      // Payments due tomorrow (regardless of status)
-      return query.where(
-        Filter.and(
-          Filter('due_date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfTomorrow)),
-          Filter('due_date', isLessThan: Timestamp.fromDate(endOfTomorrow)),
-        ),
-      );
+      case 'due rent tomorrow':
+        // Payments due tomorrow (regardless of status)
+        return query.where(
+          Filter.and(
+            Filter(
+              'due_date',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfTomorrow),
+            ),
+            Filter('due_date', isLessThan: Timestamp.fromDate(endOfTomorrow)),
+          ),
+        );
 
-    case 'overdue':
-      // Pending or failed payments due before today
-      return query.where(
-        Filter.and(
+      case 'overdue':
+        return query.where(
           Filter.or(
             Filter('status', isEqualTo: 'pending'),
             Filter('status', isEqualTo: 'failed'),
           ),
-          Filter('due_date', isLessThan: Timestamp.fromDate(startOfToday)),
-        ),
-      );
+        );
 
-    default:
-      return query;
+      default:
+        return query;
+    }
   }
-}
-
 
   String _getPaymentTypeTitle() {
     switch (widget.paymentType) {
@@ -142,23 +152,27 @@ Query _applyPaymentTypeFilter(Query query) {
                       ),
                     ),
                     SizedBox(width: 10),
-                    widget.email != null?Text(
-                      '+968 ${widget.phone!}',
-                      style: GoogleFonts.poppins(
-                        color: Color(0xFF1A1A2E),
-                        fontWeight: FontWeight.w400,
-                        fontSize: 15,
-                      ),
-                    ):Container(),
+                    widget.email != null
+                        ? Text(
+                            '+968 ${widget.phone!}',
+                            style: GoogleFonts.poppins(
+                              color: Color(0xFF1A1A2E),
+                              fontWeight: FontWeight.w400,
+                              fontSize: 15,
+                            ),
+                          )
+                        : Container(),
                     SizedBox(width: 10),
-                     widget.phone != null?Text(
-                      widget.email!,
-                      style: GoogleFonts.poppins(
-                        color: Color(0xFF1A1A2E),
-                        fontWeight: FontWeight.w400,
-                        fontSize: 15,
-                      ),
-                    ):Container(),
+                    widget.phone != null
+                        ? Text(
+                            widget.email!,
+                            style: GoogleFonts.poppins(
+                              color: Color(0xFF1A1A2E),
+                              fontWeight: FontWeight.w400,
+                              fontSize: 15,
+                            ),
+                          )
+                        : Container(),
                   ],
                 ),
                 Text(
@@ -177,54 +191,75 @@ Query _applyPaymentTypeFilter(Query query) {
     );
   }
 
-  Widget _buildPaymentsList(bool isWeb) {
-    final landlordId = FirebaseAuth.instance.currentUser?.uid ?? '';
+ Widget _buildPaymentsList(bool isWeb) {
+  final landlordId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    // Build query based on type
-    Query query = FirebaseFirestore.instance
-        .collection('users')
-        .doc(landlordId)
-        .collection('payments');
+  // Build query based on type
+  Query query = FirebaseFirestore.instance
+      .collection('users')
+      .doc(landlordId)
+      .collection('payments');
 
-    if (widget.type == 'tenant') {
-      query = query.where('tenant_id', isEqualTo: widget.id);
-    } else {
-      query = query.where('property_id', isEqualTo: widget.id);
-    }
-
-    // Apply payment type specific filters
-    query = _applyPaymentTypeFilter(query);
-
-    query = query.orderBy('due_date', descending: true);
-
-    return StreamBuilder<QuerySnapshot>(
-      stream: query.snapshots(),
-      builder: (context, snapshot) {
-        // Show loading only on first load
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        // Handle errors
-        if (snapshot.hasError) {
-          print(snapshot.error);
-          return Center(
-            child: Text('Error loading payments: ${snapshot.error}'),
-          );
-        }
-
-        // Handle no data
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return _buildEmptyView('No payments found');
-        }
-
-        // Build content with data
-        final payments = snapshot.data!.docs;
-        return _buildPaymentsContent(isWeb, payments);
-      },
-    );
+  if (widget.type == 'tenant') {
+    query = query.where('tenant_id', isEqualTo: widget.id);
+  } else {
+    query = query.where('property_id', isEqualTo: widget.id);
   }
+
+  // Apply payment type specific filters
+  query = _applyPaymentTypeFilter(query);
+
+  // Order results
+  query = query.orderBy('due_date', descending: true);
+
+  return StreamBuilder<QuerySnapshot>(
+    stream: query.snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting &&
+          !snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      if (snapshot.hasError) {
+        return Center(
+          child: Text('Error loading payments: ${snapshot.error}'),
+        );
+      }
+
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return _buildEmptyView('No payments found');
+      }
+
+      final now = DateTime.now();
+      final startOfToday = DateTime(now.year, now.month, now.day);
+      List<QueryDocumentSnapshot> docs = snapshot.data!.docs;
+
+      // ✅ Only apply overdue-specific client-side logic when needed
+      if (widget.paymentType == 'overdue') {
+        docs = docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final status = data['status'];
+          final dueDate = (data['due_date'] as Timestamp?)?.toDate();
+          final hasDeferred = data.containsKey('deferred_date');
+
+          // ✅ Include if:
+          // - status is pending or failed, AND
+          // - (due_date < today OR deferred_date exists)
+          return (status == 'pending' || status == 'failed') &&
+              ((dueDate != null && dueDate.isBefore(startOfToday)) ||
+                  hasDeferred);
+        }).toList();
+      }
+
+      if (docs.isEmpty) {
+        return _buildEmptyView('No overdue payments found');
+      }
+
+      // Build the content using filtered payments
+      return _buildPaymentsContent(isWeb, docs);
+    },
+  );
+}
 
   /// Helper to build the summary header + list content
   Widget _buildPaymentsContent(
@@ -360,37 +395,32 @@ Query _applyPaymentTypeFilter(Query query) {
                   ),
                 ],
               ),
-              _buildStatusRow(paid, pending, overdue)
+              _buildStatusRow(paid, pending, overdue),
             ],
           ),
         ),
       ],
     );
   }
-Widget _buildStatusRow(int paid, int pending, int overdue) {
-  List<Widget> chips = [];
 
-  if (widget.paymentType == "total earning this month" ||
-      widget.paymentType == "collection today") {
-    chips = [
-      _buildStatusChip('Paid', paid, Colors.green),
-    ];
-  } else if (widget.paymentType == "due rent today") {
-    chips = [
-      _buildStatusChip('Paid', paid, Colors.green),
-      const SizedBox(width: 12),
-      _buildStatusChip('Pending', pending, Colors.orange),
-    ];
-  } else if (widget.paymentType == "overdue") {
-    chips = [
-      _buildStatusChip('Overdue', overdue, Colors.red),
-    ];
+  Widget _buildStatusRow(int paid, int pending, int overdue) {
+    List<Widget> chips = [];
+
+    if (widget.paymentType == "total earning this month" ||
+        widget.paymentType == "collection today") {
+      chips = [_buildStatusChip('Paid', paid, Colors.green)];
+    } else if (widget.paymentType == "due rent today") {
+      chips = [
+        _buildStatusChip('Paid', paid, Colors.green),
+        const SizedBox(width: 12),
+        _buildStatusChip('Pending', pending, Colors.orange),
+      ];
+    } else if (widget.paymentType == "overdue") {
+      chips = [_buildStatusChip('Overdue', overdue, Colors.red)];
+    }
+
+    return Row(children: chips);
   }
-
-  return Row(
-    children: chips,
-  );
-}
 
   Widget _buildMobileSummaryHeader(
     int total,
@@ -454,7 +484,7 @@ Widget _buildStatusRow(int paid, int pending, int overdue) {
           ],
         ),
         SizedBox(height: 16),
-        _buildStatusRow(paid, pending, overdue)
+        _buildStatusRow(paid, pending, overdue),
       ],
     );
   }
@@ -501,12 +531,18 @@ Widget _buildStatusRow(int paid, int pending, int overdue) {
     // Determine if overdue
     final now = DateTime.now();
     final startOfToday = DateTime(now.year, now.month, now.day);
-    final isOverdue = (status == 'pending' || status == 'failed') && date.isBefore(startOfToday);
-    final displayStatus =status == "failed"?'failed': isOverdue ? 'overdue':status;
+    final isOverdue =
+        (status == 'pending' || status == 'failed') &&
+        date.isBefore(startOfToday);
+    final displayStatus = status == "failed"
+        ? 'failed'
+        : isOverdue
+        ? 'overdue'
+        : status;
     final reason = payment['reason'];
     final scheduleNo = payment['schedule_number'];
 
-print(status);
+    print(status);
     // Status color
     Color statusColor;
     switch (displayStatus.toLowerCase()) {
@@ -521,7 +557,7 @@ print(status);
         break;
       case 'failed':
         statusColor = Colors.red;
-        break;  
+        break;
       default:
         statusColor = Colors.grey;
     }
@@ -657,9 +693,10 @@ print(status);
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     GestureDetector(
-                      onTap: (){
-                         if (displayStatus.toLowerCase() == 'failed' || displayStatus.toLowerCase() == 'overdue' ){
-                            showDialog(
+                      onTap: () {
+                        if (displayStatus.toLowerCase() == 'failed' ||
+                            displayStatus.toLowerCase() == 'overdue') {
+                          showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
                               shape: RoundedRectangleBorder(
@@ -682,7 +719,8 @@ print(status);
                                 ],
                               ),
                               content: Text(
-                                reason ?? 'Insufficient Funds — The tenant’s account didn’t have enough balance to complete the payment.',
+                                reason ??
+                                    'Insufficient Funds — The tenant’s account didn’t have enough balance to complete the payment.',
                                 style: GoogleFonts.poppins(fontSize: 13),
                               ),
                               actions: [
@@ -699,10 +737,13 @@ print(status);
                               ],
                             ),
                           );
-                         }
+                        }
                       },
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -717,7 +758,8 @@ print(status);
                         ),
                       ),
                     ),
-                    if (displayStatus.toLowerCase() == 'failed' || displayStatus.toLowerCase() == 'overdue' ) ...[
+                    if (displayStatus.toLowerCase() == 'failed' ||
+                        displayStatus.toLowerCase() == 'overdue') ...[
                       SizedBox(width: 6),
                       GestureDetector(
                         onTap: () {
@@ -744,7 +786,8 @@ print(status);
                                 ],
                               ),
                               content: Text(
-                                reason ?? 'Insufficient Funds — The tenant’s account didn’t have enough balance to complete the payment.',
+                                reason ??
+                                    'Insufficient Funds — The tenant’s account didn’t have enough balance to complete the payment.',
                                 style: GoogleFonts.poppins(fontSize: 13),
                               ),
                               actions: [
@@ -774,8 +817,9 @@ print(status);
 
                 // Show Defer button only for overdue payments in overdue payment type and if not already deferred
                 if (((widget.paymentType == 'overdue') &&
-                    isOverdue &&
-                    deferredDate == null)|| (widget.paymentType == "due rent tomorrow")) ...[
+                        isOverdue &&
+                        deferredDate == null) ||
+                    (widget.paymentType == "due rent tomorrow")) ...[
                   SizedBox(height: 8),
                   ElevatedButton(
                     onPressed: () => _showDeferPaymentDialog(payment),
@@ -820,15 +864,15 @@ print(status);
           .snapshots(),
       builder: (context, snapshot) {
         String tenantName = 'Unknown Tenant';
-          String phone = '';
+        String phone = '';
         String email = '';
         if (snapshot.hasData && snapshot.data!.exists) {
           final tenantData = snapshot.data!.data() as Map<String, dynamic>;
           final firstName = tenantData['firstName'] ?? '';
           final lastName = tenantData['lastName'] ?? '';
           tenantName = '$firstName $lastName'.trim();
-           phone = tenantData['phone'] ?? '';
-           email = tenantData['email'] ?? '';
+          phone = tenantData['phone'] ?? '';
+          email = tenantData['email'] ?? '';
           if (tenantName.isEmpty) tenantName = 'Unknown Tenant';
         }
 
@@ -837,15 +881,24 @@ print(status);
           children: [
             Text(
               tenantName,
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+              ),
             ),
-              Text(
-            '+968 ${phone}',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w400, fontSize: 12),
+            Text(
+              '+968 ${phone}',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w400,
+                fontSize: 12,
+              ),
             ),
-              Text(
+            Text(
               email,
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w400, fontSize: 12),
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w400,
+                fontSize: 12,
+              ),
             ),
           ],
         );

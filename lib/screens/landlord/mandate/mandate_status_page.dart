@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import 'package:payrent_business/screens/landlord/mandate/installment_dialog.dart';
 import '../../../config/theme.dart';
 import '../../../controllers/mandate_controller.dart';
 import '../../../models/mandate_model.dart';
@@ -10,10 +11,8 @@ import '../../../models/mandate_model.dart';
 class MandateStatusPage extends StatefulWidget {
   final String mandateId;
 
-  const MandateStatusPage({
-    Key? key,
-    required this.mandateId,
-  }) : super(key: key);
+  const MandateStatusPage({Key? key, required this.mandateId})
+    : super(key: key);
 
   @override
   _MandateStatusPageState createState() => _MandateStatusPageState();
@@ -32,51 +31,73 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
 
   void _loadMandate() async {
     _mandate = await _mandateController.getMandateById(widget.mandateId);
-   setState(() {});
+    setState(() {});
   }
 
   Future<void> _updateMandateStatus() async {
-  if (_mandate == null) return;
+    if (_mandate == null) return;
 
-  setState(() {
-    _isUpdatingStatus = true;
-  });
+    setState(() {
+      _isUpdatingStatus = true;
+    });
 
-  try {
-    final success = await _mandateController.updateMandateStatus(
-      widget.mandateId,
-      _mandate!.tenantId,
-      _mandate!.propertyId,  
-      _mandate!.unitId,
-      _mandate!.referenceNumber!,
-      _mandate!.mmsId!,
-      _mandate!.paymentFrequency,
-      _mandate!.rentAmount,
-      _mandate!.startDate,
-      _mandate!.noOfInstallments,
+    try {
+      final success = await _mandateController.updateMandateStatus(
+        widget.mandateId,
+        _mandate!.tenantId,
+        _mandate!.propertyId,
+        _mandate!.unitId,
+        _mandate!.referenceNumber!,
+        _mandate!.mmsId!,
+        _mandate!.paymentFrequency,
+        _mandate!.rentAmount,
+        _mandate!.startDate,
+        _mandate!.noOfInstallments,
       );
-    
-    if (success) {
-      _loadMandate();
-      // Optionally show success message
-      Get.snackbar('Success', 'Mandate status updated successfully');
-    } else {
-      Get.snackbar('Error', 'Failed to update mandate status');
-    }
-  } catch (e) {
-    Get.snackbar('Error', 'An error occurred: $e');
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isUpdatingStatus = false;
-      });
+
+      if (success) {
+        _loadMandate();
+        // Optionally show success message
+        Get.snackbar('Success', 'Mandate status updated successfully');
+      } else {
+        Get.snackbar('Error', 'Failed to update mandate status');
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'An error occurred: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingStatus = false;
+        });
+      }
     }
   }
-}
+
+  void _showInstallmentsDialog(
+    int numberOfInstallments,
+    int paymentAmount,
+    String selectedFrequency,
+    DateTime startDate,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: InstallmentsDialog(
+          installments: numberOfInstallments,
+          amount: paymentAmount,
+          frequency: selectedFrequency,
+          startDate: startDate,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_mandate == null) { 
+    if (_mandate == null) {
       return Scaffold(
         appBar: AppBar(
           title: Text(
@@ -84,9 +105,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
             style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
           ),
         ),
-        body: const Center(
-          child: Text('Mandate not found'),
-        ),
+        body: const Center(child: Text('Mandate not found')),
       );
     }
 
@@ -102,20 +121,24 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          _mandate!.mmsStatus!.toLowerCase() == "accepted"?Container(height: 1,): IconButton(
-            onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
-            icon: _isUpdatingStatus
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                    ),
-                  )
-                : Icon(Icons.refresh, color: AppTheme.primaryColor),
-            tooltip: 'Update Status',
-          ),
+          _mandate!.mmsStatus!.toLowerCase() == "accepted"
+              ? Container(height: 1)
+              : IconButton(
+                  onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
+                  icon: _isUpdatingStatus
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppTheme.primaryColor,
+                            ),
+                          ),
+                        )
+                      : Icon(Icons.refresh, color: AppTheme.primaryColor),
+                  tooltip: 'Update Status',
+                ),
         ],
       ),
       body: SingleChildScrollView(
@@ -215,61 +238,65 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
           ],
         ),
       ),
-       bottomNavigationBar: _mandate!.mmsStatus!.toLowerCase() == "accepted"?Container(height: 1,):SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton(
-            onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 3,
-            ),
-            child: _isUpdatingStatus
-                ? Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
+      bottomNavigationBar: _mandate!.mmsStatus!.toLowerCase() == "accepted"
+          ? Container(height: 1)
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Updating Status...',
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  )
-                : Text(
-                    'Update Status',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      elevation: 3,
                     ),
+                    child: _isUpdatingStatus
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Updating Status...',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            'Update Status',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
-          ),
-        ),
-      ),
-    ),
+                ),
+              ),
+            ),
     );
   }
 
   Widget _buildHeaderCard() {
     final statusColor = _getStatusColor(_mandate!.mmsStatus);
-    
+
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.1),
@@ -295,7 +322,11 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.account_balance_wallet, color: Colors.white, size: 24),
+                  child: Icon(
+                    Icons.account_balance_wallet,
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
                 SizedBox(width: 16),
                 Expanded(
@@ -355,7 +386,9 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    (_mandate!.mmsStatus ?? '').toLowerCase() == "success" ? "Pending" : (_mandate!.mmsStatus!.toUpperCase() ?? 'Unknown'),
+                    (_mandate!.mmsStatus ?? '').toLowerCase() == "success"
+                        ? "Pending"
+                        : (_mandate!.mmsStatus!.toUpperCase() ?? 'Unknown'),
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontSize: 12,
@@ -374,7 +407,11 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
   Widget _buildStatusCard() {
     final statusColor = _getStatusColor(_mandate!.mmsStatus);
     final statusIcon = _getStatusIcon(_mandate!.mmsStatus);
-    final statusMessage = _getStatusMessage(_mandate!.mmsStatus!.toLowerCase() == "success"?"pending":_mandate!.mmsStatus);
+    final statusMessage = _getStatusMessage(
+      _mandate!.mmsStatus!.toLowerCase() == "success"
+          ? "pending"
+          : _mandate!.mmsStatus,
+    );
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.1),
@@ -419,7 +456,9 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                   Row(
                     children: [
                       Text(
-                        _mandate!.status.toLowerCase() == "success"?"Pending":_mandate!.status.toUpperCase(),
+                        _mandate!.status.toLowerCase() == "success"
+                            ? "Pending"
+                            : _mandate!.status.toUpperCase(),
                         style: GoogleFonts.poppins(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -494,14 +533,32 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
             ),
             SizedBox(height: 16),
             _buildDetailRow('Frequency', _mandate!.paymentFrequency),
-            _buildDetailRow('Start Date', DateFormat('MMM d, yyyy').format(_mandate!.startDate)),
-            _buildDetailRow('End Date', _mandate!.endDate != null 
-                ? DateFormat('MMM d, yyyy').format(_mandate!.endDate!) 
-                : 'N/A'),
-            _buildDetailRow('Total Installments', '${_mandate!.noOfInstallments}'),
-            _buildDetailRow('Amount per Payment', 'OMR ${_mandate!.rentAmount.toStringAsFixed(2)}'),
-            _buildDetailRow('Total Amount', 'OMR ${(_mandate!.rentAmount * _mandate!.noOfInstallments).toStringAsFixed(2)}'),
-            _buildDetailRow('Created', DateFormat('MMM d, yyyy').format(_mandate!.createdAt)),
+            _buildDetailRow(
+              'Start Date',
+              DateFormat('MMM d, yyyy').format(_mandate!.startDate),
+            ),
+            _buildDetailRow(
+              'End Date',
+              _mandate!.endDate != null
+                  ? DateFormat('MMM d, yyyy').format(_mandate!.endDate!)
+                  : 'N/A',
+            ),
+            _buildDetailRow(
+              'Total Installments',
+              '${_mandate!.noOfInstallments}',
+            ),
+            _buildDetailRow(
+              'Amount per Payment',
+              'OMR ${_mandate!.rentAmount.toStringAsFixed(2)}',
+            ),
+            _buildDetailRow(
+              'Total Amount',
+              'OMR ${(_mandate!.rentAmount * _mandate!.noOfInstallments).toStringAsFixed(2)}',
+            ),
+            _buildDetailRow(
+              'Created',
+              DateFormat('MMM d, yyyy').format(_mandate!.createdAt),
+            ),
           ],
         ),
       ),
@@ -509,140 +566,145 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
   }
 
   Widget _buildPaymentInfoCard() {
-    return Card(
-      elevation: 2,
-      shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.payment, color: Colors.green, size: 20),
-                ),
-                SizedBox(width: 12),
-                Text(
-                  'Payment Schedule',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 16),
-            Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green.withOpacity(0.1), Colors.blue.withOpacity(0.1)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
+    return GestureDetector(
+      onTap: () {
+        _showInstallmentsDialog(
+          _mandate!.noOfInstallments,
+          _mandate!.rentAmount,
+          _mandate!.paymentFrequency,
+          _mandate!.startDate,
+        );
+      },
+      child: Card(
+        elevation: 2,
+        shadowColor: Colors.black.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          '${_mandate!.noOfInstallments}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                          ),
-                        ),
-                        Text(
-                          'Payments',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   Container(
-                    width: 1,
-                    height: 40,
-                    color: Colors.grey[300],
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              'OMR ',
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
-                            ),
-                            Text(
-                              '${_mandate!.rentAmount}',
-                              style: GoogleFonts.poppins(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          'Each',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: Icon(Icons.payment, color: Colors.green, size: 20),
                   ),
-                  Container(
-                    width: 1,
-                    height: 40,
-                    color: Colors.grey[300],
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                        _mandate!.paymentFrequency,
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.purple,
-                          ),
-                        ),
-                        Text(
-                          'Frequency',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+                  SizedBox(width: 12),
+                  Text(
+                    'Payment Schedule',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+              SizedBox(height: 16),
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.green.withOpacity(0.1),
+                      Colors.blue.withOpacity(0.1),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${_mandate!.noOfInstallments}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                          Text(
+                            'Payments',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(width: 1, height: 40, color: Colors.grey[300]),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'OMR ',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              Text(
+                                '${_mandate!.rentAmount}',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'Each',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(width: 1, height: 40, color: Colors.grey[300]),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            _mandate!.paymentFrequency,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.purple,
+                            ),
+                          ),
+                          Text(
+                            'Frequency',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -666,7 +728,11 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                     color: Colors.indigo.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.account_balance, color: Colors.indigo, size: 20),
+                  child: Icon(
+                    Icons.account_balance,
+                    color: Colors.indigo,
+                    size: 20,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text(
@@ -679,7 +745,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
               ],
             ),
             SizedBox(height: 16),
-            
+
             // Payer (Tenant) Account
             _buildAccountSection(
               title: 'Payer Account (Tenant)',
@@ -689,9 +755,9 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
               branchCode: _mandate!.tenantBranchCode,
               color: Colors.red,
             ),
-            
+
             SizedBox(height: 16),
-            
+
             // Arrow indicating direction
             Center(
               child: Container(
@@ -703,7 +769,11 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.arrow_downward, color: Colors.grey[600], size: 16),
+                    Icon(
+                      Icons.arrow_downward,
+                      color: Colors.grey[600],
+                      size: 16,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Transfers to',
@@ -716,9 +786,9 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
                 ),
               ),
             ),
-            
+
             SizedBox(height: 16),
-            
+
             // Receiver (Landlord) Account
             _buildAccountSection(
               title: 'Receiver Account (Landlord)',
@@ -764,13 +834,23 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
           _buildDetailRow('Account Holder', accountHolder, isCompact: true),
           _buildDetailRow('Account Number', accountNumber, isCompact: true),
           _buildDetailRow('Bank BIC', bankBic, isCompact: true),
-          _buildDetailRow('Branch Code', branchCode, isCompact: true, showDivider: false),
+          _buildDetailRow(
+            'Branch Code',
+            branchCode,
+            isCompact: true,
+            showDivider: false,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {bool isCompact = false, bool showDivider = true}) {
+  Widget _buildDetailRow(
+    String label,
+    String value, {
+    bool isCompact = false,
+    bool showDivider = true,
+  }) {
     return Column(
       children: [
         Row(

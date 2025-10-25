@@ -17,6 +17,8 @@ import 'package:payrent_business/models/tenant_model.dart';
 import 'package:payrent_business/models/mandate_model.dart';
 import 'package:payrent_business/models/account_information_model.dart';
 import 'package:payrent_business/screens/landlord/mandate/create_mandate_page.dart';
+import 'package:payrent_business/screens/landlord/mandate/installment_dialog.dart';
+import 'package:payrent_business/screens/landlord/mandate/mandate_status_page.dart';
 import 'package:payrent_business/screens/landlord/mandate/new_create_mandate_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/edit_property_page.dart';
 import 'package:payrent_business/screens/landlord/property_management/unit_action_bottom_sheet.dart';
@@ -38,14 +40,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
   bool _isLoading = true;
   PropertyModel? _property;
   List<DocumentSnapshot> _propertyDocuments = [];
-  List<DocumentSnapshot>  _tenants = [];
+  List<DocumentSnapshot> _tenants = [];
   List<DocumentSnapshot> _mandates = [];
   AccountInformation? _landlordAccountInfo;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
   String? _errorMessage;
   String _paymentFrequency = 'Monthly';
-
+  String userId = FirebaseAuth.instance.currentUser!.uid;
   @override
   void initState() {
     super.initState();
@@ -57,6 +59,28 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _showInstallmentsDialog(
+    int numberOfInstallments,
+    int paymentAmount,
+    String selectedFrequency,
+    DateTime startDate,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: InstallmentsDialog(
+          installments: numberOfInstallments,
+          amount: paymentAmount,
+          frequency: selectedFrequency,
+          startDate: startDate,
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchPropertyData() async {
@@ -123,7 +147,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
           }
         }),
       );
-      final tenantSnapshot = matchedTenants; 
+      final tenantSnapshot = matchedTenants;
       // Fetch mandates for this property
       final mandateSnapshot = await FirebaseFirestore.instance
           .collection('users')
@@ -557,11 +581,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                   final tenantDoc = unit.tenantId != null
                       ? _tenants.where((t) => t.id == unit.tenantId).firstOrNull
                       : null;
-                  return _buildUnitTenantCard(
-                    unit,
-                    tenantDoc,
-                    tenantDoc?.id,
-                  );
+                  return _buildUnitTenantCard(unit, tenantDoc, tenantDoc?.id);
                 },
               )
             : Center(
@@ -678,7 +698,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                   ),
                   _buildUnitDetailItem(
                     'Rent Amount',
-                  'OMR ${unit.rent}/mo',
+                    'OMR ${unit.rent}/mo',
                     isHighlighted: true,
                   ),
                 ],
@@ -751,9 +771,184 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                     ),
                   ],
                 ),
-                _buildMandateButton(unit, tenantDoc),
+                SizedBox(height: 10),
+                // _buildMandateButton(unit, tenantDoc),
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(userId)
+                      .collection('mandates')
+                      .where('propertyId', isEqualTo: widget.propertyId)
+                      .where('unitId', isEqualTo: unit.unitId)
+                      .snapshots(),
+                  builder: (context, mandateSnapshot) {
+                    if (mandateSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const CircularProgressIndicator(strokeWidth: 2);
+                    }
+
+                    final mandates = mandateSnapshot.data?.docs ?? [];
+                    // No mandate → show Create Mandate button
+                    if (mandates.isEmpty) {
+                      final tenantId = unit.tenantId;
+                      if (tenantId == null) {
+                        return const Text(
+                          'No tenant assigned for this unit.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        );
+                      }
+                      return FutureBuilder<DocumentSnapshot>(
+                        future: FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(userId)
+                            .collection('tenants')
+                            .doc(tenantId)
+                            .get(),
+                        builder: (context, tenantSnapshot) {
+                          if (tenantSnapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const SizedBox();
+                          }
+                          if (!tenantSnapshot.hasData ||
+                              !tenantSnapshot.data!.exists) {
+                            return const Text(
+                              'Tenant information not found. Please assign tenant to create mandate.',
+                              style: TextStyle(fontSize: 12, color: Colors.red),
+                            );
+                          }
+                          AccountInformation? landlordAccountInfo;
+                          if (tenantSnapshot.hasData &&
+                              tenantSnapshot.data!.exists) {
+                            final userData =
+                                tenantSnapshot.data!.data()
+                                    as Map<String, dynamic>;
+                            if (userData['cr_account_holder_name'] != null) {
+                              landlordAccountInfo = AccountInformation.fromMap(
+                                userData,
+                              );
+                            }
+                          }
+                          // ✅ Pass landlordAccountInfo, mandates, and propertyId
+                          return _buildMandateButton(
+                            unit,
+                            tenantSnapshot.data!,
+                          );
+                        },
+                      );
+                    }
+
+                    // Mandate exists → show based on status
+                    final mandateData =
+                        mandates.first.data() as Map<String, dynamic>;
+                    final status = mandateData['mmsStatus']
+                        .toString()
+                        .toLowerCase();
+                    final noOfPayments = mandateData['noOfInstallments'];
+                    final frequency = mandateData['paymentFrequency'];
+                    final rent = mandateData['rentAmount'];
+                    final startDate = (mandateData['startDate'] as Timestamp)
+                        .toDate();
+
+                    if (status == 'success' || status == 'pending') {
+                      return Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.orange.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              'This mandate request is pending.\nAwaiting confirmation of mandate request.',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.orange[800],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          ElevatedButton(
+                            onPressed: () => Get.to(
+                              () => MandateStatusPage(
+                                mandateId: mandates.first.id,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                            ),
+                            child: const Text(
+                              'Check Mandate Status',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          ElevatedButton(
+                            onPressed: () {
+                              _showInstallmentsDialog(
+                                noOfPayments,
+                                rent,
+                                frequency,
+                                startDate,
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                            ),
+                            child: const Text(
+                              'Check Payment Schedule',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      );
+                    } else if (status == 'accepted') {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.green.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.check_circle,
+                              size: 16,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Mandate creation successful',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.green[800],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return const SizedBox();
+                  },
+                ),
                 SizedBox(height: 12),
-                _buildLeaseInfo(tenantData),
+                _buildLeaseInfo(widget.propertyId,tenantId!,unit.unitId),
               ] else ...[
                 SizedBox(height: 16),
                 Center(
@@ -806,125 +1001,111 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
     );
   }
 
-  Widget _buildLeaseInfo(Map<String, dynamic>? tenantData) {
-    if (tenantData == null) return SizedBox.shrink();
+  Widget _buildLeaseInfo(String propertyId, String tenantId, String unitId) {
+  final mandatesRef = FirebaseFirestore.instance.collection('users').doc(FirebaseAuth.instance.currentUser!.uid).collection('mandates');
 
-    final leaseStartTimestamp = tenantData['leaseStartDate'] as Timestamp?;
-    final leaseEndTimestamp = tenantData['leaseEndDate'] as Timestamp?;
-    print(tenantData);
-print(leaseStartTimestamp);
-print(leaseEndTimestamp);
-    final leaseStart = leaseStartTimestamp?.toDate();
-    final leaseEnd = leaseEndTimestamp?.toDate();
-
-    final dateFormat = DateFormat('MMM d, yyyy');
-    final startDateStr = leaseStart != null
-        ? dateFormat.format(leaseStart)
-        : 'Not set';
-    final endDateStr = leaseEnd != null
-        ? dateFormat.format(leaseEnd)
-        : 'Not set';
-
-    // Calculate days remaining in lease
-    String daysRemaining = 'N/A';
-    if (leaseEnd != null) {
-      final today = DateTime.now();
-      final difference = leaseEnd.difference(today).inDays;
-
-      if (difference < 0) {
-        daysRemaining = 'Expired';
-      } else {
-        daysRemaining = '$difference days';
+  return FutureBuilder<QuerySnapshot>(
+    future: mandatesRef
+        .where('propertyId', isEqualTo: propertyId)
+        .where('tenantId', isEqualTo: tenantId)
+        .where('unitId', isEqualTo: unitId)
+        .get(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
       }
-    }
+      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return const Text('No lease info found.');
+      }
 
-    return Container(
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Lease Information',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+      final mandateData = snapshot.data!.docs.first.data() as Map<String, dynamic>;
+
+      // Convert timestamps to DateTime
+      final leaseStart = (mandateData['startDate'] as Timestamp?)?.toDate();
+      final leaseEnd = (mandateData['endDate'] as Timestamp?)?.toDate();
+
+      final dateFormat = DateFormat('MMM d, yyyy');
+      final startDateStr = leaseStart != null ? dateFormat.format(leaseStart) : 'Not set';
+      final endDateStr = leaseEnd != null ? dateFormat.format(leaseEnd) : 'Not set';
+
+      // Calculate remaining days
+      String daysRemaining = 'N/A';
+      if (leaseEnd != null) {
+        final today = DateTime.now();
+        final difference = leaseEnd.difference(today).inDays;
+        if (difference < 0) {
+          daysRemaining = 'Expired';
+        } else {
+          daysRemaining = '$difference days';
+        }
+      }
+
+      // Build UI
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Lease Information',
+              style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
             ),
-          ),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Start Date',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    Text(
-                      startDateStr,
-                      style: GoogleFonts.poppins(fontSize: 13),
-                    ),
-                  ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Start Date', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600])),
+                      Text(startDateStr, style: GoogleFonts.poppins(fontSize: 13)),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'End Date',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    Text(endDateStr, style: GoogleFonts.poppins(fontSize: 13)),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('End Date', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600])),
+                      Text(endDateStr, style: GoogleFonts.poppins(fontSize: 13)),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Remaining',
-                      style: GoogleFonts.poppins(
-                        fontSize: 11,
-                        color: Colors.grey[600],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Remaining', style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey[600])),
+                      Text(
+                        daysRemaining,
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: daysRemaining == 'Expired'
+                              ? Colors.red
+                              : daysRemaining != 'N/A' &&
+                                      int.tryParse(daysRemaining.split(' ')[0]) != null &&
+                                      int.parse(daysRemaining.split(' ')[0]) < 30
+                                  ? Colors.orange
+                                  : null,
+                        ),
                       ),
-                    ),
-                    Text(
-                      daysRemaining,
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: daysRemaining == 'Expired'
-                            ? Colors.red
-                            : daysRemaining != 'N/A' &&
-                                  int.tryParse(daysRemaining.split(' ')[0]) !=
-                                      null &&
-                                  int.parse(daysRemaining.split(' ')[0]) < 30
-                            ? Colors.orange
-                            : null,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+              ],
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 
   Widget _buildMaintenanceTab() {
     return Center(
@@ -1367,12 +1548,15 @@ print(leaseEndTimestamp);
     final mandateExists = _mandates.any((mandate) {
       final mandateData = mandate.data() as Map<String, dynamic>;
       return mandateData['tenantId'] == tenantId &&
-          mandateData['unitId'] == unit.unitId && (mandateData['status'].toString().toLowerCase() == 'pending' || mandateData['status'].toString().toLowerCase() == 'success');
+          mandateData['unitId'] == unit.unitId &&
+          (mandateData['status'].toString().toLowerCase() == 'pending' ||
+              mandateData['status'].toString().toLowerCase() == 'success');
     });
     final mandateExist = _mandates.any((mandate) {
       final mandateData = mandate.data() as Map<String, dynamic>;
       return mandateData['tenantId'] == tenantId &&
-          mandateData['unitId'] == unit.unitId && mandateData['status'] == 'accepted';
+          mandateData['unitId'] == unit.unitId &&
+          mandateData['status'] == 'accepted';
     });
 
     // Check if both landlord and tenant have account information
@@ -1386,52 +1570,41 @@ print(leaseEndTimestamp);
     final canCreateMandate = landlordHasAccountInfo && tenantHasAccountInfo;
 
     if (mandateExists) {
-      return  Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: Colors.orange.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'This mandate request is pending.\nAwaiting confirmation of mandate request.',
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Colors.orange[800],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                );
-    }
-    else if(mandateExists){
-        return  Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: Colors.green.withOpacity(0.3),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'This mandate request has been accepted.',
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Colors.green[800],
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                );
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        ),
+        child: Text(
+          'This mandate request is pending.\nAwaiting confirmation of mandate request.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: Colors.orange[800],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    } else if (mandateExists) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Text(
+          'This mandate request has been accepted.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.poppins(
+            fontSize: 12,
+            color: Colors.green[800],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
     }
 
     return ElevatedButton.icon(
