@@ -359,8 +359,8 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: FutureBuilder<double>(
-                          future: _paymentController.getTotalPayments(
+                        child: StreamBuilder<double>(
+                          stream: _paymentController.streamTotalPayments(
                             filter: 'total_earnings_this_month',
                           ),
                           builder: (context, snapshot) {
@@ -394,8 +394,8 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                   child: Row(
                     children: [
                       Expanded(
-                        child: FutureBuilder<double>(
-                          future: _paymentController.getTotalPayments(
+                        child: StreamBuilder<double>(
+                          stream: _paymentController.streamTotalPayments(
                             filter: 'due_rent_today',
                           ),
                           builder: (context, snapshot) {
@@ -416,15 +416,17 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: FutureBuilder<double>(
-                          future: _paymentController.getTotalPayments(
+                        child: StreamBuilder<double>(
+                          stream: _paymentController.streamTotalPayments(
                             filter: 'due_rent_tomorrow',
                           ),
                           builder: (context, snapshot) {
                             final total = snapshot.data ?? 0;
                             return GestureDetector(
                               onTap: () {
-                                Get.to(PaymentListPage(type: 'due rent tomorrow'));
+                                Get.to(
+                                  PaymentListPage(type: 'due rent tomorrow'),
+                                );
                               },
                               child: StatCard(
                                 title: 'Due Rent Tomorrow',
@@ -446,8 +448,8 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                   child: Row(
                     children: [
                       Expanded(
-                        child: FutureBuilder<double>(
-                          future: _paymentController.getTotalPayments(
+                        child: StreamBuilder<double>(
+                          stream: _paymentController.streamTotalPayments(
                             filter: 'collected_today',
                           ),
                           builder: (context, snapshot) {
@@ -470,9 +472,9 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
                       ),
                       const SizedBox(width: 12),
 
-                                           Expanded(
-                        child: FutureBuilder<double>(
-                          future: _paymentController.getTotalPayments(
+                      Expanded(
+                        child: StreamBuilder<double>(
+                          stream: _paymentController.streamTotalPayments(
                             filter: 'overdue',
                           ),
                           builder: (context, snapshot) {

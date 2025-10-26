@@ -1507,42 +1507,52 @@ class _TenantDetailPageState extends State<TenantDetailPage>
     Color statusColor;
     IconData statusIcon;
     String statusText;
+    final dueDate = (payment['due_date'] as Timestamp?)?.toDate() ?? now;
+  final scheduleNumber = payment['schedule_number'] ?? 0;
 
-   final dueDate = (payment['due_date'] as Timestamp?)?.toDate() ?? now;
-    final scheduleNumber = payment['schedule_number'] ?? 0;
+  // Calculate end of the due date (23:59:59 of that day)
+  final endOfDueDate = DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59, 59);
 
-    // Determine status
-    switch (payment['status']) {
-      case 'paid':
-        statusColor = Colors.green;
-        statusIcon = Icons.check_circle;
-        statusText = 'Paid';
-        break;
+  // Determine status
+  switch (payment['status']) {
+    case 'paid':
+      statusColor = Colors.green;
+      statusIcon = Icons.check_circle;
+      statusText = 'Paid';
+      break;
 
-      case 'pending':
-        if (dueDate.isBefore(now)) {
-          statusColor = Colors.red;
-          statusIcon = Icons.warning;
-          statusText = 'Overdue';
-        } else {
-          statusColor = Colors.blue;
-          statusIcon = Icons.schedule_outlined;
-          statusText = 'Upcoming';
-        }
-        break;
-
-      case 'due':
-        statusColor = Colors.orange;
-        statusIcon = Icons.schedule;
-        statusText = 'Due';
-        break;
-
-      case 'upcoming':
-      default:
+    case 'pending':
+      if (now.isAfter(endOfDueDate)) {
+        // Overdue only after the due date fully passes
+        statusColor = Colors.red;
+        statusIcon = Icons.warning;
+        statusText = 'Overdue';
+      } else if (now.isBefore(dueDate)) {
+        // Future payments (before due date day starts)
         statusColor = Colors.blue;
         statusIcon = Icons.schedule_outlined;
         statusText = 'Upcoming';
-    }
+      } else {
+        // Today (on the same date)
+        statusColor = Colors.orange;
+        statusIcon = Icons.schedule;
+        statusText = 'Due Today';
+      }
+      break;
+
+    case 'due':
+      statusColor = Colors.orange;
+      statusIcon = Icons.schedule;
+      statusText = 'Due';
+      break;
+
+    case 'upcoming':
+    default:
+      statusColor = Colors.blue;
+      statusIcon = Icons.schedule_outlined;
+      statusText = 'Upcoming';
+  }
+
 
     final propertyName = payment['propertyName'] ?? 'Unknown Property';
     final unitNumber = payment['unitNumber'] ?? '';

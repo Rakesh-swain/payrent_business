@@ -1004,7 +1004,7 @@ class _TenantListPageState extends State<TenantListPage> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                data['phone'].toString(),
+                                "+968 ${data['phone'].toString()}",
                                 style: GoogleFonts.poppins(
                                   fontSize: 14,
                                   color: AppTheme.textSecondary,

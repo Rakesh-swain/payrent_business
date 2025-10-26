@@ -159,7 +159,6 @@ class _AddTenantPageState extends State<AddTenantPage> {
                           labelText: 'Last Name',
                           prefixIcon: Icon(Icons.person_outline),
                         ),
-                        
                       ),
                     ),
                   ],
@@ -185,18 +184,28 @@ class _AddTenantPageState extends State<AddTenantPage> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  inputFormatters: [LengthLimitingTextInputFormatter(10)],
-                  decoration: const InputDecoration(
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    LengthLimitingTextInputFormatter(8), // limit to 8 digits
+                    FilteringTextInputFormatter
+                        .digitsOnly, // allow only numbers
+                  ],
+                  decoration: InputDecoration(
                     labelText: 'Phone Number *',
-                    prefixIcon: Icon(Icons.phone_outlined),
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                    prefixText: '+968 ',
+                    prefixStyle: GoogleFonts.poppins(
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    hintText: 'Enter 8-digit number',
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Phone number is required';
                     }
-                    if (value.trim().length < 7) {
-                      return 'Please enter a valid phone number';
+                    if (value.trim().length != 8) {
+                      return 'Phone number must be 8 digits';
                     }
                     return null;
                   },
@@ -325,8 +334,17 @@ class _AddTenantPageState extends State<AddTenantPage> {
                   onChanged: (BranchInfo? newBranch) {
                     setState(() {
                       _selectedBranch = newBranch;
-                      _selectedBankBic = _allBranches.firstWhere((b) => b.branchName == newBranch?.branchName).bankBic;;
-                      _selectedBranchCode = _allBranches.firstWhere((b) => b.branchName == newBranch?.branchName).branchCode;
+                      _selectedBankBic = _allBranches
+                          .firstWhere(
+                            (b) => b.branchName == newBranch?.branchName,
+                          )
+                          .bankBic;
+                      ;
+                      _selectedBranchCode = _allBranches
+                          .firstWhere(
+                            (b) => b.branchName == newBranch?.branchName,
+                          )
+                          .branchCode;
                     });
                   },
                 ),
@@ -341,7 +359,7 @@ class _AddTenantPageState extends State<AddTenantPage> {
                     decoration: InputDecoration(
                       labelText: 'Bank BIC',
                       prefixIcon: const Icon(Icons.account_balance_outlined),
-                      
+
                       filled: true,
                       fillColor: Colors.grey.shade100,
                     ),
@@ -351,54 +369,54 @@ class _AddTenantPageState extends State<AddTenantPage> {
 
                 // Selected Branch Information Display
                 if (_selectedBranch != null) ...[
-      const SizedBox(height: 16),
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppTheme.primaryColor.withOpacity(0.2),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Branch Details',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Branch Name: ${_selectedBranch!.branchName}',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              'Branch Code: ${_selectedBranch!.branchCode}',
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              _selectedBranch!.branchDescription,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ],
-  ],),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.primaryColor.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Branch Details',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Branch Name: ${_selectedBranch!.branchName}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          'Branch Code: ${_selectedBranch!.branchCode}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          _selectedBranch!.branchDescription,
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ]),
 
               const SizedBox(height: 24),
 

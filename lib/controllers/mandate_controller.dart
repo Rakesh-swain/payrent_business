@@ -114,135 +114,261 @@ String generateCustomId({int randomLength = 16}) {
   return fixedPart + randomPart;
 }
   /// Create a new mandate (call API and save to Firestore)
+  // Future<MandateModel?> createMandate({
+  //   required String landlordId,
+  //   required String tenantId,
+  //   required String propertyId,
+  //   required String unitId,
+  //   required String landlordAccountHolderName,
+  //   required String landlordAccountNumber,
+  //   required String landlordIdType,
+  //   required String landlordIdNumber,
+  //   required String landlordBankBic,
+  //   required String landlordBranchCode,
+  //   required String tenantAccountHolderName,
+  //   required String tenantAccountNumber,
+  //   required String tenantIdType,
+  //   required String tenantIdNumber,
+  //   required String tenantBankBic,
+  //   required String tenantBranchCode,
+  //   required int rentAmount,
+  //   required DateTime startDate,
+  //   required int noOfInstallments,
+  //   required String paymentFrequency,
+  //   required BuildContext context
+  // }) async {
+  //   try {
+  //     _isLoading.value = true;
+  //     _errorMessage.value = '';
+
+  //     final currentUser = FirebaseAuth.instance.currentUser;
+  //     if (currentUser == null) {
+  //       throw Exception('User not authenticated');
+  //     }
+
+  //     // Generate reference number and calculate end date
+  //     final referenceNumber = generateReferenceNumber();
+  //     final endDate = calculateEndDate(
+  //       startDate,
+  //       noOfInstallments,
+  //       paymentFrequency,
+  //     );
+
+  //     // Create mandate model
+  //     final mandate = MandateModel(
+  //       landlordId: landlordId,
+  //       tenantId: tenantId,
+  //       propertyId: propertyId,
+  //       unitId: unitId,
+  //       referenceNumber: referenceNumber,
+  //       landlordAccountHolderName: landlordAccountHolderName,
+  //       landlordAccountNumber: '020020011206', //landlordAccountNumber,
+  //       landlordIdType: landlordIdType,
+  //       landlordIdNumber: landlordIdNumber,
+  //       landlordBankBic: landlordBankBic,
+  //       landlordBranchCode: landlordBranchCode,
+  //       tenantAccountHolderName: tenantAccountHolderName,
+  //       tenantAccountNumber: '001020032647', //tenantAccountNumber,
+  //       tenantIdType: tenantIdType,
+  //       tenantIdNumber: tenantIdNumber,
+  //       tenantBankBic: tenantBankBic,
+  //       tenantBranchCode: tenantBranchCode,
+  //       rentAmount: rentAmount,
+  //       paymentFrequency: paymentFrequency,
+  //       startDate: startDate,
+  //       endDate: endDate,
+  //       noOfInstallments: noOfInstallments,
+  //       status: 'pending',
+  //       createdAt: DateTime.now(),
+  //       updatedAt: DateTime.now(),
+  //     );
+
+  //     // Call API to create mandate
+  //     // final apiResponse = await _callMandateDetailsApi(mandate);
+
+  //     // if (apiResponse != null && apiResponse['status'] != 'FAILURE') {
+  //       // Update mandate with API response data
+  //       // final updatedMandate = mandate.copyWith(
+  //       //   mmsId: apiResponse["MMSId"].toString().isEmpty?'BSOHOPBMNDPC9cedb20854b94d':apiResponse["MMSId"],
+  //       //   mmsStatus: 'pending',
+  //       //   status: 'pending',
+  //       // );
+  //       String mmsId = generateCustomId();
+  // final updatedMandate = mandate.copyWith(
+  //         mmsId: mmsId,
+  //         mmsStatus: 'pending',
+  //         status: 'pending',
+  //       );
+
+  //       // Save to Firestore
+  //       final docRef = await _firestoreService.createSubcollectionDocument(
+  //         parentCollection: 'users',
+  //         parentDocumentId: currentUser.uid,
+  //         subcollection: 'mandates',
+  //         data: updatedMandate.toFirestore(),
+  //       );
+
+  //       // // Add to local list
+  //       // final finalMandate = updatedMandate.copyWith();
+  //       // _mandates.insert(0, finalMandate);
+  //       await fetchMandates();
+
+  //      if (mandate != null) {
+  //       Get.back();
+  //      CustomDialogs.showSuccessDialog(context);
+  //     }
+
+  //       return updatedMandate;
+  //     // } else {
+  //     //   CustomDialogs.showErrorDialog(
+  //     //     context,
+  //     //     '${apiResponse != null ? apiResponse['errorMessage'] : 'Unknown error'}',
+  //     //   );
+  //     // }
+  //   } catch (e) {
+  //     _errorMessage.value = 'Error creating mandate: $e';
+  //     Get.snackbar(
+  //       'Error',
+  //       'Failed to create mandate: $e',
+  //       snackPosition: SnackPosition.BOTTOM,
+  //       backgroundColor: Colors.red.withOpacity(0.9),
+  //       colorText: Colors.white,
+  //       margin: const EdgeInsets.all(12),
+  //       borderRadius: 8,
+  //     );
+
+  //     print('Error creating mandate: $e');
+  //     return null;
+  //   } finally {
+  //     _isLoading.value = false;
+  //   }
+  // }
   Future<MandateModel?> createMandate({
-    required String landlordId,
-    required String tenantId,
-    required String propertyId,
-    required String unitId,
-    required String landlordAccountHolderName,
-    required String landlordAccountNumber,
-    required String landlordIdType,
-    required String landlordIdNumber,
-    required String landlordBankBic,
-    required String landlordBranchCode,
-    required String tenantAccountHolderName,
-    required String tenantAccountNumber,
-    required String tenantIdType,
-    required String tenantIdNumber,
-    required String tenantBankBic,
-    required String tenantBranchCode,
-    required int rentAmount,
-    required DateTime startDate,
-    required int noOfInstallments,
-    required String paymentFrequency,
-    required BuildContext context
-  }) async {
-    try {
-      _isLoading.value = true;
-      _errorMessage.value = '';
+  required String landlordId,
+  required String tenantId,
+  required String propertyId,
+  required String unitId,
+  required String landlordAccountHolderName,
+  required String landlordAccountNumber,
+  required String landlordIdType,
+  required String landlordIdNumber,
+  required String landlordBankBic,
+  required String landlordBranchCode,
+  required String tenantAccountHolderName,
+  required String tenantAccountNumber,
+  required String tenantIdType,
+  required String tenantIdNumber,
+  required String tenantBankBic,
+  required String tenantBranchCode,
+  required int rentAmount,
+  required DateTime startDate,
+  required int noOfInstallments,
+  required String paymentFrequency,
+  required BuildContext context,
+}) async {
+  try {
+    _isLoading.value = true;
+    _errorMessage.value = '';
 
-      final currentUser = FirebaseAuth.instance.currentUser;
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
-      }
-
-      // Generate reference number and calculate end date
-      final referenceNumber = generateReferenceNumber();
-      final endDate = calculateEndDate(
-        startDate,
-        noOfInstallments,
-        paymentFrequency,
-      );
-
-      // Create mandate model
-      final mandate = MandateModel(
-        landlordId: landlordId,
-        tenantId: tenantId,
-        propertyId: propertyId,
-        unitId: unitId,
-        referenceNumber: referenceNumber,
-        landlordAccountHolderName: landlordAccountHolderName,
-        landlordAccountNumber: '020020011206', //landlordAccountNumber,
-        landlordIdType: landlordIdType,
-        landlordIdNumber: landlordIdNumber,
-        landlordBankBic: landlordBankBic,
-        landlordBranchCode: landlordBranchCode,
-        tenantAccountHolderName: tenantAccountHolderName,
-        tenantAccountNumber: '001020032647', //tenantAccountNumber,
-        tenantIdType: tenantIdType,
-        tenantIdNumber: tenantIdNumber,
-        tenantBankBic: tenantBankBic,
-        tenantBranchCode: tenantBranchCode,
-        rentAmount: rentAmount,
-        paymentFrequency: paymentFrequency,
-        startDate: startDate,
-        endDate: endDate,
-        noOfInstallments: noOfInstallments,
-        status: 'pending',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      // Call API to create mandate
-      // final apiResponse = await _callMandateDetailsApi(mandate);
-
-      // if (apiResponse != null && apiResponse['status'] != 'FAILURE') {
-        // Update mandate with API response data
-        // final updatedMandate = mandate.copyWith(
-        //   mmsId: apiResponse["MMSId"].toString().isEmpty?'BSOHOPBMNDPC9cedb20854b94d':apiResponse["MMSId"],
-        //   mmsStatus: 'pending',
-        //   status: 'pending',
-        // );
-        String mmsId = generateCustomId();
-  final updatedMandate = mandate.copyWith(
-          mmsId: mmsId,
-          mmsStatus: 'pending',
-          status: 'pending',
-        );
-
-        // Save to Firestore
-        final docRef = await _firestoreService.createSubcollectionDocument(
-          parentCollection: 'users',
-          parentDocumentId: currentUser.uid,
-          subcollection: 'mandates',
-          data: updatedMandate.toFirestore(),
-        );
-
-        // // Add to local list
-        // final finalMandate = updatedMandate.copyWith();
-        // _mandates.insert(0, finalMandate);
-        await fetchMandates();
-
-       if (mandate != null) {
-        Get.back();
-       CustomDialogs.showSuccessDialog(context);
-      }
-
-        return updatedMandate;
-      // } else {
-      //   CustomDialogs.showErrorDialog(
-      //     context,
-      //     '${apiResponse != null ? apiResponse['errorMessage'] : 'Unknown error'}',
-      //   );
-      // }
-    } catch (e) {
-      _errorMessage.value = 'Error creating mandate: $e';
-      Get.snackbar(
-        'Error',
-        'Failed to create mandate: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.withOpacity(0.9),
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(12),
-        borderRadius: 8,
-      );
-
-      print('Error creating mandate: $e');
-      return null;
-    } finally {
-      _isLoading.value = false;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      throw Exception('User not authenticated');
     }
+
+    // Generate reference number and calculate end date
+    final referenceNumber = generateReferenceNumber();
+    final endDate = calculateEndDate(
+      startDate,
+      noOfInstallments,
+      paymentFrequency,
+    );
+
+    // Create mandate model
+    final mandate = MandateModel(
+      landlordId: landlordId,
+      tenantId: tenantId,
+      propertyId: propertyId,
+      unitId: unitId,
+      referenceNumber: referenceNumber,
+      landlordAccountHolderName: landlordAccountHolderName,
+      landlordAccountNumber: '020020011206', // replace later
+      landlordIdType: landlordIdType,
+      landlordIdNumber: landlordIdNumber,
+      landlordBankBic: landlordBankBic,
+      landlordBranchCode: landlordBranchCode,
+      tenantAccountHolderName: tenantAccountHolderName,
+      tenantAccountNumber: '001020032647', // replace later
+      tenantIdType: tenantIdType,
+      tenantIdNumber: tenantIdNumber,
+      tenantBankBic: tenantBankBic,
+      tenantBranchCode: tenantBranchCode,
+      rentAmount: rentAmount,
+      paymentFrequency: paymentFrequency,
+      startDate: startDate,
+      endDate: endDate,
+      noOfInstallments: noOfInstallments,
+      status: 'pending',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // Generate a custom MMS ID (temporary)
+    String mmsId = generateCustomId();
+    final updatedMandate = mandate.copyWith(
+      mmsId: mmsId,
+      mmsStatus: 'pending',
+      status: 'pending',
+    );
+
+    // Save to Firestore
+    final docRef = await _firestoreService.createSubcollectionDocument(
+      parentCollection: 'users',
+      parentDocumentId: currentUser.uid,
+      subcollection: 'mandates',
+      data: updatedMandate.toFirestore(),
+    );
+
+    // Refresh mandates list
+    await fetchMandates();
+
+    // ✅ Always create payment schedule immediately after creating mandate
+    await createPaymentSchedule(
+      landlordId: currentUser.uid,
+      mandateId: docRef.id, // Firestore document ID
+      tenantId: tenantId,
+      propertyId: propertyId,
+      unitId: unitId,
+      refNumber: referenceNumber,
+      mmsId: mmsId,
+      frequency: paymentFrequency,
+      amount: rentAmount,
+      startDate: startDate,
+      numberOfPayments: noOfInstallments,
+    );
+
+    // Success dialog
+    Get.back();
+    CustomDialogs.showSuccessDialog(context);
+
+    return updatedMandate;
+  } catch (e) {
+    _errorMessage.value = 'Error creating mandate: $e';
+    Get.snackbar(
+      'Error',
+      'Failed to create mandate: $e',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.red.withOpacity(0.9),
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(12),
+      borderRadius: 8,
+    );
+    print('Error creating mandate: $e');
+    return null;
+  } finally {
+    _isLoading.value = false;
   }
+}
+
 
   /// Call the mandate details API
   Future<Map<String, dynamic>?> _callMandateDetailsApi(
