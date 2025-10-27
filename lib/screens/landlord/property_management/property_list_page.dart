@@ -89,6 +89,7 @@ class _PropertyListPageState extends State<PropertyListPage>
           amount: paymentAmount,
           frequency: selectedFrequency,
           startDate: startDate,
+          status: 'PENDING',
         ),
       ),
     );

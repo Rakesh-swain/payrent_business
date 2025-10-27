@@ -162,6 +162,7 @@ class _TenantDetailPageState extends State<TenantDetailPage>
           amount: paymentAmount,
           frequency: selectedFrequency,
           startDate: startDate,
+          status: 'PENDING',
         ),
       ),
     );

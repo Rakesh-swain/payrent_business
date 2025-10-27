@@ -90,6 +90,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
           amount: paymentAmount,
           frequency: selectedFrequency,
           startDate: startDate,
+          status: 'PENDING',
         ),
       ),
     );

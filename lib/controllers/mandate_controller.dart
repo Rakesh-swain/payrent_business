@@ -583,14 +583,14 @@ Future<void> createPaymentSchedule({
   /// Get active mandates
   List<MandateModel> getActiveMandates() {
     return _mandates
-        .where((mandate) => mandate.mmsStatus == 'ACCEPTED')
+        .where((mandate) => mandate.mmsStatus!.toLowerCase() == 'accepted')
         .toList();
   }
 
   /// Get pending mandates
   List<MandateModel> getPendingMandates() {
     return _mandates
-        .where((mandate) => mandate.mmsStatus == 'PENDING')
+        .where((mandate) => mandate.mmsStatus!.toLowerCase() == 'pending')
         .toList();
   }
 
