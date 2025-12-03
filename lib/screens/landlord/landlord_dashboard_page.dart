@@ -1292,7 +1292,7 @@ class _LandlordDashboardPageState extends State<LandlordDashboardPage>
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => MandateStatusPage(mandateId: mandate.id!),
+              builder: (context) => MandateStatusPage(mandateId: mandate.id!??''),
             ),
           );
         }

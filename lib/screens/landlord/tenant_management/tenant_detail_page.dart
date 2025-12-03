@@ -1181,35 +1181,72 @@ class _TenantDetailPageState extends State<TenantDetailPage>
                   ],
                 );
               } else if (status == 'accepted') {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.green.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.check_circle,
-                        size: 16,
-                        color: Colors.green,
+                return Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Mandate creation successful',
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          color: Colors.green[800],
-                          fontWeight: FontWeight.w500,
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.green.withOpacity(0.3),
                         ),
                       ),
-                    ],
-                  ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: Colors.green,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Mandate creation successful',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.green[800],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () => Get.to(
+                        () => MandateStatusPage(mandateId: mandates.first.id),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                      ),
+                      child: const Text(
+                        'Check Mandate Status',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        _showInstallmentsDialog(
+                          noOfPayments,
+                          rent,
+                          frequency,
+                          startDate,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                      ),
+                      child: const Text(
+                        'Check Payment Schedule',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
                 );
               }
 
@@ -1509,51 +1546,57 @@ class _TenantDetailPageState extends State<TenantDetailPage>
     IconData statusIcon;
     String statusText;
     final dueDate = (payment['due_date'] as Timestamp?)?.toDate() ?? now;
-  final scheduleNumber = payment['schedule_number'] ?? 0;
+    final scheduleNumber = payment['schedule_number'] ?? 0;
 
-  // Calculate end of the due date (23:59:59 of that day)
-  final endOfDueDate = DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59, 59);
+    // Calculate end of the due date (23:59:59 of that day)
+    final endOfDueDate = DateTime(
+      dueDate.year,
+      dueDate.month,
+      dueDate.day,
+      23,
+      59,
+      59,
+    );
 
-  // Determine status
-  switch (payment['status']) {
-    case 'paid':
-      statusColor = Colors.green;
-      statusIcon = Icons.check_circle;
-      statusText = 'Paid';
-      break;
+    // Determine status
+    switch (payment['status']) {
+      case 'paid':
+        statusColor = Colors.green;
+        statusIcon = Icons.check_circle;
+        statusText = 'Paid';
+        break;
 
-    case 'pending':
-      if (now.isAfter(endOfDueDate)) {
-        // Overdue only after the due date fully passes
-        statusColor = Colors.red;
-        statusIcon = Icons.warning;
-        statusText = 'Overdue';
-      } else if (now.isBefore(dueDate)) {
-        // Future payments (before due date day starts)
+      case 'pending':
+        if (now.isAfter(endOfDueDate)) {
+          // Overdue only after the due date fully passes
+          statusColor = Colors.red;
+          statusIcon = Icons.warning;
+          statusText = 'Overdue';
+        } else if (now.isBefore(dueDate)) {
+          // Future payments (before due date day starts)
+          statusColor = Colors.blue;
+          statusIcon = Icons.schedule_outlined;
+          statusText = 'Upcoming';
+        } else {
+          // Today (on the same date)
+          statusColor = Colors.orange;
+          statusIcon = Icons.schedule;
+          statusText = 'Due Today';
+        }
+        break;
+
+      case 'due':
+        statusColor = Colors.orange;
+        statusIcon = Icons.schedule;
+        statusText = 'Due';
+        break;
+
+      case 'upcoming':
+      default:
         statusColor = Colors.blue;
         statusIcon = Icons.schedule_outlined;
         statusText = 'Upcoming';
-      } else {
-        // Today (on the same date)
-        statusColor = Colors.orange;
-        statusIcon = Icons.schedule;
-        statusText = 'Due Today';
-      }
-      break;
-
-    case 'due':
-      statusColor = Colors.orange;
-      statusIcon = Icons.schedule;
-      statusText = 'Due';
-      break;
-
-    case 'upcoming':
-    default:
-      statusColor = Colors.blue;
-      statusIcon = Icons.schedule_outlined;
-      statusText = 'Upcoming';
-  }
-
+    }
 
     final propertyName = payment['propertyName'] ?? 'Unknown Property';
     final unitNumber = payment['unitNumber'] ?? '';

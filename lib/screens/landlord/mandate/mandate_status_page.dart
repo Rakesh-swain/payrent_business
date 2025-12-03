@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:intl/intl.dart';
+import 'package:payrent_business/screens/landlord/mandate/amend_dialog.dart';
 import 'package:payrent_business/screens/landlord/mandate/installment_dialog.dart';
 import '../../../config/theme.dart';
 import '../../../controllers/mandate_controller.dart';
@@ -19,7 +20,7 @@ class MandateStatusPage extends StatefulWidget {
 }
 
 class _MandateStatusPageState extends State<MandateStatusPage> {
-  final MandateController _mandateController = Get.find<MandateController>();
+  final MandateController _mandateController = Get.put(MandateController());
   MandateModel? _mandate;
   bool _isUpdatingStatus = false;
 
@@ -57,10 +58,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
 
       if (success) {
         _loadMandate();
-        // Optionally show success message
         Get.snackbar('Success', 'Mandate status updated successfully');
-      } else {
-        Get.snackbar('Error', 'Failed to update mandate status');
       }
     } catch (e) {
       Get.snackbar('Error', 'An error occurred: $e');
@@ -71,6 +69,41 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
         });
       }
     }
+  }
+
+  Future<void> _cancelMandate() async {
+    // Show confirmation dialog
+    Get.dialog(
+      AlertDialog(
+        title: Text(
+          'Cancel Mandate',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to cancel this mandate? This action cannot be undone.',
+          style: GoogleFonts.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('No', style: GoogleFonts.poppins(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () {
+              Get.back();
+              Get.snackbar('Success', 'Mandate cancelled successfully');
+              // Add your cancel logic here
+              if (_mandate == null) return;
+              _mandateController.callMandateTermination(_mandate!.mmsId!);
+            },
+            child: Text(
+              'Yes, Cancel',
+              style: GoogleFonts.poppins(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showInstallmentsDialog(
@@ -92,6 +125,28 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
           startDate: startDate,
           status: 'PENDING',
         ),
+      ),
+    );
+  }
+
+  void _amendMandate() async {
+    if (_mandate == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AmendMandateDialog(
+        landlordAccountHolderName: _mandate!.landlordAccountHolderName,
+        landlordAccountNumber: _mandate!.landlordAccountNumber,
+        landlordIdType: _mandate!.landlordIdType,
+        landlordIdNumber: _mandate!.landlordIdNumber,
+        landlordBankBic: _mandate!.landlordBankBic,
+        landlordBranchCode: _mandate!.landlordBranchCode,
+        onSubmit: (newAccountNumber) async {
+          // Handle the amend logic here
+          _mandateController.callMandateAmendment(_mandate!.mmsId!);
+          Get.snackbar('Success', 'Mandate amended successfully');
+        },
       ),
     );
   }
@@ -121,26 +176,26 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
         foregroundColor: Colors.black,
         elevation: 0,
         centerTitle: true,
-        actions: [
-          _mandate!.mmsStatus!.toLowerCase() == "accepted"
-              ? Container(height: 1)
-              : IconButton(
-                  onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
-                  icon: _isUpdatingStatus
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppTheme.primaryColor,
-                            ),
-                          ),
-                        )
-                      : Icon(Icons.refresh, color: AppTheme.primaryColor),
-                  tooltip: 'Update Status',
-                ),
-        ],
+        // actions: [
+        //   _mandate!.mmsStatus!.toLowerCase() == "accepted"
+        //       ? Container(height: 1)
+        //       : IconButton(
+        //           onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
+        //           icon: _isUpdatingStatus
+        //               ? SizedBox(
+        //                   width: 20,
+        //                   height: 20,
+        //                   child: CircularProgressIndicator(
+        //                     strokeWidth: 2,
+        //                     valueColor: AlwaysStoppedAnimation<Color>(
+        //                       AppTheme.primaryColor,
+        //                     ),
+        //                   ),
+        //                 )
+        //               : Icon(Icons.refresh, color: AppTheme.primaryColor),
+        //           tooltip: 'Update Status',
+        //         ),
+        // ],
       ),
       body: SingleChildScrollView(
         physics: BouncingScrollPhysics(),
@@ -148,150 +203,145 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Card
             FadeInUp(
               duration: Duration(milliseconds: 300),
               child: _buildHeaderCard(),
             ),
-
             SizedBox(height: 20),
-
-            // Status Card
             FadeInUp(
               duration: Duration(milliseconds: 400),
               child: _buildStatusCard(),
             ),
-
             SizedBox(height: 20),
-
-            // Mandate Details
             FadeInUp(
               duration: Duration(milliseconds: 500),
               child: _buildMandateDetailsCard(),
             ),
-
             SizedBox(height: 20),
-
-            // Payment Information
             FadeInUp(
               duration: Duration(milliseconds: 600),
               child: _buildPaymentInfoCard(),
             ),
-
             SizedBox(height: 20),
-
-            // Account Information
             FadeInUp(
               duration: Duration(milliseconds: 700),
               child: _buildAccountInfoCard(),
             ),
-
-            SizedBox(height: 20),
-
-            // Update Status Button
-            // FadeInUp(
-            //   duration: Duration(milliseconds: 800),
-            //   child: SizedBox(
-            //     width: double.infinity,
-            //     child: ElevatedButton(
-            //       onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
-            //       style: ElevatedButton.styleFrom(
-            //         backgroundColor: AppTheme.primaryColor,
-            //         foregroundColor: Colors.white,
-            //         padding: EdgeInsets.symmetric(vertical: 16),
-            //         shape: RoundedRectangleBorder(
-            //           borderRadius: BorderRadius.circular(12),
-            //         ),
-            //         elevation: 2,
-            //       ),
-            //       child: _isUpdatingStatus
-            //           ? Row(
-            //               mainAxisSize: MainAxisSize.min,
-            //               children: [
-            //                 SizedBox(
-            //                   width: 20,
-            //                   height: 20,
-            //                   child: CircularProgressIndicator(
-            //                     strokeWidth: 2,
-            //                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            //                   ),
-            //                 ),
-            //                 SizedBox(width: 12),
-            //                 Text(
-            //                   'Updating Status...',
-            //                   style: GoogleFonts.poppins(
-            //                     fontSize: 16,
-            //                     fontWeight: FontWeight.w600,
-            //                   ),
-            //                 ),
-            //               ],
-            //             )
-            //           : Text(
-            //               'Update Status',
-            //               style: GoogleFonts.poppins(
-            //                 fontSize: 16,
-            //                 fontWeight: FontWeight.w600,
-            //               ),
-            //             ),
-            //     ),
-            //   ),
-            // ),
+            SizedBox(height: 80), // Extra space for bottom navigation
           ],
         ),
       ),
-      bottomNavigationBar: _mandate!.mmsStatus!.toLowerCase() == "accepted"
-          ? Container(height: 1)
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: _isUpdatingStatus ? null : _updateMandateStatus,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 3,
-                    ),
-                    child: _isUpdatingStatus
-                        ? Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Update Status Button (Primary)
+              _mandate!.mmsStatus!.toLowerCase() != "pending"
+                  ? Container(height: 1)
+                  : SizedBox(
+                      height: 52,
+                      child: ElevatedButton(
+                        onPressed: _isUpdatingStatus
+                            ? null
+                            : _updateMandateStatus,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 3,
+                        ),
+                        child: _isUpdatingStatus
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'Updating Status...',
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Updating Status...',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                'Update Status',
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ],
-                          )
-                        : Text(
-                            'Update Status',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
-                ),
-              ),
-            ),
+                      ),
+                    ),
+              SizedBox(width: 20),
+              // Amend and Cancel Buttons (Secondary)
+              _mandate!.mmsStatus!.toLowerCase() == "accepted"
+                  ? OutlinedButton(
+                      onPressed: _amendMandate,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: BorderSide(
+                          color: AppTheme.primaryColor,
+                          width: 2,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          vertical: 20,
+                          horizontal: 20,
+                        ),
+                      ),
+                      child: Text(
+                        'Amend',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : Container(height: 1),
+              SizedBox(width: 12),
+              _mandate!.mmsStatus!.toLowerCase() == "accepted"
+                  ? OutlinedButton(
+                      onPressed: _cancelMandate,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: BorderSide(color: Colors.red, width: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          vertical: 20,
+                          horizontal: 20,
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : Container(height: 1),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -559,6 +609,7 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
             _buildDetailRow(
               'Created',
               DateFormat('MMM d, yyyy').format(_mandate!.createdAt),
+              showDivider: false,
             ),
           ],
         ),
@@ -747,7 +798,6 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
             ),
             SizedBox(height: 16),
 
-            // Payer (Tenant) Account
             _buildAccountSection(
               title: 'Payer Account (Tenant)',
               accountHolder: _mandate!.tenantAccountHolderName,
@@ -759,7 +809,6 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
 
             SizedBox(height: 16),
 
-            // Arrow indicating direction
             Center(
               child: Container(
                 padding: EdgeInsets.all(8),
@@ -790,7 +839,6 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
 
             SizedBox(height: 16),
 
-            // Receiver (Landlord) Account
             _buildAccountSection(
               title: 'Receiver Account (Landlord)',
               accountHolder: _mandate!.landlordAccountHolderName,

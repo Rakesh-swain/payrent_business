@@ -911,37 +911,74 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                         ],
                       );
                     } else if (status == 'accepted') {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.green.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.check_circle,
-                              size: 16,
-                              color: Colors.green,
+                      return Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Mandate creation successful',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.green[800],
-                                fontWeight: FontWeight.w500,
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.green.withOpacity(0.3),
                               ),
                             ),
-                          ],
-                        ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.check_circle,
+                                  size: 16,
+                                  color: Colors.green,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Mandate creation successful',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 12,
+                                    color: Colors.green[800],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                                ElevatedButton(
+                                  onPressed: () => Get.to(
+                                    () => MandateStatusPage(
+                                      mandateId: mandates.first.id,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                  ),
+                                  child: const Text(
+                                    'Check Mandate Status',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                                SizedBox(height: 10),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    _showInstallmentsDialog(
+                                      noOfPayments,
+                                      rent,
+                                      frequency,
+                                      startDate,
+                                    );
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                  ),
+                                  child: const Text(
+                                    'Check Payment Schedule',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                        ],
                       );
                     }
 

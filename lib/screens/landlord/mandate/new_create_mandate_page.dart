@@ -35,11 +35,11 @@ class NewCreateMandatePage extends StatefulWidget {
 class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
   final MandateController _mandateController = Get.find<MandateController>();
   final AuthController _authController = Get.find<AuthController>();
-  
+
   // Form controllers
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
-  
+
   // State variables
   String _selectedFrequency = 'Monthly';
   DateTime _startDate = DateTime.now();
@@ -47,9 +47,13 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
   int _numberOfInstallments = 0;
   int _paymentAmount = 0;
   bool _isLoading = false;
-  
+
   final List<String> _frequencies = [
-    'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'
+    'Daily',
+    'Monthly',
+    'Quarterly',
+    'Half-Yearly',
+    'Yearly',
   ];
 
   @override
@@ -67,55 +71,56 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     _amountController.dispose();
     super.dispose();
   }
+
   Future<void> _fetchLeaseDates() async {
-  try {
-    final tenantId = widget.tenantDoc.id;
-    final propertyId = widget.propertyId;
-    final unitId = widget.unit.unitId;
+    try {
+      final tenantId = widget.tenantDoc.id;
+      final propertyId = widget.propertyId;
+      final unitId = widget.unit.unitId;
 
-    final unitSnapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(FirebaseAuth.instance.currentUser!.uid)
-        .collection('tenants')
-        .doc(tenantId)
-        .collection('properties')
-        .where('propertyId', isEqualTo: propertyId,)
-        .where('unitId', isEqualTo: unitId)
-        .limit(1)
-        .get();
+      final unitSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .collection('tenants')
+          .doc(tenantId)
+          .collection('properties')
+          .where('propertyId', isEqualTo: propertyId)
+          .where('unitId', isEqualTo: unitId)
+          .limit(1)
+          .get();
 
-    if (unitSnapshot.docs.isNotEmpty) {
-      final unitData = unitSnapshot.docs.first.data();
+      if (unitSnapshot.docs.isNotEmpty) {
+        final unitData = unitSnapshot.docs.first.data();
 
-      final leaseStart = unitData['leaseStartDate'];
-      final leaseEnd = unitData['leaseEndate'];
+        final leaseStart = unitData['leaseStartDate'];
+        final leaseEnd = unitData['leaseEndate'];
 
-      setState(() {
-        _startDate = (leaseStart is Timestamp)
-            ? leaseStart.toDate()
-            : DateTime.tryParse(leaseStart.toString()) ?? DateTime.now();
+        setState(() {
+          _startDate = (leaseStart is Timestamp)
+              ? leaseStart.toDate()
+              : DateTime.tryParse(leaseStart.toString()) ?? DateTime.now();
 
-        _endDate = (leaseEnd is Timestamp)
-            ? leaseEnd.toDate()
-            : DateTime.tryParse(leaseEnd.toString()) ??
-                _startDate.add(const Duration(days: 365));
-        print(_startDate);
-        print(_endDate);
-      });
+          _endDate = (leaseEnd is Timestamp)
+              ? leaseEnd.toDate()
+              : DateTime.tryParse(leaseEnd.toString()) ??
+                    _startDate.add(const Duration(days: 365));
+          print(_startDate);
+          print(_endDate);
+        });
 
-      _calculateNumberOfInstallments();
-    } else {
-      debugPrint('No unit found with ID: $unitId');
+        _calculateNumberOfInstallments();
+      } else {
+        debugPrint('No unit found with ID: $unitId');
+      }
+    } catch (e) {
+      debugPrint('Error fetching lease dates: $e');
     }
-  } catch (e) {
-    debugPrint('Error fetching lease dates: $e');
   }
-}
-
 
   /// Calculate number of installments based on start date, end date and frequency
   void _calculateNumberOfInstallments() {
-    if (_endDate.isBefore(_startDate) || _endDate.isAtSameMomentAs(_startDate)) {
+    if (_endDate.isBefore(_startDate) ||
+        _endDate.isAtSameMomentAs(_startDate)) {
       setState(() {
         _numberOfInstallments = 0;
       });
@@ -125,25 +130,45 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     int installments = 0;
     DateTime currentDate = _startDate;
 
-    while (currentDate.isBefore(_endDate) || currentDate.isAtSameMomentAs(_endDate)) {
+    while (currentDate.isBefore(_endDate) ||
+        currentDate.isAtSameMomentAs(_endDate)) {
       installments++;
-      
+
       // Calculate next payment date based on frequency
       switch (_selectedFrequency) {
+        case 'Daily':
+          currentDate = currentDate.add(Duration(days: 1));
+          break;
         case 'Monthly':
-          currentDate = DateTime(currentDate.year, currentDate.month + 1, currentDate.day);
+          currentDate = DateTime(
+            currentDate.year,
+            currentDate.month + 1,
+            currentDate.day,
+          );
           break;
         case 'Quarterly':
-          currentDate = DateTime(currentDate.year, currentDate.month + 3, currentDate.day);
+          currentDate = DateTime(
+            currentDate.year,
+            currentDate.month + 3,
+            currentDate.day,
+          );
           break;
         case 'Half-Yearly':
-          currentDate = DateTime(currentDate.year, currentDate.month + 6, currentDate.day);
+          currentDate = DateTime(
+            currentDate.year,
+            currentDate.month + 6,
+            currentDate.day,
+          );
           break;
         case 'Yearly':
-          currentDate = DateTime(currentDate.year + 1, currentDate.month, currentDate.day);
+          currentDate = DateTime(
+            currentDate.year + 1,
+            currentDate.month,
+            currentDate.day,
+          );
           break;
       }
-      
+
       // Safety check to prevent infinite loops
       if (installments > 999) break;
     }
@@ -169,18 +194,25 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
       return false;
     }
 
-    if (_endDate.isBefore(_startDate) || _endDate.isAtSameMomentAs(_startDate)) {
+    if (_endDate.isBefore(_startDate) ||
+        _endDate.isAtSameMomentAs(_startDate)) {
       Get.snackbar('Error', 'End date must be after start date');
       return false;
     }
 
     if (_numberOfInstallments <= 0) {
-      Get.snackbar('Error', 'No payments calculated. Please adjust your dates.');
+      Get.snackbar(
+        'Error',
+        'No payments calculated. Please adjust your dates.',
+      );
       return false;
     }
 
     if (_numberOfInstallments > 999) {
-      Get.snackbar('Error', 'Maximum installments allowed is 999. Please adjust your dates or frequency.');
+      Get.snackbar(
+        'Error',
+        'Maximum installments allowed is 999. Please adjust your dates or frequency.',
+      );
       return false;
     }
 
@@ -198,7 +230,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     try {
       final tenantData = widget.tenantDoc.data() as Map<String, dynamic>;
       final currentUser = FirebaseAuth.instance.currentUser;
-      
+
       if (currentUser == null) {
         throw Exception('User not authenticated');
       }
@@ -224,10 +256,8 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
         startDate: _startDate,
         noOfInstallments: _numberOfInstallments,
         paymentFrequency: _selectedFrequency,
-        context: context
+        context: context,
       );
-
-      
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -270,7 +300,10 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                   padding: EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [AppTheme.primaryColor, AppTheme.primaryColor.withOpacity(0.8)],
+                      colors: [
+                        AppTheme.primaryColor,
+                        AppTheme.primaryColor.withOpacity(0.8),
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -284,7 +317,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(Icons.account_balance, color: Colors.white, size: 24),
+                        child: Icon(
+                          Icons.account_balance,
+                          color: Colors.white,
+                          size: 24,
+                        ),
                       ),
                       SizedBox(width: 16),
                       Expanded(
@@ -417,7 +454,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                     color: Colors.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.attach_money, color: Colors.green, size: 20),
+                  child: Icon(
+                    Icons.attach_money,
+                    color: Colors.green,
+                    size: 20,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text(
@@ -536,10 +577,14 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryColor : Colors.grey[100],
+                      color: isSelected
+                          ? AppTheme.primaryColor
+                          : Colors.grey[100],
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: isSelected ? AppTheme.primaryColor : Colors.grey[300]!,
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : Colors.grey[300]!,
                       ),
                     ),
                     child: Text(
@@ -580,7 +625,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                       color: Colors.blue.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.calendar_today, color: Colors.blue, size: 20),
+                    child: Icon(
+                      Icons.calendar_today,
+                      color: Colors.blue,
+                      size: 20,
+                    ),
                   ),
                   SizedBox(width: 12),
                   Text(
@@ -640,7 +689,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                       color: Colors.purple.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.event_available, color: Colors.purple, size: 20),
+                    child: Icon(
+                      Icons.event_available,
+                      color: Colors.purple,
+                      size: 20,
+                    ),
                   ),
                   SizedBox(width: 12),
                   Text(
@@ -681,7 +734,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
 
   Widget _buildAccountInfoCard() {
     final tenantData = widget.tenantDoc.data() as Map<String, dynamic>;
-    
+
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.1),
@@ -699,7 +752,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                     color: Colors.indigo.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.account_balance_wallet, color: Colors.indigo, size: 20),
+                  child: Icon(
+                    Icons.account_balance_wallet,
+                    color: Colors.indigo,
+                    size: 20,
+                  ),
                 ),
                 SizedBox(width: 12),
                 Text(
@@ -713,19 +770,20 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
               ],
             ),
             SizedBox(height: 16),
-            
+
             // Tenant Account Information
             _buildAccountSection(
               'Payer Account (Tenant)',
-              tenantData['db_account_holder_name'] ?? '${tenantData['firstName']} ${tenantData['lastName']}',
+              tenantData['db_account_holder_name'] ??
+                  '${tenantData['firstName']} ${tenantData['lastName']}',
               tenantData['db_account_number'] ?? '001020078676',
               tenantData['db_bank_bic'] ?? 'BSHROMRU',
               tenantData['db_branch_code'] ?? '001',
               Colors.red,
             ),
-            
+
             SizedBox(height: 16),
-            
+
             // Arrow indicating direction
             Center(
               child: Container(
@@ -737,7 +795,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.arrow_downward, color: Colors.grey[600], size: 16),
+                    Icon(
+                      Icons.arrow_downward,
+                      color: Colors.grey[600],
+                      size: 16,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Transfers to',
@@ -750,9 +812,9 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                 ),
               ),
             ),
-            
+
             SizedBox(height: 16),
-            
+
             // Landlord Account Information
             _buildAccountSection(
               'Receiver Account (Landlord)',
@@ -768,7 +830,14 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     );
   }
 
-  Widget _buildAccountSection(String title, String accountHolder, String accountNumber, String bankBic, String branchCode, Color color) {
+  Widget _buildAccountSection(
+    String title,
+    String accountHolder,
+    String accountNumber,
+    String bankBic,
+    String branchCode,
+    Color color,
+  ) {
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -797,7 +866,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     );
   }
 
-  Widget _buildAccountDetailRow(String label, String value, {bool isLast = false}) {
+  Widget _buildAccountDetailRow(
+    String label,
+    String value, {
+    bool isLast = false,
+  }) {
     return Column(
       children: [
         Row(
@@ -833,20 +906,25 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
   Widget _buildPaymentSummaryCard() {
     final totalAmount = _paymentAmount * _numberOfInstallments;
     final duration = _endDate.difference(_startDate).inDays;
-    
+
     return Card(
       elevation: 2,
       shadowColor: Colors.black.withOpacity(0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: _numberOfInstallments > 0 ? () => _showInstallmentsBottomSheet() : null,
+        onTap: _numberOfInstallments > 0
+            ? () => _showInstallmentsBottomSheet()
+            : null,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             gradient: LinearGradient(
-              colors: [Colors.purple.withOpacity(0.1), Colors.blue.withOpacity(0.1)],
+              colors: [
+                Colors.purple.withOpacity(0.1),
+                Colors.blue.withOpacity(0.1),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -862,7 +940,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                       color: Colors.purple.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.receipt_long, color: Colors.purple, size: 20),
+                    child: Icon(
+                      Icons.receipt_long,
+                      color: Colors.purple,
+                      size: 20,
+                    ),
                   ),
                   SizedBox(width: 12),
                   Text(
@@ -878,7 +960,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                 ],
               ),
               SizedBox(height: 16),
-              
+
               if (_numberOfInstallments > 0) ...[
                 Row(
                   children: [
@@ -930,7 +1012,10 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                 ),
                 SizedBox(height: 16),
                 _buildSummaryRow('Frequency', _selectedFrequency),
-                _buildSummaryRow('Amount per Payment', 'OMR ${_paymentAmount.toStringAsFixed(2)}'),
+                _buildSummaryRow(
+                  'Amount per Payment',
+                  'OMR ${_paymentAmount.toStringAsFixed(2)}',
+                ),
                 _buildSummaryRow('Duration', '${duration} days'),
                 SizedBox(height: 12),
                 Container(
@@ -973,7 +1058,11 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orange,
+                        size: 20,
+                      ),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -1003,10 +1092,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
         children: [
           Text(
             label,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: Colors.grey[600],
-            ),
+            style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600]),
           ),
           Text(
             value,
@@ -1022,7 +1108,7 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
 
   void _showInstallmentsBottomSheet() {
     if (_numberOfInstallments <= 0) return;
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1037,8 +1123,6 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
       ),
     );
   }
-
- 
 
   Future<void> _selectStartDate() async {
     print(_startDate);
@@ -1066,7 +1150,9 @@ class _NewCreateMandatePageState extends State<NewCreateMandatePage> {
     print(_endDate);
     final date = await showDatePicker(
       context: context,
-      initialDate: _endDate.isBefore(_startDate) ? _startDate.add(Duration(days: 1)) : _endDate,
+      initialDate: _endDate.isBefore(_startDate)
+          ? _startDate.add(Duration(days: 1))
+          : _endDate,
       firstDate: _startDate.add(Duration(days: 1)),
       lastDate: DateTime.now().add(Duration(days: 365 * 10)),
     );
