@@ -66,6 +66,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
     int paymentAmount,
     String selectedFrequency,
     DateTime startDate,
+    String mmsId,
   ) {
     showDialog(
       context: context,
@@ -74,11 +75,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
         insetPadding: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: InstallmentsDialog(
+          mmsId: mmsId,
           installments: numberOfInstallments,
           amount: paymentAmount,
           frequency: selectedFrequency,
-          startDate: startDate,
-          status: 'PENDING',
         ),
       ),
     );
@@ -898,6 +898,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                                 rent,
                                 frequency,
                                 startDate,
+                                mandateData['mmsId'],
                               );
                             },
                             style: ElevatedButton.styleFrom(
@@ -968,6 +969,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage>
                                       rent,
                                       frequency,
                                       startDate,
+                                      mandateData['mmsId'],
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(

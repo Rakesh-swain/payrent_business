@@ -56,7 +56,7 @@ class _AmendMandateDialogState extends State<AmendMandateDialog> {
 
     try {
       await widget.onSubmit(_accountNumberController.text);
-      Get.back();
+      Navigator.pop(context);
     } catch (e) {
       Get.snackbar('Error', 'Failed to amend mandate: $e');
     } finally {
@@ -140,7 +140,7 @@ class _AmendMandateDialogState extends State<AmendMandateDialog> {
                           ),
                         ),
                         InkWell(
-                          onTap: () => Get.back(),
+                          onTap: () => Navigator.of(context).pop(),
                           child: Icon(
                             Icons.close,
                             color: Colors.white,

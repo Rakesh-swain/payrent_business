@@ -17,12 +17,13 @@ class MandateController extends GetxController {
 
   // API endpoints
   // https://sandbox-payrent.paycorp.io
+  // http://172.31.248.205:7777
   static const String _baseUrl = 'https://sandbox-payrent.paycorp.io';
   static const String _mandateDetailsEndpoint = '/mandate/create';
   static const String _mandateEnquiryEndpoint = '/mandate/enquiry';
   static const String _mandateAmendment = '/mandate/amendment';
   static const String _mandateTermination = '/mandate/termination';
-  static const String _mandatePaymentList = '/mandate/enquiry/payment-list';
+  static const String _mandatePaymentList = '/mandate/payment-list';
 
 
   // Observable lists
@@ -539,13 +540,27 @@ class MandateController extends GetxController {
   Future<Map<String, dynamic>?> _callMandateEnquiryApi(String mmsId) {
   return _callMandateApi(_mandateEnquiryEndpoint, {'mmsId': mmsId});
 }
-Future<Map<String, dynamic>?> callMandateAmendment(String mmsId) {
-  return _callMandateApi(_mandateAmendment, {'mmsId': mmsId});
+Future<Map<String, dynamic>?> callMandateAmendment(String mmsId, String accNumber) {
+  print(mmsId);
+  return _callMandateApi(_mandateAmendment, {'mmsId': mmsId, 'crAccNum': accNumber});
 }
-Future<Map<String, dynamic>?> callMandateTermination(String mmsId) {
-  return _callMandateApi(_mandateTermination, {'mmsId': mmsId});
+Future<Map<String, dynamic>?> callMandateTermination(String mmsId, String type, String reason) {
+  return _callMandateApi(_mandateTermination, {'mmsId': mmsId, "type": type, "reason": reason});
 }
 
+Future<List<dynamic>> fetchPaymentList(String mmsId) async {
+    try {
+      final response = await _callMandateApi(_mandatePaymentList, {'mmsId': mmsId});
+      
+      if (response != null && response.containsKey('data')) {
+        return response['data'] as List<dynamic>; 
+      }
+      return [];
+    } catch (e) {
+      debugPrint("Error fetching payment list: $e");
+      return [];
+    }
+  }
 
   Future<void> createPaymentSchedule({
     required String landlordId,

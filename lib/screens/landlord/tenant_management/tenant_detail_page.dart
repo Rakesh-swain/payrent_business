@@ -150,6 +150,7 @@ class _TenantDetailPageState extends State<TenantDetailPage>
     int paymentAmount,
     String selectedFrequency,
     DateTime startDate,
+    String mmsId,
   ) {
     showDialog(
       context: context,
@@ -158,11 +159,10 @@ class _TenantDetailPageState extends State<TenantDetailPage>
         insetPadding: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: InstallmentsDialog(
+          mmsId: mmsId,
           installments: numberOfInstallments,
           amount: paymentAmount,
           frequency: selectedFrequency,
-          startDate: startDate,
-          status: 'PENDING',
         ),
       ),
     );
@@ -1168,6 +1168,7 @@ class _TenantDetailPageState extends State<TenantDetailPage>
                           rent,
                           frequency,
                           startDate,
+                          mandateData['mmsId'],
                         );
                       },
                       style: ElevatedButton.styleFrom(
@@ -1236,6 +1237,7 @@ class _TenantDetailPageState extends State<TenantDetailPage>
                           rent,
                           frequency,
                           startDate,
+                          mandateData['mmsId'],
                         );
                       },
                       style: ElevatedButton.styleFrom(

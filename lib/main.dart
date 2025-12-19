@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:payrent_business/controllers/user_profile_controller.dart';
+import 'package:payrent_business/screens/auth/profile_signup_page.dart';
 import 'package:payrent_business/screens/landlord/landlord_main_page.dart';
 import 'package:payrent_business/screens/tenant/tenant_main_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,9 +23,7 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -58,15 +57,13 @@ class MyApp extends StatelessWidget {
       },
       // Use new routing system
       initialRoute: AppRoutes.splash,
+      // home: ProfileSignupPage(isPhoneRequired: true),
       getPages: AppPages.routes,
       initialBinding: ControllerBindings(),
-      onInit: (){
+      onInit: () {
         Get.put(UserProfileController());
       },
       debugShowCheckedModeBanner: false,
     );
   }
 }
-
-
-

@@ -77,6 +77,7 @@ class _PropertyListPageState extends State<PropertyListPage>
     int paymentAmount,
     String selectedFrequency,
     DateTime startDate,
+    String mmsId,
   ) {
     showDialog(
       context: context,
@@ -85,11 +86,11 @@ class _PropertyListPageState extends State<PropertyListPage>
         insetPadding: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: InstallmentsDialog(
+          mmsId: mmsId,
           installments: numberOfInstallments,
           amount: paymentAmount,
           frequency: selectedFrequency,
-          startDate: startDate,
-          status: 'PENDING',
+         
         ),
       ),
     );
@@ -2278,6 +2279,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                                       rent,
                                       frequency,
                                       startDate,
+                                      mandateData['mmsId'],
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -2349,6 +2351,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                                       rent,
                                       frequency,
                                       startDate,
+                                      mandateData['mmsId'],
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -2421,6 +2424,7 @@ class _PropertyListPageState extends State<PropertyListPage>
             rent,
             frequency,
             startDate,
+            mandateData['mmsId'],
           );
         },
         style: ElevatedButton.styleFrom(
@@ -3422,6 +3426,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                                       rent,
                                       frequency,
                                       startDate,
+                                      mandateData['mmsId'],
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -3492,6 +3497,7 @@ class _PropertyListPageState extends State<PropertyListPage>
                                       rent,
                                       frequency,
                                       startDate,
+                                      mandateData['mmsId'],
                                     );
                                   },
                                   style: ElevatedButton.styleFrom(

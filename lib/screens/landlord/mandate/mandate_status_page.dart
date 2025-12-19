@@ -72,40 +72,291 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
   }
 
   Future<void> _cancelMandate() async {
-    // Show confirmation dialog
-    Get.dialog(
-      AlertDialog(
-        title: Text(
-          'Cancel Mandate',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-        ),
-        content: Text(
-          'Are you sure you want to cancel this mandate? This action cannot be undone.',
-          style: GoogleFonts.poppins(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text('No', style: GoogleFonts.poppins(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () {
-              Get.back();
-              Get.snackbar('Success', 'Mandate cancelled successfully');
-              // Add your cancel logic here
-              if (_mandate == null) return;
-              _mandateController.callMandateTermination(_mandate!.mmsId!);
-            },
-            child: Text(
-              'Yes, Cancel',
-              style: GoogleFonts.poppins(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  final reasons = [
+    "Closed Account Number",
+    "Blocked Account",
+    "Duplication",
+    "End Customer Deceased",
+    "Requested By Initiating Party",
+    "Regulatory Reason",
+  ];
 
+  String? selectedReason;
+
+  Get.dialog(
+    StatefulBuilder(
+      builder: (context, setDialogState) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: MediaQuery.of(context).size.width > 600 ? MediaQuery.of(context).size.width * 0.25 : 16,
+          vertical: 24,
+        ),
+        child: Container(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.warning_rounded,
+                      color: Colors.red,
+                      size: 24,
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Cancel Mandate',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
+                        Text(
+                          'This action cannot be undone',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 24),
+
+              // Confirmation Message
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.orange.withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  'Are you sure you want to cancel this mandate? Please select a reason below.',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: Colors.orange[800],
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              SizedBox(height: 24),
+
+              // Dropdown for Cancel Reason
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Select Cancel Reason',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selectedReason == null
+                            ? Colors.grey[300]!
+                            : AppTheme.primaryColor,
+                        width: 2,
+                      ),
+                      color: Colors.white,
+                    ),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        canvasColor: Colors.white,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedReason,
+                          hint: Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Text(
+                              'Choose a reason...',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ),
+                          items: reasons.map((reason) {
+                            return DropdownMenuItem(
+                              value: reason,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                child: Text(
+                                  reason,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setDialogState(() {
+                              selectedReason = value;
+                            });
+                          },
+                          isExpanded: true,
+                          icon: Padding(
+                            padding: EdgeInsets.only(right: 12),
+                            child: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppTheme.primaryColor,
+                              size: 24,
+                            ),
+                          ),
+                          iconSize: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (selectedReason != null)
+                    Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: Colors.green,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'Selected: $selectedReason',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: Colors.green,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              SizedBox(height: 28),
+
+              // Action Buttons
+              Row(
+                children: [
+                  // No Button
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(
+                          color: Colors.grey[400]!,
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'No, Keep It',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  // Yes, Cancel Button
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: selectedReason == null
+                          ? null
+                          : () {
+                              Navigator.pop(context);
+                              if (_mandate == null) return;
+                              _mandateController.callMandateTermination(
+                                _mandate!.mmsId!,
+                                "M",
+                                selectedReason!,
+                              );
+                              Get.snackbar(
+                                'Success',
+                                'Mandate cancelled successfully',
+                                backgroundColor: Colors.green,
+                                colorText: Colors.white,
+                              );
+                            },
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: selectedReason == null
+                            ? Colors.grey[300]
+                            : Colors.red,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey[300],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: selectedReason == null ? 0 : 4,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.check,
+                            size: 18,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Yes, Cancel',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+    barrierDismissible: true,
+  );
+}
   void _showInstallmentsDialog(
     int numberOfInstallments,
     int paymentAmount,
@@ -119,11 +370,10 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
         insetPadding: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: InstallmentsDialog(
+          mmsId: _mandate!.mmsId!,
           installments: numberOfInstallments,
           amount: paymentAmount,
           frequency: selectedFrequency,
-          startDate: startDate,
-          status: 'PENDING',
         ),
       ),
     );
@@ -144,7 +394,8 @@ class _MandateStatusPageState extends State<MandateStatusPage> {
         landlordBranchCode: _mandate!.landlordBranchCode,
         onSubmit: (newAccountNumber) async {
           // Handle the amend logic here
-          _mandateController.callMandateAmendment(_mandate!.mmsId!);
+          print(newAccountNumber);
+          _mandateController.callMandateAmendment(_mandate!.mmsId!,newAccountNumber);
           Get.snackbar('Success', 'Mandate amended successfully');
         },
       ),

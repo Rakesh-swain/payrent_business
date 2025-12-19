@@ -50,14 +50,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   bool _isNextButtonHovered = false;
   // bool _isLoginButtonHovered = false;
   
-  // List of existing numbers (for validation)
-  final List<String> existingNumbers = [
-    "9999999999",
-    "8888888888",
-    "7777777777",
-    "6666666666",
-    "5555555555"
-  ];
   
   @override
   void initState() {
